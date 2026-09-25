@@ -1,15 +1,13 @@
-"""
-Hostel Management System
-A complete, production-ready Flask application for managing hostel students.
-"""
 import os
 import re
 import io
-import sqlite3
 import secrets
 import uuid
 from datetime import datetime
 from functools import wraps
+
+import psycopg2
+import psycopg2.extras
 
 from flask import (
     Flask, render_template, request, redirect, url_for, session,
@@ -45,7 +43,12 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', secrets.token_hex(32))
 app.config['MAX_CONTENT_LENGTH'] = 8 * 1024 * 1024  # 8 MB max upload
 app.config['UPLOAD_FOLDER'] = os.path.join(BASE_DIR, 'static', 'uploads')
-app.config['DATABASE_PATH'] = os.environ.get('DATABASE_PATH', os.path.join(BASE_DIR, 'data', 'hostel.db'))
+
+# Supabase / Postgres connection string, e.g.
+# postgresql://postgres.xxxxxxxx:[PASSWORD]@aws-0-xx-xxxx-1.pooler.supabase.com:6543/postgres
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if not DATABASE_URL:
+    raise RuntimeError('DATABASE_URL is not set. Add your Supabase connection string to the environment.')
 
 ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
@@ -55,7 +58,6 @@ HOSTELS = ['Old Hostel', 'New Hostel']
 ROOMS = list(range(1, 11))
 SHARINGS = list(range(1, 7))
 
-os.makedirs(os.path.dirname(app.config['DATABASE_PATH']), exist_ok=True)
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 
@@ -63,11 +65,27 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 # DATABASE HELPERS
 # --------------------------------------------------------------------------
 
+class DBWrapper:
+    """Thin wrapper so the rest of the app can keep calling db.execute(...).fetchone()
+    the same way it did with sqlite3, but backed by psycopg2 + Supabase Postgres."""
+
+    def __init__(self, conn):
+        self.conn = conn
+
+    def execute(self, query, params=None):
+        cur = self.conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(query, params or [])
+        return cur
+
+    def commit(self):
+        self.conn.commit()
+
+
 def get_db():
     if 'db' not in g:
-        g.db = sqlite3.connect(app.config['DATABASE_PATH'])
-        g.db.row_factory = sqlite3.Row
-        g.db.execute('PRAGMA foreign_keys = ON')
+        conn = psycopg2.connect(DATABASE_URL)
+        conn.autocommit = False
+        g.db = DBWrapper(conn)
     return g.db
 
 
@@ -75,14 +93,15 @@ def get_db():
 def close_db(exception=None):
     db = g.pop('db', None)
     if db is not None:
-        db.close()
+        db.conn.close()
 
 
 def init_db():
-    conn = sqlite3.connect(app.config['DATABASE_PATH'])
-    conn.execute('''
+    conn = psycopg2.connect(DATABASE_URL)
+    cur = conn.cursor()
+    cur.execute('''
         CREATE TABLE IF NOT EXISTS students (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             hostel TEXT NOT NULL CHECK(hostel IN ('Old Hostel', 'New Hostel')),
             room_number INTEGER NOT NULL CHECK(room_number BETWEEN 1 AND 10),
             sharing INTEGER NOT NULL CHECK(sharing BETWEEN 1 AND 6),
@@ -96,8 +115,9 @@ def init_db():
             updated_at TEXT NOT NULL
         )
     ''')
-    conn.execute('CREATE INDEX IF NOT EXISTS idx_hostel_room ON students(hostel, room_number)')
+    cur.execute('CREATE INDEX IF NOT EXISTS idx_hostel_room ON students(hostel, room_number)')
     conn.commit()
+    cur.close()
     conn.close()
 
 
@@ -187,10 +207,10 @@ def delete_photo(filename):
 
 
 def room_occupancy(db, hostel, room_number, exclude_id=None):
-    query = 'SELECT COUNT(*) as c, MAX(sharing) as s FROM students WHERE hostel=? AND room_number=?'
+    query = 'SELECT COUNT(*) as c, MAX(sharing) as s FROM students WHERE hostel=%s AND room_number=%s'
     params = [hostel, room_number]
     if exclude_id:
-        query += ' AND id != ?'
+        query += ' AND id != %s'
         params.append(exclude_id)
     row = db.execute(query, params).fetchone()
     return row['c'] or 0, row['s']
@@ -230,9 +250,9 @@ def get_rooms_structure(db, hostel=None):
     query = 'SELECT * FROM students'
     params = []
     if hostel:
-        query += ' WHERE hostel = ?'
+        query += ' WHERE hostel = %s'
         params.append(hostel)
-    query += ' ORDER BY name COLLATE NOCASE'
+    query += ' ORDER BY LOWER(name)'
     rows = db.execute(query, params).fetchall()
 
     structure = {}
@@ -348,7 +368,7 @@ def add_student():
         db.execute('''
             INSERT INTO students
             (hostel, room_number, sharing, name, contact, total_rent, amount_paid, balance, photo_filename, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ''', (hostel, room_number, sharing, name, clean_contact, total_rent, amount_paid, balance, photo_filename, now, now))
         db.commit()
 
@@ -409,7 +429,7 @@ def admin_dashboard():
     db = get_db()
     stats = get_stats(db)
     rooms_structure = get_rooms_structure(db)
-    all_students = db.execute('SELECT * FROM students ORDER BY name COLLATE NOCASE').fetchall()
+    all_students = db.execute('SELECT * FROM students ORDER BY LOWER(name)').fetchall()
     all_students = [row_to_student(r) for r in all_students]
     return render_template(
         'admin.html',
@@ -429,7 +449,7 @@ def admin_dashboard():
 @login_required
 def edit_student(student_id):
     db = get_db()
-    student = db.execute('SELECT * FROM students WHERE id = ?', (student_id,)).fetchone()
+    student = db.execute('SELECT * FROM students WHERE id = %s', (student_id,)).fetchone()
     if not student:
         abort(404)
     student = dict(student)
@@ -524,8 +544,8 @@ def edit_student(student_id):
 
         db.execute('''
             UPDATE students
-            SET hostel=?, room_number=?, sharing=?, name=?, contact=?, total_rent=?, amount_paid=?, balance=?, photo_filename=?, updated_at=?
-            WHERE id=?
+            SET hostel=%s, room_number=%s, sharing=%s, name=%s, contact=%s, total_rent=%s, amount_paid=%s, balance=%s, photo_filename=%s, updated_at=%s
+            WHERE id=%s
         ''', (hostel, room_number, sharing, name, clean_contact, total_rent, amount_paid, balance, new_photo_filename, now, student_id))
         db.commit()
 
@@ -543,11 +563,11 @@ def delete_student(student_id):
         return redirect(url_for('admin_dashboard'))
 
     db = get_db()
-    student = db.execute('SELECT * FROM students WHERE id = ?', (student_id,)).fetchone()
+    student = db.execute('SELECT * FROM students WHERE id = %s', (student_id,)).fetchone()
     if not student:
         abort(404)
     delete_photo(student['photo_filename'])
-    db.execute('DELETE FROM students WHERE id = ?', (student_id,))
+    db.execute('DELETE FROM students WHERE id = %s', (student_id,))
     db.commit()
     flash(f"{student['name']} was deleted.", 'success')
     return redirect(url_for('admin_dashboard'))
@@ -599,7 +619,7 @@ def _write_students_sheet(ws, students):
 @login_required
 def export_excel():
     db = get_db()
-    rows = db.execute('SELECT * FROM students ORDER BY hostel, room_number, name COLLATE NOCASE').fetchall()
+    rows = db.execute('SELECT * FROM students ORDER BY hostel, room_number, LOWER(name)').fetchall()
     students = [dict(r) for r in rows]
 
     wb = openpyxl.Workbook()
@@ -709,7 +729,7 @@ def import_excel():
             db.execute('''
                 INSERT INTO students
                 (hostel, room_number, sharing, name, contact, total_rent, amount_paid, balance, photo_filename, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NULL, %s, %s)
             ''', (hostel, room_number, sharing, name, clean_contact, total_rent, amount_paid, balance, now, now))
             imported += 1
         except Exception:
@@ -825,7 +845,7 @@ def generate_pdf(hostel_filter=None):
     else:
         rows = db.execute(
             'SELECT COUNT(*) c, COALESCE(SUM(total_rent),0) r, COALESCE(SUM(amount_paid),0) p, COALESCE(SUM(balance),0) b '
-            'FROM students WHERE hostel=?', (hostel_filter,)).fetchone()
+            'FROM students WHERE hostel=%s', (hostel_filter,)).fetchone()
         summary_data = [
             ['Total Students', str(rows['c'])],
             ['Total Rent', f"Rs.{rows['r']:,.0f}"],
@@ -890,7 +910,7 @@ def pdf_complete():
 @login_required
 def api_students():
     db = get_db()
-    rows = db.execute('SELECT * FROM students ORDER BY name COLLATE NOCASE').fetchall()
+    rows = db.execute('SELECT * FROM students ORDER BY LOWER(name)').fetchall()
     return jsonify([dict(r) for r in rows])
 
 
