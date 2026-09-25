@@ -156,6 +156,19 @@
                   <span class="block text-[10px] text-slate-400">Balance</span>₹{{ '{:,.0f}'.format(s.balance) }}
                 </div>
               </div>
+              {% if s.paid_to or s.cash_amount or s.note %}
+              <div class="mt-2 text-xs text-slate-500 space-y-0.5">
+                {% if s.paid_to %}
+                <p><i class="fa-solid fa-hand-holding-dollar text-[10px] mr-1"></i>Paid to: {{ s.paid_to }}</p>
+                {% endif %}
+                {% if s.cash_amount %}
+                <p><i class="fa-solid fa-money-bill-1-wave text-[10px] mr-1"></i>Cash: ₹{{ '{:,.0f}'.format(s.cash_amount) }}</p>
+                {% endif %}
+                {% if s.note %}
+                <p class="italic"><i class="fa-solid fa-note-sticky text-[10px] mr-1"></i>{{ s.note }}</p>
+                {% endif %}
+              </div>
+              {% endif %}
               <div class="flex gap-2 mt-3">
                 <a href="{{ url_for('edit_student', student_id=s.id) }}" class="btn-edit flex-1">
                   <i class="fa-solid fa-pen"></i> Edit

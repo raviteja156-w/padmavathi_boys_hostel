@@ -81,6 +81,24 @@
     </div>
 
     <div>
+      <label class="form-label"><i class="fa-solid fa-hand-holding-dollar mr-1.5 text-primary"></i>Paid To Whom</label>
+      <input type="text" name="paid_to" maxlength="80" placeholder="e.g. Warden / Accounts office"
+             value="{{ form.get('paid_to', '') }}" class="form-input">
+    </div>
+
+    <div>
+      <label class="form-label"><i class="fa-solid fa-money-bill-1-wave mr-1.5 text-primary"></i>If Cash (How Much)</label>
+      <input type="number" name="cash_amount" min="0" step="1" placeholder="0"
+             value="{{ form.get('cash_amount', '') }}" class="form-input">
+    </div>
+
+    <div>
+      <label class="form-label"><i class="fa-solid fa-note-sticky mr-1.5 text-primary"></i>Note</label>
+      <textarea name="note" rows="2" maxlength="255" placeholder="Any additional note (optional)"
+                class="form-input">{{ form.get('note', '') }}</textarea>
+    </div>
+
+    <div>
       <label class="form-label"><i class="fa-solid fa-camera mr-1.5 text-primary"></i>Student Photo (JPG only)</label>
       <div class="flex items-center gap-4">
         <div id="photoPreviewWrap" class="hidden w-20 h-20 rounded-xl overflow-hidden border-2 border-primary/20 shrink-0">

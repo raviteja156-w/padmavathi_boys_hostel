@@ -111,11 +111,18 @@ def init_db():
             amount_paid REAL NOT NULL DEFAULT 0,
             balance REAL NOT NULL DEFAULT 0,
             photo_filename TEXT,
+            paid_to TEXT,
+            cash_amount REAL,
+            note TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         )
     ''')
     cur.execute('CREATE INDEX IF NOT EXISTS idx_hostel_room ON students(hostel, room_number)')
+    # Add new columns for existing databases created before this update.
+    cur.execute("ALTER TABLE students ADD COLUMN IF NOT EXISTS paid_to TEXT")
+    cur.execute("ALTER TABLE students ADD COLUMN IF NOT EXISTS cash_amount REAL")
+    cur.execute("ALTER TABLE students ADD COLUMN IF NOT EXISTS note TEXT")
     conn.commit()
     cur.close()
     conn.close()
@@ -298,6 +305,9 @@ def add_student():
         contact = request.form.get('contact', '').strip()
         total_rent = request.form.get('total_rent', '').strip()
         amount_paid = request.form.get('amount_paid', '').strip()
+        paid_to = request.form.get('paid_to', '').strip()
+        cash_amount = request.form.get('cash_amount', '').strip()
+        note = request.form.get('note', '').strip()
 
         errors = []
 
@@ -342,6 +352,18 @@ def add_student():
         if total_rent is not None and amount_paid is not None and amount_paid > total_rent:
             errors.append('Amount paid cannot be greater than total rent.')
 
+        # "If cash (how much)" is optional — only validate it if the user typed something.
+        if cash_amount:
+            try:
+                cash_amount = float(cash_amount)
+                if cash_amount < 0:
+                    raise ValueError()
+            except (ValueError, TypeError):
+                errors.append('Cash amount must be a valid non-negative number.')
+                cash_amount = None
+        else:
+            cash_amount = None
+
         photo_file = request.files.get('photo')
         photo_filename = None
 
@@ -367,9 +389,9 @@ def add_student():
 
         db.execute('''
             INSERT INTO students
-            (hostel, room_number, sharing, name, contact, total_rent, amount_paid, balance, photo_filename, created_at, updated_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        ''', (hostel, room_number, sharing, name, clean_contact, total_rent, amount_paid, balance, photo_filename, now, now))
+            (hostel, room_number, sharing, name, contact, total_rent, amount_paid, balance, photo_filename, paid_to, cash_amount, note, created_at, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ''', (hostel, room_number, sharing, name, clean_contact, total_rent, amount_paid, balance, photo_filename, paid_to or None, cash_amount, note or None, now, now))
         db.commit()
 
         flash(f'{name} was saved successfully to {hostel} - Room {room_number}!', 'success')
@@ -466,6 +488,9 @@ def edit_student(student_id):
         contact = request.form.get('contact', '').strip()
         total_rent = request.form.get('total_rent', '').strip()
         amount_paid = request.form.get('amount_paid', '').strip()
+        paid_to = request.form.get('paid_to', '').strip()
+        cash_amount = request.form.get('cash_amount', '').strip()
+        note = request.form.get('note', '').strip()
         remove_photo = request.form.get('remove_photo') == '1'
 
         errors = []
@@ -510,6 +535,18 @@ def edit_student(student_id):
         if total_rent is not None and amount_paid is not None and amount_paid > total_rent:
             errors.append('Amount paid cannot be greater than total rent.')
 
+        # "If cash (how much)" is optional — only validate it if the user typed something.
+        if cash_amount:
+            try:
+                cash_amount = float(cash_amount)
+                if cash_amount < 0:
+                    raise ValueError()
+            except (ValueError, TypeError):
+                errors.append('Cash amount must be a valid non-negative number.')
+                cash_amount = None
+        else:
+            cash_amount = None
+
         if not errors and room_number and sharing:
             room_changed = (hostel != student['hostel'] or room_number != student['room_number'])
             ok, msg = check_capacity(db, hostel, room_number, sharing, exclude_id=student_id)
@@ -544,9 +581,9 @@ def edit_student(student_id):
 
         db.execute('''
             UPDATE students
-            SET hostel=%s, room_number=%s, sharing=%s, name=%s, contact=%s, total_rent=%s, amount_paid=%s, balance=%s, photo_filename=%s, updated_at=%s
+            SET hostel=%s, room_number=%s, sharing=%s, name=%s, contact=%s, total_rent=%s, amount_paid=%s, balance=%s, photo_filename=%s, paid_to=%s, cash_amount=%s, note=%s, updated_at=%s
             WHERE id=%s
-        ''', (hostel, room_number, sharing, name, clean_contact, total_rent, amount_paid, balance, new_photo_filename, now, student_id))
+        ''', (hostel, room_number, sharing, name, clean_contact, total_rent, amount_paid, balance, new_photo_filename, paid_to or None, cash_amount, note or None, now, student_id))
         db.commit()
 
         flash(f'{name} was updated successfully.', 'success')
