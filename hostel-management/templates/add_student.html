@@ -1,0 +1,164 @@
+{% extends 'base.html' %}
+{% block title %}Add Student — Hostel Management System{% endblock %}
+{% block content %}
+
+<div class="max-w-xl mx-auto animate-slide-up">
+  <div class="text-center mb-6">
+    <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 text-primary text-2xl mb-3">
+      <i class="fa-solid fa-user-plus"></i>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-slate-800">Add Student</h1>
+    <p class="text-slate-500 text-sm mt-1">Fill in the details below to place a student into their room.</p>
+  </div>
+
+  <div id="flashArea"></div>
+
+  <form method="POST" action="{{ url_for('add_student') }}" enctype="multipart/form-data" class="card p-5 sm:p-7 space-y-5" id="studentForm" novalidate>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="grid sm:grid-cols-2 gap-5">
+      <div>
+        <label class="form-label"><i class="fa-solid fa-hotel mr-1.5 text-primary"></i>Hostel</label>
+        <select name="hostel" required class="form-input">
+          <option value="" disabled {{ 'selected' if not form.get('hostel') }}>Select Hostel</option>
+          {% for h in HOSTELS %}
+          <option value="{{ h }}" {{ 'selected' if form.get('hostel') == h }}>{{ h }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="form-label"><i class="fa-solid fa-door-closed mr-1.5 text-primary"></i>Room Number</label>
+        <select name="room_number" required class="form-input">
+          <option value="" disabled {{ 'selected' if not form.get('room_number') }}>Select Room</option>
+          {% for r in ROOMS %}
+          <option value="{{ r }}" {{ 'selected' if form.get('room_number')|string == r|string }}>Room {{ r }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div>
+      <label class="form-label"><i class="fa-solid fa-users-rectangle mr-1.5 text-primary"></i>Sharing</label>
+      <select name="sharing" required class="form-input">
+        <option value="" disabled {{ 'selected' if not form.get('sharing') }}>Select Sharing</option>
+        {% for s in SHARINGS %}
+        <option value="{{ s }}" {{ 'selected' if form.get('sharing')|string == s|string }}>{{ s }} Sharing</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="form-label"><i class="fa-solid fa-user mr-1.5 text-primary"></i>Student Name</label>
+      <input type="text" name="name" required minlength="2" maxlength="80" placeholder="Full name"
+             value="{{ form.get('name', '') }}" class="form-input">
+    </div>
+
+    <div>
+      <label class="form-label"><i class="fa-solid fa-phone mr-1.5 text-primary"></i>Contact Number</label>
+      <input type="tel" name="contact" id="contact" required pattern="[6-9][0-9]{9}" maxlength="10"
+             placeholder="10-digit mobile number" value="{{ form.get('contact', '') }}" class="form-input"
+             inputmode="numeric">
+      <p class="text-xs text-slate-400 mt-1">Indian mobile number, e.g. 9876543210</p>
+    </div>
+
+    <div class="grid sm:grid-cols-2 gap-5">
+      <div>
+        <label class="form-label"><i class="fa-solid fa-indian-rupee-sign mr-1.5 text-primary"></i>Total Rent</label>
+        <input type="number" name="total_rent" id="total_rent" required min="0" step="1"
+               placeholder="0" value="{{ form.get('total_rent', '') }}" class="form-input">
+      </div>
+      <div>
+        <label class="form-label"><i class="fa-solid fa-money-bill-wave mr-1.5 text-primary"></i>Amount Paid</label>
+        <input type="number" name="amount_paid" id="amount_paid" required min="0" step="1"
+               placeholder="0" value="{{ form.get('amount_paid', '') }}" class="form-input">
+      </div>
+    </div>
+
+    <div class="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3.5 flex items-center justify-between">
+      <span class="text-sm font-medium text-slate-600"><i class="fa-solid fa-scale-balanced mr-1.5 text-primary"></i>Balance</span>
+      <span id="balanceDisplay" class="text-xl font-bold text-primary">₹0</span>
+    </div>
+
+    <div>
+      <label class="form-label"><i class="fa-solid fa-camera mr-1.5 text-primary"></i>Student Photo (JPG only)</label>
+      <div class="flex items-center gap-4">
+        <div id="photoPreviewWrap" class="hidden w-20 h-20 rounded-xl overflow-hidden border-2 border-primary/20 shrink-0">
+          <img id="photoPreview" class="w-full h-full object-cover" alt="Preview">
+        </div>
+        <label for="photo" class="upload-box flex-1">
+          <i class="fa-solid fa-cloud-arrow-up text-2xl text-primary mb-1"></i>
+          <span class="text-sm text-slate-500" id="photoLabel">Tap to upload JPG photo</span>
+        </label>
+        <input type="file" id="photo" name="photo" accept=".jpg,.jpeg,image/jpeg" class="hidden">
+      </div>
+      <p class="text-xs text-slate-400 mt-1">Only .jpg / .jpeg files, max 8MB. Image will be auto-compressed.</p>
+    </div>
+
+    <button type="submit" class="btn-primary w-full text-base py-4 flex items-center justify-center gap-2">
+      <i class="fa-solid fa-floppy-disk"></i> SAVE STUDENT
+    </button>
+  </form>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const totalRent = document.getElementById('total_rent');
+  const amountPaid = document.getElementById('amount_paid');
+  const balanceDisplay = document.getElementById('balanceDisplay');
+  const photoInput = document.getElementById('photo');
+  const photoPreview = document.getElementById('photoPreview');
+  const photoPreviewWrap = document.getElementById('photoPreviewWrap');
+  const photoLabel = document.getElementById('photoLabel');
+  const contact = document.getElementById('contact');
+
+  function updateBalance() {
+    let rent = parseFloat(totalRent.value) || 0;
+    let paid = parseFloat(amountPaid.value) || 0;
+    if (rent < 0) { rent = 0; totalRent.value = 0; }
+    if (paid < 0) { paid = 0; amountPaid.value = 0; }
+    if (paid > rent) { paid = rent; amountPaid.value = rent; }
+    const balance = rent - paid;
+    balanceDisplay.textContent = '₹' + balance.toLocaleString('en-IN');
+    balanceDisplay.classList.toggle('text-danger', balance > 0);
+    balanceDisplay.classList.toggle('text-success', balance === 0);
+    balanceDisplay.classList.toggle('text-primary', balance < 0 === false && balance !== 0 && balance !== 0);
+  }
+  totalRent.addEventListener('input', updateBalance);
+  amountPaid.addEventListener('input', updateBalance);
+  updateBalance();
+
+  contact.addEventListener('input', function () {
+    this.value = this.value.replace(/\D/g, '').slice(0, 10);
+  });
+
+  photoInput.addEventListener('change', function () {
+    const file = this.files[0];
+    if (!file) return;
+    const validExt = /\.(jpg|jpeg)$/i.test(file.name);
+    if (!validExt) {
+      showToast('Only JPG/JPEG files are allowed.', 'error');
+      this.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      photoPreview.src = e.target.result;
+      photoPreviewWrap.classList.remove('hidden');
+      photoLabel.textContent = file.name;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  const form = document.getElementById('studentForm');
+  form.addEventListener('submit', function (e) {
+    const btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+  });
+});
+</script>
+{% endblock %}

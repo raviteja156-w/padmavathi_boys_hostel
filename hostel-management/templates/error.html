@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block title %}Error {{ code }} — Hostel Management System{% endblock %}
+{% block content %}
+
+<div class="max-w-md mx-auto text-center py-14 animate-slide-up">
+  <div class="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-red-50 text-danger text-4xl mb-5">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+  </div>
+  <h1 class="text-5xl font-extrabold text-slate-800 mb-2">{{ code }}</h1>
+  <p class="text-slate-500 mb-8">{{ message }}</p>
+  <a href="{{ url_for('index') }}" class="btn-primary inline-flex items-center gap-2 px-8 py-3.5">
+    <i class="fa-solid fa-house"></i> Back to Home
+  </a>
+</div>
+
+{% endblock %}

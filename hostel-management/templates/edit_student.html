@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+{% block title %}Edit Student — Hostel Management System{% endblock %}
+{% block content %}
+
+<div class="max-w-xl mx-auto animate-slide-up">
+  <div class="flex items-center gap-3 mb-6">
+    <a href="{{ url_for('admin_dashboard') }}" class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-primary transition">
+      <i class="fa-solid fa-arrow-left"></i>
+    </a>
+    <div>
+      <h1 class="text-2xl font-bold text-slate-800">Edit Student</h1>
+      <p class="text-slate-500 text-sm">Update {{ student.name }}'s details</p>
+    </div>
+  </div>
+
+  <form method="POST" action="{{ url_for('edit_student', student_id=student.id) }}" enctype="multipart/form-data" class="card p-5 sm:p-7 space-y-5" id="editForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="grid sm:grid-cols-2 gap-5">
+      <div>
+        <label class="form-label"><i class="fa-solid fa-hotel mr-1.5 text-primary"></i>Hostel</label>
+        <select name="hostel" required class="form-input">
+          {% for h in HOSTELS %}
+          <option value="{{ h }}" {{ 'selected' if student.hostel == h }}>{{ h }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="form-label"><i class="fa-solid fa-door-closed mr-1.5 text-primary"></i>Room Number</label>
+        <select name="room_number" required class="form-input">
+          {% for r in ROOMS %}
+          <option value="{{ r }}" {{ 'selected' if student.room_number|string == r|string }}>Room {{ r }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div>
+      <label class="form-label"><i class="fa-solid fa-users-rectangle mr-1.5 text-primary"></i>Sharing</label>
+      <select name="sharing" required class="form-input">
+        {% for s in SHARINGS %}
+        <option value="{{ s }}" {{ 'selected' if student.sharing|string == s|string }}>{{ s }} Sharing</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="form-label"><i class="fa-solid fa-user mr-1.5 text-primary"></i>Student Name</label>
+      <input type="text" name="name" required minlength="2" maxlength="80" value="{{ student.name }}" class="form-input">
+    </div>
+
+    <div>
+      <label class="form-label"><i class="fa-solid fa-phone mr-1.5 text-primary"></i>Contact Number</label>
+      <input type="tel" name="contact" id="contact" required pattern="[6-9][0-9]{9}" maxlength="10"
+             value="{{ student.contact }}" class="form-input" inputmode="numeric">
+    </div>
+
+    <div class="grid sm:grid-cols-2 gap-5">
+      <div>
+        <label class="form-label"><i class="fa-solid fa-indian-rupee-sign mr-1.5 text-primary"></i>Total Rent</label>
+        <input type="number" name="total_rent" id="total_rent" required min="0" step="1" value="{{ student.total_rent }}" class="form-input">
+      </div>
+      <div>
+        <label class="form-label"><i class="fa-solid fa-money-bill-wave mr-1.5 text-primary"></i>Amount Paid</label>
+        <input type="number" name="amount_paid" id="amount_paid" required min="0" step="1" value="{{ student.amount_paid }}" class="form-input">
+      </div>
+    </div>
+
+    <div class="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3.5 flex items-center justify-between">
+      <span class="text-sm font-medium text-slate-600"><i class="fa-solid fa-scale-balanced mr-1.5 text-primary"></i>Balance</span>
+      <span id="balanceDisplay" class="text-xl font-bold text-primary">₹{{ '{:,.0f}'.format(student.balance) }}</span>
+    </div>
+
+    <div>
+      <label class="form-label"><i class="fa-solid fa-camera mr-1.5 text-primary"></i>Student Photo</label>
+      <div class="flex items-center gap-4">
+        <div id="photoPreviewWrap" class="w-20 h-20 rounded-xl overflow-hidden border-2 border-primary/20 shrink-0 {{ '' if student.photo_filename else 'hidden' }}">
+          <img id="photoPreview" class="w-full h-full object-cover" alt="Preview"
+               src="{{ url_for('uploaded_file', filename=student.photo_filename) if student.photo_filename else '' }}">
+        </div>
+        <label for="photo" class="upload-box flex-1">
+          <i class="fa-solid fa-cloud-arrow-up text-2xl text-primary mb-1"></i>
+          <span class="text-sm text-slate-500" id="photoLabel">Tap to change photo</span>
+        </label>
+        <input type="file" id="photo" name="photo" accept=".jpg,.jpeg,image/jpeg" class="hidden">
+      </div>
+      {% if student.photo_filename %}
+      <label class="flex items-center gap-2 mt-2 text-sm text-slate-500">
+        <input type="checkbox" name="remove_photo" value="1" class="rounded">
+        Remove current photo
+      </label>
+      {% endif %}
+    </div>
+
+    <div class="flex gap-3">
+      <a href="{{ url_for('admin_dashboard') }}" class="btn-outline flex-1 text-center py-3.5">Cancel</a>
+      <button type="submit" class="btn-primary flex-1 py-3.5 flex items-center justify-center gap-2">
+        <i class="fa-solid fa-floppy-disk"></i> Save Changes
+      </button>
+    </div>
+  </form>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const totalRent = document.getElementById('total_rent');
+  const amountPaid = document.getElementById('amount_paid');
+  const balanceDisplay = document.getElementById('balanceDisplay');
+  const photoInput = document.getElementById('photo');
+  const photoPreview = document.getElementById('photoPreview');
+  const photoPreviewWrap = document.getElementById('photoPreviewWrap');
+  const photoLabel = document.getElementById('photoLabel');
+  const contact = document.getElementById('contact');
+
+  function updateBalance() {
+    let rent = parseFloat(totalRent.value) || 0;
+    let paid = parseFloat(amountPaid.value) || 0;
+    if (rent < 0) { rent = 0; totalRent.value = 0; }
+    if (paid < 0) { paid = 0; amountPaid.value = 0; }
+    if (paid > rent) { paid = rent; amountPaid.value = rent; }
+    const balance = rent - paid;
+    balanceDisplay.textContent = '₹' + balance.toLocaleString('en-IN');
+  }
+  totalRent.addEventListener('input', updateBalance);
+  amountPaid.addEventListener('input', updateBalance);
+
+  contact.addEventListener('input', function () {
+    this.value = this.value.replace(/\D/g, '').slice(0, 10);
+  });
+
+  photoInput.addEventListener('change', function () {
+    const file = this.files[0];
+    if (!file) return;
+    const validExt = /\.(jpg|jpeg)$/i.test(file.name);
+    if (!validExt) {
+      showToast('Only JPG/JPEG files are allowed.', 'error');
+      this.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      photoPreview.src = e.target.result;
+      photoPreviewWrap.classList.remove('hidden');
+      photoLabel.textContent = file.name;
+    };
+    reader.readAsDataURL(file);
+  });
+});
+</script>
+{% endblock %}

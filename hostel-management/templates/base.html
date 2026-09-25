@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}Hostel Management System{% endblock %}</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏠</text></svg>">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          primary: { DEFAULT: '#1E3A8A', light: '#3B82F6', dark: '#152a63' },
+          accent: '#3B82F6',
+          success: '#16A34A',
+          danger: '#DC2626',
+        },
+        fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+        animation: {
+          'fade-in': 'fadeIn .4s ease-out',
+          'slide-up': 'slideUp .3s ease-out',
+          'pop': 'pop .25s ease-out',
+        },
+        keyframes: {
+          fadeIn: { '0%': { opacity: 0 }, '100%': { opacity: 1 } },
+          slideUp: { '0%': { opacity: 0, transform: 'translateY(12px)' }, '100%': { opacity: 1, transform: 'translateY(0)' } },
+          pop: { '0%': { transform: 'scale(.85)', opacity: 0 }, '100%': { transform: 'scale(1)', opacity: 1 } },
+        }
+      }
+    }
+  }
+</script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+{% block extra_head %}{% endblock %}
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col animate-fade-in">
+
+<nav class="bg-primary shadow-lg sticky top-0 z-40">
+  <div class="max-w-7xl mx-auto px-4">
+    <div class="flex justify-between items-center h-16">
+      <a href="{{ url_for('index') }}" class="flex items-center gap-2 text-white font-bold text-lg tracking-tight">
+        <i class="fa-solid fa-building-shield text-xl"></i>
+        <span>Hostel<span class="text-blue-300">MS</span></span>
+      </a>
+
+      <div class="hidden md:flex items-center gap-1">
+        <a href="{{ url_for('index') }}" class="nav-link {{ 'nav-active' if request.endpoint in ('index', 'add_student') }}">
+          <i class="fa-solid fa-house mr-1.5"></i>Home
+        </a>
+        {% if session.get('admin_logged_in') %}
+        <a href="{{ url_for('admin_dashboard') }}" class="nav-link {{ 'nav-active' if request.endpoint == 'admin_dashboard' }}">
+          <i class="fa-solid fa-gauge mr-1.5"></i>Admin
+        </a>
+        <a href="{{ url_for('admin_logout') }}" class="nav-link text-red-200 hover:text-white">
+          <i class="fa-solid fa-right-from-bracket mr-1.5"></i>Logout
+        </a>
+        {% endif %}
+      </div>
+
+      <button id="hamburgerBtn" class="md:hidden text-white text-2xl p-2 -mr-2" aria-label="Toggle menu">
+        <i class="fa-solid fa-bars"></i>
+      </button>
+    </div>
+  </div>
+
+  <div id="mobileMenu" class="hidden md:hidden bg-primary-dark border-t border-blue-800 animate-slide-up">
+    <div class="px-4 py-3 flex flex-col gap-1">
+      <a href="{{ url_for('index') }}" class="mobile-nav-link">
+        <i class="fa-solid fa-house w-5"></i> Home
+      </a>
+      {% if session.get('admin_logged_in') %}
+      <a href="{{ url_for('admin_dashboard') }}" class="mobile-nav-link">
+        <i class="fa-solid fa-gauge w-5"></i> Admin
+      </a>
+      <a href="{{ url_for('admin_logout') }}" class="mobile-nav-link text-red-200">
+        <i class="fa-solid fa-right-from-bracket w-5"></i> Logout
+      </a>
+      {% endif %}
+    </div>
+  </div>
+</nav>
+
+<div id="toastContainer" class="fixed top-20 right-4 left-4 sm:left-auto z-50 flex flex-col gap-2 items-end"></div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <script>
+      window.__flashMessages = {{ messages | tojson }};
+    </script>
+  {% endif %}
+{% endwith %}
+
+<main class="flex-1 w-full max-w-7xl mx-auto px-4 py-6 sm:py-8">
+  {% block content %}{% endblock %}
+</main>
+
+<footer class="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-400">
+  Hostel Management System &copy; {{ 2024 }}
+</footer>
+
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>
