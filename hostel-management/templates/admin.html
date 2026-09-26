@@ -1,269 +1,861 @@
+```html
 {% extends 'base.html' %}
+
 {% block title %}Admin Dashboard — Hostel Management System{% endblock %}
+
 {% block content %}
 
 <div class="animate-slide-up">
 
-  <!-- HERO / WELCOME -->
-  <section class="text-center py-4 sm:py-8 mb-2">
-    <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 text-primary text-3xl mb-4">
-      <i class="fa-solid fa-building-shield"></i>
-    </div>
-    <h1 class="text-2xl sm:text-4xl font-extrabold text-slate-800 tracking-tight mb-2">
-      Hostel Admin Dashboard
-    </h1>
-    <p class="text-slate-500 max-w-xl mx-auto text-sm sm:text-base">
-      Manage residents across Old &amp; New Hostel — rooms, sharing, rent and payments, all in one place.
-    </p>
-  </section>
+    <!-- HERO / WELCOME -->
+    <section class="text-center py-4 sm:py-8 mb-2">
 
-  <!-- FEATURE HIGHLIGHTS -->
-  <section class="grid sm:grid-cols-3 gap-4 mb-8">
-    <div class="feature-card">
-      <i class="fa-solid fa-bed text-primary text-2xl mb-3"></i>
-      <h3 class="font-semibold text-slate-800 mb-1">Room-wise Tracking</h3>
-      <p class="text-sm text-slate-500">Every student is placed instantly into the right hostel and room — 10 rooms per hostel, always in order.</p>
-    </div>
-    <div class="feature-card">
-      <i class="fa-solid fa-file-excel text-primary text-2xl mb-3"></i>
-      <h3 class="font-semibold text-slate-800 mb-1">Excel &amp; PDF Reports</h3>
-      <p class="text-sm text-slate-500">Export or import student data in Excel, and generate print-ready PDF reports per hostel.</p>
-    </div>
-    <div class="feature-card">
-      <i class="fa-solid fa-mobile-screen-button text-primary text-2xl mb-3"></i>
-      <h3 class="font-semibold text-slate-800 mb-1">Mobile Friendly</h3>
-      <p class="text-sm text-slate-500">Designed mobile-first so wardens can manage everything from a phone, tablet or desktop.</p>
-    </div>
-  </section>
-
-  <!-- SUMMARY CARDS -->
-  <section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-8">
-    <div class="stat-card">
-      <i class="fa-solid fa-users text-primary text-xl sm:text-2xl mb-2 icon-bounce"></i>
-      <div class="text-xl sm:text-2xl font-bold text-slate-800">{{ stats.total }}</div>
-      <div class="text-xs text-slate-500">Total Students</div>
-    </div>
-    <div class="stat-card">
-      <i class="fa-solid fa-house text-amber-500 text-xl sm:text-2xl mb-2 icon-bounce"></i>
-      <div class="text-xl sm:text-2xl font-bold text-slate-800">{{ stats.old_count }}</div>
-      <div class="text-xs text-slate-500">Old Hostel</div>
-    </div>
-    <div class="stat-card">
-      <i class="fa-solid fa-city text-indigo-500 text-xl sm:text-2xl mb-2 icon-bounce"></i>
-      <div class="text-xl sm:text-2xl font-bold text-slate-800">{{ stats.new_count }}</div>
-      <div class="text-xs text-slate-500">New Hostel</div>
-    </div>
-    <div class="stat-card">
-      <i class="fa-solid fa-sack-dollar text-success text-xl sm:text-2xl mb-2 icon-bounce"></i>
-      <div class="text-lg sm:text-2xl font-bold text-slate-800">₹{{ '{:,.0f}'.format(stats.total_paid) }}</div>
-      <div class="text-xs text-slate-500">Total Paid</div>
-    </div>
-    <div class="stat-card col-span-2 sm:col-span-1">
-      <i class="fa-solid fa-triangle-exclamation text-danger text-xl sm:text-2xl mb-2 icon-bounce"></i>
-      <div class="text-lg sm:text-2xl font-bold text-slate-800">₹{{ '{:,.0f}'.format(stats.total_balance) }}</div>
-      <div class="text-xs text-slate-500">Balance Due</div>
-    </div>
-  </section>
-
-  <!-- TOOLBAR -->
-  <section class="card p-4 sm:p-5 mb-8">
-    <div class="grid sm:grid-cols-3 gap-3 mb-4">
-      <div class="sm:col-span-1 relative">
-        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
-        <input type="text" id="searchInput" placeholder="Search name, contact or room..."
-               class="form-input pl-10" autocomplete="off">
-      </div>
-      <select id="hostelFilter" class="form-input">
-        <option value="all">All Hostels</option>
-        <option value="Old Hostel">Old Hostel</option>
-        <option value="New Hostel">New Hostel</option>
-      </select>
-      <select id="roomFilter" class="form-input">
-        <option value="all">All Rooms</option>
-        {% for r in rooms %}
-        <option value="{{ r }}">Room {{ r }}</option>
-        {% endfor %}
-      </select>
-    </div>
-
-    <div class="flex flex-wrap gap-2">
-      <a href="{{ url_for('export_excel') }}" class="btn-outline text-sm px-4 py-2.5 flex items-center gap-2">
-        <i class="fa-solid fa-file-excel text-success"></i> Export Excel
-      </a>
-      <button type="button" onclick="openModal('importModal')" class="btn-outline text-sm px-4 py-2.5 flex items-center gap-2">
-        <i class="fa-solid fa-file-arrow-up text-success"></i> Import Excel
-      </button>
-      <button type="button" onclick="openModal('pdfModal')" class="btn-outline text-sm px-4 py-2.5 flex items-center gap-2">
-        <i class="fa-solid fa-file-pdf text-danger"></i> Generate PDF
-      </button>
-      <a href="{{ url_for('add_student') }}" class="btn-primary text-sm px-4 py-2.5 flex items-center gap-2 ml-auto">
-        <i class="fa-solid fa-user-plus"></i> Add Student
-      </a>
-    </div>
-  </section>
-
-  <div id="noResultsMsg" class="hidden text-center py-10 text-slate-400">
-    <i class="fa-solid fa-magnifying-glass-minus text-3xl mb-3"></i>
-    <p>No students match your search.</p>
-  </div>
-
-  <!-- ROOM-WISE VIEW -->
-  {% for hostel in hostels %}
-  <section class="hostel-section mb-10" data-hostel-section="{{ hostel }}">
-    <h2 class="hostel-title">
-      <i class="fa-solid {{ 'fa-house' if hostel == 'Old Hostel' else 'fa-city' }}"></i>
-      {{ hostel.upper() }}
-    </h2>
-
-    <div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
-      {% for room_no in rooms %}
-      {% set students = rooms_structure[hostel][room_no] %}
-      <div class="room-block" data-hostel="{{ hostel }}" data-room="{{ room_no }}">
-        <div class="room-card">
-          <div class="room-header">
-            <span><i class="fa-solid fa-door-open mr-1.5"></i>ROOM {{ room_no }}</span>
-            <span class="occupancy-badge {{ 'occupancy-full' if students and students|length >= students[0].sharing }}">
-              {{ students|length }} / {{ students[0].sharing if students else '—' }} occupied
-            </span>
-          </div>
-          <div class="room-body">
-            {% if not students %}
-            <p class="empty-msg"><i class="fa-regular fa-circle-xmark mr-1"></i>No students assigned.</p>
-            {% else %}
-            <p class="search-empty-msg hidden text-sm text-slate-400 italic py-2">No matching students.</p>
-            {% for s in students %}
-            <div class="student-card" data-name="{{ s.name|lower }}" data-contact="{{ s.contact }}">
-              <div class="flex gap-3">
-                {% if s.photo_filename %}
-                <img src="{{ url_for('uploaded_file', filename=s.photo_filename) }}" loading="lazy"
-                     class="student-thumb" alt="{{ s.name }}"
-                     onclick="openPhotoModal('{{ url_for('uploaded_file', filename=s.photo_filename) }}', '{{ s.name|e }}')">
-                {% else %}
-                <div class="student-thumb flex items-center justify-center bg-slate-100 text-slate-400">
-                  <i class="fa-solid fa-user"></i>
-                </div>
-                {% endif %}
-                <div class="flex-1 min-w-0">
-                  <h4 class="font-semibold text-slate-800 truncate">{{ s.name }}</h4>
-                  <p class="text-xs text-slate-500"><i class="fa-solid fa-phone text-[10px] mr-1"></i>{{ s.contact }}</p>
-                  <p class="text-xs text-slate-500"><i class="fa-solid fa-users text-[10px] mr-1"></i>Sharing: {{ s.sharing }}</p>
-                </div>
-              </div>
-              <div class="grid grid-cols-3 gap-1.5 mt-3 text-center">
-                <div class="mini-stat"><span class="block text-[10px] text-slate-400">Rent</span>₹{{ '{:,.0f}'.format(s.total_rent) }}</div>
-                <div class="mini-stat"><span class="block text-[10px] text-slate-400">Paid</span>₹{{ '{:,.0f}'.format(s.amount_paid) }}</div>
-                <div class="mini-stat {{ 'text-danger' if s.balance > 0 else 'text-success' }}">
-                  <span class="block text-[10px] text-slate-400">Balance</span>₹{{ '{:,.0f}'.format(s.balance) }}
-                </div>
-              </div>
-              {% if s.paid_to or s.cash_amount or s.note %}
-              <div class="mt-2 text-xs text-slate-500 space-y-0.5">
-                {% if s.paid_to %}
-                <p><i class="fa-solid fa-hand-holding-dollar text-[10px] mr-1"></i>Paid to: {{ s.paid_to }}</p>
-                {% endif %}
-                {% if s.cash_amount %}
-                <p><i class="fa-solid fa-money-bill-1-wave text-[10px] mr-1"></i>Cash: ₹{{ '{:,.0f}'.format(s.cash_amount) }}</p>
-                {% endif %}
-                {% if s.note %}
-                <p class="italic"><i class="fa-solid fa-note-sticky text-[10px] mr-1"></i>{{ s.note }}</p>
-                {% endif %}
-              </div>
-              {% endif %}
-              <div class="flex gap-2 mt-3">
-                <a href="{{ url_for('edit_student', student_id=s.id) }}" class="btn-edit flex-1">
-                  <i class="fa-solid fa-pen"></i> Edit
-                </a>
-                <button type="button" class="btn-delete flex-1"
-                        onclick="openDeleteModal('{{ url_for('delete_student', student_id=s.id) }}', '{{ s.name|e }}')">
-                  <i class="fa-solid fa-trash"></i> Delete
-                </button>
-              </div>
-            </div>
-            {% endfor %}
-            {% endif %}
-          </div>
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 text-primary text-3xl mb-4">
+            <i class="fa-solid fa-building-shield"></i>
         </div>
-      </div>
-      {% endfor %}
+
+        <h1 class="text-2xl sm:text-4xl font-extrabold text-slate-800 tracking-tight mb-2">
+            Hostel Admin Dashboard
+        </h1>
+
+        <p class="text-slate-500 max-w-xl mx-auto text-sm sm:text-base">
+            Manage residents across Old &amp; New Hostel — rooms, sharing, rent and payments, all in one place.
+        </p>
+
+    </section>
+
+
+    <!-- FEATURE HIGHLIGHTS -->
+    <section class="grid sm:grid-cols-3 gap-4 mb-8">
+
+        <div class="feature-card">
+
+            <i class="fa-solid fa-bed text-primary text-2xl mb-3"></i>
+
+            <h3 class="font-semibold text-slate-800 mb-1">
+                Room-wise Tracking
+            </h3>
+
+            <p class="text-sm text-slate-500">
+                Every student is placed instantly into the right hostel and room — 10 rooms per hostel, always in order.
+            </p>
+
+        </div>
+
+
+        <div class="feature-card">
+
+            <i class="fa-solid fa-file-excel text-primary text-2xl mb-3"></i>
+
+            <h3 class="font-semibold text-slate-800 mb-1">
+                Excel &amp; PDF Reports
+            </h3>
+
+            <p class="text-sm text-slate-500">
+                Export or import student data in Excel, and generate print-ready PDF reports per hostel.
+            </p>
+
+        </div>
+
+
+        <div class="feature-card">
+
+            <i class="fa-solid fa-mobile-screen-button text-primary text-2xl mb-3"></i>
+
+            <h3 class="font-semibold text-slate-800 mb-1">
+                Mobile Friendly
+            </h3>
+
+            <p class="text-sm text-slate-500">
+                Designed mobile-first so wardens can manage everything from a phone, tablet or desktop.
+            </p>
+
+        </div>
+
+    </section>
+
+
+    <!-- SUMMARY CARDS -->
+    <section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-8">
+
+        <div class="stat-card">
+
+            <i class="fa-solid fa-users text-primary text-xl sm:text-2xl mb-2 icon-bounce"></i>
+
+            <div class="text-xl sm:text-2xl font-bold text-slate-800">
+                {{ stats.total }}
+            </div>
+
+            <div class="text-xs text-slate-500">
+                Total Students
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <i class="fa-solid fa-house text-amber-500 text-xl sm:text-2xl mb-2 icon-bounce"></i>
+
+            <div class="text-xl sm:text-2xl font-bold text-slate-800">
+                {{ stats.old_count }}
+            </div>
+
+            <div class="text-xs text-slate-500">
+                Old Hostel
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <i class="fa-solid fa-city text-indigo-500 text-xl sm:text-2xl mb-2 icon-bounce"></i>
+
+            <div class="text-xl sm:text-2xl font-bold text-slate-800">
+                {{ stats.new_count }}
+            </div>
+
+            <div class="text-xs text-slate-500">
+                New Hostel
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <i class="fa-solid fa-sack-dollar text-success text-xl sm:text-2xl mb-2 icon-bounce"></i>
+
+            <div class="text-lg sm:text-2xl font-bold text-slate-800">
+                ₹{{ '{:,.0f}'.format(stats.total_paid) }}
+            </div>
+
+            <div class="text-xs text-slate-500">
+                Total Paid
+            </div>
+
+        </div>
+
+
+        <div class="stat-card col-span-2 sm:col-span-1">
+
+            <i class="fa-solid fa-triangle-exclamation text-danger text-xl sm:text-2xl mb-2 icon-bounce"></i>
+
+            <div class="text-lg sm:text-2xl font-bold text-slate-800">
+                ₹{{ '{:,.0f}'.format(stats.total_balance) }}
+            </div>
+
+            <div class="text-xs text-slate-500">
+                Balance Due
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- TOOLBAR -->
+    <section class="card p-4 sm:p-5 mb-8">
+
+        <div class="grid sm:grid-cols-3 gap-3 mb-4">
+
+            <div class="sm:col-span-1 relative">
+
+                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+
+                <input
+                    type="text"
+                    id="searchInput"
+                    placeholder="Search name, contact or room..."
+                    class="form-input pl-10"
+                    autocomplete="off"
+                >
+
+            </div>
+
+
+            <select id="hostelFilter" class="form-input">
+
+                <option value="all">
+                    All Hostels
+                </option>
+
+                <option value="Old Hostel">
+                    Old Hostel
+                </option>
+
+                <option value="New Hostel">
+                    New Hostel
+                </option>
+
+            </select>
+
+
+            <select id="roomFilter" class="form-input">
+
+                <option value="all">
+                    All Rooms
+                </option>
+
+                {% for r in rooms %}
+
+                <option value="{{ r }}">
+                    Room {{ r }}
+                </option>
+
+                {% endfor %}
+
+            </select>
+
+        </div>
+
+
+        <div class="flex flex-wrap gap-2">
+
+            <a
+                href="{{ url_for('export_excel') }}"
+                class="btn-outline text-sm px-4 py-2.5 flex items-center gap-2"
+            >
+                <i class="fa-solid fa-file-excel text-success"></i>
+                Export Excel
+            </a>
+
+
+            <button
+                type="button"
+                onclick="openModal('importModal')"
+                class="btn-outline text-sm px-4 py-2.5 flex items-center gap-2"
+            >
+                <i class="fa-solid fa-file-arrow-up text-success"></i>
+                Import Excel
+            </button>
+
+
+            <button
+                type="button"
+                onclick="openModal('pdfModal')"
+                class="btn-outline text-sm px-4 py-2.5 flex items-center gap-2"
+            >
+                <i class="fa-solid fa-file-pdf text-danger"></i>
+                Generate PDF
+            </button>
+
+
+            <a
+                href="{{ url_for('check_vacancy') }}"
+                class="btn-outline text-sm px-4 py-2.5 flex items-center gap-2"
+            >
+                <i class="fa-solid fa-bed text-primary"></i>
+                Check Vacancy
+            </a>
+
+
+            <a
+                href="{{ url_for('add_student') }}"
+                class="btn-primary text-sm px-4 py-2.5 flex items-center gap-2 ml-auto"
+            >
+                <i class="fa-solid fa-user-plus"></i>
+                Add Student
+            </a>
+
+        </div>
+
+    </section>
+
+
+    <!-- NO RESULTS -->
+    <div
+        id="noResultsMsg"
+        class="hidden text-center py-10 text-slate-400"
+    >
+
+        <i class="fa-solid fa-magnifying-glass-minus text-3xl mb-3"></i>
+
+        <p>
+            No students match your search.
+        </p>
+
     </div>
-  </section>
-  {% endfor %}
+
+
+    <!-- ROOM-WISE VIEW -->
+
+    {% for hostel in hostels %}
+
+    <section
+        class="hostel-section mb-10"
+        data-hostel-section="{{ hostel }}"
+    >
+
+        <h2 class="hostel-title">
+
+            <i class="fa-solid {{ 'fa-house' if hostel == 'Old Hostel' else 'fa-city' }}"></i>
+
+            {{ hostel.upper() }}
+
+        </h2>
+
+
+        <div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
+
+            {% for room_no in rooms %}
+
+            {% set students = rooms_structure[hostel][room_no] %}
+
+
+            <div
+                class="room-block"
+                data-hostel="{{ hostel }}"
+                data-room="{{ room_no }}"
+            >
+
+                <div class="room-card">
+
+
+                    <!-- ROOM HEADER -->
+
+                    <div class="room-header">
+
+                        <span>
+
+                            <i class="fa-solid fa-door-open mr-1.5"></i>
+
+                            ROOM {{ room_no }}
+
+                        </span>
+
+
+                        <span
+                            class="occupancy-badge {{ 'occupancy-full' if students and students|length >= students[0].sharing }}"
+                        >
+
+                            {{ students|length }}
+
+                            /
+
+                            {{ students[0].sharing if students else '—' }}
+
+                            occupied
+
+                        </span>
+
+                    </div>
+
+
+                    <!-- ROOM BODY -->
+
+                    <div class="room-body">
+
+
+                        {% if not students %}
+
+                        <p class="empty-msg">
+
+                            <i class="fa-regular fa-circle-xmark mr-1"></i>
+
+                            No students assigned.
+
+                        </p>
+
+
+                        {% else %}
+
+
+                        <p class="search-empty-msg hidden text-sm text-slate-400 italic py-2">
+                            No matching students.
+                        </p>
+
+
+                        {% for s in students %}
+
+
+                        <div
+                            class="student-card"
+                            data-name="{{ s.name|lower }}"
+                            data-contact="{{ s.contact }}"
+                        >
+
+
+                            <!-- STUDENT TOP -->
+
+                            <div class="flex gap-3">
+
+
+                                {% if s.photo_filename %}
+
+                                <img
+                                    src="{{ photo_url(s.photo_filename) }}"
+                                    loading="lazy"
+                                    class="student-thumb"
+                                    alt="{{ s.name }}"
+                                    onerror="this.onerror=null;this.src='{{ PHOTO_PLACEHOLDER }}';"
+                                    data-photo-url="{{ photo_url(s.photo_filename) }}"
+                                    data-photo-name="{{ s.name|e }}"
+                                    onclick="openPhotoModal(this.dataset.photoUrl, this.dataset.photoName)"
+                                >
+
+
+                                {% else %}
+
+
+                                <div class="student-thumb flex items-center justify-center bg-slate-100 text-slate-400">
+
+                                    <i class="fa-solid fa-user"></i>
+
+                                </div>
+
+
+                                {% endif %}
+
+
+                                <div class="flex-1 min-w-0">
+
+
+                                    <h4 class="font-semibold text-slate-800 truncate">
+                                        {{ s.name }}
+                                    </h4>
+
+
+                                    <p class="text-xs text-slate-500">
+
+                                        <i class="fa-solid fa-phone text-[10px] mr-1"></i>
+
+                                        {{ s.contact }}
+
+                                    </p>
+
+
+                                    <p class="text-xs text-slate-500">
+
+                                        <i class="fa-solid fa-users text-[10px] mr-1"></i>
+
+                                        Sharing: {{ s.sharing }}
+
+                                    </p>
+
+
+                                    {% if s.note %}
+
+                                    <p class="text-xs text-primary bg-primary/10 rounded px-1.5 py-0.5 mt-1 inline-block truncate max-w-full">
+
+                                        <i class="fa-solid fa-tag text-[10px] mr-1"></i>
+
+                                        {{ s.note }}
+
+                                    </p>
+
+                                    {% endif %}
+
+
+                                </div>
+
+                            </div>
+
+
+                            <!-- PAYMENT DETAILS -->
+
+                            <div class="grid grid-cols-3 gap-1.5 mt-3 text-center">
+
+
+                                <div class="mini-stat">
+
+                                    <span class="block text-[10px] text-slate-400">
+                                        Rent
+                                    </span>
+
+                                    ₹{{ '{:,.0f}'.format(s.total_rent) }}
+
+                                </div>
+
+
+                                <div class="mini-stat">
+
+                                    <span class="block text-[10px] text-slate-400">
+                                        Paid
+                                    </span>
+
+                                    ₹{{ '{:,.0f}'.format(s.amount_paid) }}
+
+                                </div>
+
+
+                                <div class="mini-stat {{ 'text-danger' if s.balance > 0 else 'text-success' }}">
+
+                                    <span class="block text-[10px] text-slate-400">
+                                        Balance
+                                    </span>
+
+                                    ₹{{ '{:,.0f}'.format(s.balance) }}
+
+                                </div>
+
+
+                            </div>
+
+
+                            <!-- ACTION BUTTONS -->
+
+                            <div class="flex gap-2 mt-3">
+
+
+                                <a
+                                    href="{{ url_for('edit_student', student_id=s.id) }}"
+                                    class="btn-edit flex-1"
+                                >
+
+                                    <i class="fa-solid fa-pen"></i>
+
+                                    Edit
+
+                                </a>
+
+
+                                <!-- DELETE BUTTON -->
+
+                                <button
+                                    type="button"
+                                    class="btn-delete flex-1"
+                                    data-delete-url="{{ url_for('delete_student', student_id=s.id) }}"
+                                    data-student-name="{{ s.name|e }}"
+                                    onclick="openDeleteModal(this.dataset.deleteUrl, this.dataset.studentName)"
+                                >
+
+                                    <i class="fa-solid fa-trash"></i>
+
+                                    Delete
+
+                                </button>
+
+
+                            </div>
+
+
+                        </div>
+
+
+                        {% endfor %}
+
+
+                        {% endif %}
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            {% endfor %}
+
+        </div>
+
+    </section>
+
+
+    {% endfor %}
+
 </div>
+
 
 <!-- DELETE CONFIRMATION MODAL -->
-<div id="deleteModal" class="modal-overlay hidden">
-  <div class="modal-box animate-pop">
-    <div class="w-14 h-14 rounded-full bg-red-50 text-danger text-2xl flex items-center justify-center mx-auto mb-4">
-      <i class="fa-solid fa-triangle-exclamation"></i>
+
+<div
+    id="deleteModal"
+    class="modal-overlay hidden"
+>
+
+    <div class="modal-box animate-pop">
+
+
+        <div class="w-14 h-14 rounded-full bg-red-50 text-danger text-2xl flex items-center justify-center mx-auto mb-4">
+
+            <i class="fa-solid fa-triangle-exclamation"></i>
+
+        </div>
+
+
+        <h3 class="text-lg font-bold text-center text-slate-800 mb-1">
+
+            Delete Student?
+
+        </h3>
+
+
+        <p class="text-sm text-slate-500 text-center mb-6">
+
+            Are you sure you want to delete
+
+            <span
+                id="deleteStudentName"
+                class="font-semibold text-slate-700"
+            ></span>?
+
+            This action cannot be undone.
+
+        </p>
+
+
+        <form
+            id="deleteForm"
+            method="POST"
+        >
+
+            <input
+                type="hidden"
+                name="csrf_token"
+                value="{{ csrf_token() }}"
+            >
+
+
+            <div class="flex gap-3">
+
+
+                <button
+                    type="button"
+                    onclick="closeModal('deleteModal')"
+                    class="btn-outline flex-1 py-2.5"
+                >
+
+                    Cancel
+
+                </button>
+
+
+                <button
+                    type="submit"
+                    class="btn-danger flex-1 py-2.5"
+                >
+
+                    Delete
+
+                </button>
+
+
+            </div>
+
+        </form>
+
     </div>
-    <h3 class="text-lg font-bold text-center text-slate-800 mb-1">Delete Student?</h3>
-    <p class="text-sm text-slate-500 text-center mb-6">
-      Are you sure you want to delete <span id="deleteStudentName" class="font-semibold text-slate-700"></span>? This action cannot be undone.
-    </p>
-    <form id="deleteForm" method="POST">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <div class="flex gap-3">
-        <button type="button" onclick="closeModal('deleteModal')" class="btn-outline flex-1 py-2.5">Cancel</button>
-        <button type="submit" class="btn-danger flex-1 py-2.5">Delete</button>
-      </div>
-    </form>
-  </div>
+
 </div>
+
 
 <!-- PHOTO MODAL -->
-<div id="photoModal" class="modal-overlay hidden">
-  <div class="modal-box modal-box-photo animate-pop">
-    <button type="button" onclick="closeModal('photoModal')" class="modal-close"><i class="fa-solid fa-xmark"></i></button>
-    <img id="photoModalImg" src="" alt="" class="w-full h-auto rounded-xl">
-    <p id="photoModalName" class="text-center font-semibold text-slate-700 mt-3"></p>
-  </div>
+
+<div
+    id="photoModal"
+    class="modal-overlay hidden"
+>
+
+    <div class="modal-box modal-box-photo animate-pop">
+
+
+        <button
+            type="button"
+            onclick="closeModal('photoModal')"
+            class="modal-close"
+        >
+
+            <i class="fa-solid fa-xmark"></i>
+
+        </button>
+
+
+        <img
+            id="photoModalImg"
+            src=""
+            alt=""
+            class="w-full h-auto rounded-xl"
+        >
+
+
+        <p
+            id="photoModalName"
+            class="text-center font-semibold text-slate-700 mt-3"
+        ></p>
+
+
+    </div>
+
 </div>
+
 
 <!-- IMPORT EXCEL MODAL -->
-<div id="importModal" class="modal-overlay hidden">
-  <div class="modal-box animate-pop">
-    <div class="w-14 h-14 rounded-full bg-green-50 text-success text-2xl flex items-center justify-center mx-auto mb-4">
-      <i class="fa-solid fa-file-arrow-up"></i>
+
+<div
+    id="importModal"
+    class="modal-overlay hidden"
+>
+
+    <div class="modal-box animate-pop">
+
+
+        <div class="w-14 h-14 rounded-full bg-green-50 text-success text-2xl flex items-center justify-center mx-auto mb-4">
+
+            <i class="fa-solid fa-file-arrow-up"></i>
+
+        </div>
+
+
+        <h3 class="text-lg font-bold text-center text-slate-800 mb-1">
+
+            Import Students from Excel
+
+        </h3>
+
+
+        <p class="text-sm text-slate-500 text-center mb-5">
+
+            Columns required: Hostel, Room Number, Sharing, Name, Contact, Total Rent, Amount Paid.
+
+        </p>
+
+
+        <form
+            method="POST"
+            action="{{ url_for('import_excel') }}"
+            enctype="multipart/form-data"
+        >
+
+            <input
+                type="hidden"
+                name="csrf_token"
+                value="{{ csrf_token() }}"
+            >
+
+
+            <input
+                type="file"
+                name="excel_file"
+                accept=".xlsx"
+                required
+                class="form-input mb-4"
+            >
+
+
+            <div class="flex gap-3">
+
+
+                <button
+                    type="button"
+                    onclick="closeModal('importModal')"
+                    class="btn-outline flex-1 py-2.5"
+                >
+
+                    Cancel
+
+                </button>
+
+
+                <button
+                    type="submit"
+                    class="btn-primary flex-1 py-2.5"
+                >
+
+                    Import
+
+                </button>
+
+
+            </div>
+
+        </form>
+
     </div>
-    <h3 class="text-lg font-bold text-center text-slate-800 mb-1">Import Students from Excel</h3>
-    <p class="text-sm text-slate-500 text-center mb-5">
-      Columns required: Hostel, Room Number, Sharing, Name, Contact, Total Rent, Amount Paid.
-    </p>
-    <form method="POST" action="{{ url_for('import_excel') }}" enctype="multipart/form-data">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="file" name="excel_file" accept=".xlsx" required class="form-input mb-4">
-      <div class="flex gap-3">
-        <button type="button" onclick="closeModal('importModal')" class="btn-outline flex-1 py-2.5">Cancel</button>
-        <button type="submit" class="btn-primary flex-1 py-2.5">Import</button>
-      </div>
-    </form>
-  </div>
+
 </div>
+
 
 <!-- PDF MODAL -->
-<div id="pdfModal" class="modal-overlay hidden">
-  <div class="modal-box animate-pop">
-    <div class="w-14 h-14 rounded-full bg-red-50 text-danger text-2xl flex items-center justify-center mx-auto mb-4">
-      <i class="fa-solid fa-file-pdf"></i>
+
+<div
+    id="pdfModal"
+    class="modal-overlay hidden"
+>
+
+    <div class="modal-box animate-pop">
+
+
+        <div class="w-14 h-14 rounded-full bg-red-50 text-danger text-2xl flex items-center justify-center mx-auto mb-4">
+
+            <i class="fa-solid fa-file-pdf"></i>
+
+        </div>
+
+
+        <h3 class="text-lg font-bold text-center text-slate-800 mb-5">
+
+            Generate PDF Report
+
+        </h3>
+
+
+        <div class="flex flex-col gap-3">
+
+
+            <a
+                href="{{ url_for('pdf_old') }}"
+                class="btn-outline py-3 flex items-center justify-center gap-2"
+            >
+
+                <i class="fa-solid fa-house"></i>
+
+                OLD HOSTEL PDF
+
+            </a>
+
+
+            <a
+                href="{{ url_for('pdf_new') }}"
+                class="btn-outline py-3 flex items-center justify-center gap-2"
+            >
+
+                <i class="fa-solid fa-city"></i>
+
+                NEW HOSTEL PDF
+
+            </a>
+
+
+            <a
+                href="{{ url_for('pdf_complete') }}"
+                class="btn-primary py-3 flex items-center justify-center gap-2"
+            >
+
+                <i class="fa-solid fa-book"></i>
+
+                COMPLETE HOSTEL PDF
+
+            </a>
+
+
+            <button
+                type="button"
+                onclick="closeModal('pdfModal')"
+                class="btn-outline py-2.5 mt-1"
+            >
+
+                Cancel
+
+            </button>
+
+
+        </div>
+
     </div>
-    <h3 class="text-lg font-bold text-center text-slate-800 mb-5">Generate PDF Report</h3>
-    <div class="flex flex-col gap-3">
-      <a href="{{ url_for('pdf_old') }}" class="btn-outline py-3 flex items-center justify-center gap-2">
-        <i class="fa-solid fa-house"></i> OLD HOSTEL PDF
-      </a>
-      <a href="{{ url_for('pdf_new') }}" class="btn-outline py-3 flex items-center justify-center gap-2">
-        <i class="fa-solid fa-city"></i> NEW HOSTEL PDF
-      </a>
-      <a href="{{ url_for('pdf_complete') }}" class="btn-primary py-3 flex items-center justify-center gap-2">
-        <i class="fa-solid fa-book"></i> COMPLETE HOSTEL PDF
-      </a>
-      <button type="button" onclick="closeModal('pdfModal')" class="btn-outline py-2.5 mt-1">Cancel</button>
-    </div>
-  </div>
+
 </div>
 
+
 {% endblock %}
 
+
 {% block extra_scripts %}
+
 <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+
 {% endblock %}
+```
+

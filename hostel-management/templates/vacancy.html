@@ -1,0 +1,500 @@
+```html
+{% extends 'base.html' %}
+
+{% block title %}Check Vacancy — Hostel Management System{% endblock %}
+
+{% block content %}
+
+<div class="animate-slide-up">
+
+    <!-- HEADER -->
+    <section class="text-center py-4 sm:py-6 mb-2">
+
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 text-primary text-3xl mb-4">
+            <i class="fa-solid fa-bed"></i>
+        </div>
+
+        <h1 class="text-2xl sm:text-4xl font-extrabold text-slate-800 tracking-tight mb-2">
+            Check Vacancy
+        </h1>
+
+        <p class="text-slate-500 max-w-xl mx-auto text-sm sm:text-base">
+            Every bed across both hostels — who's in it, and which ones are free.
+        </p>
+
+    </section>
+
+
+    <!-- SUMMARY -->
+    <section class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-8">
+
+        <div class="stat-card">
+
+            <i class="fa-solid fa-layer-group text-primary text-xl sm:text-2xl mb-2 icon-bounce"></i>
+
+            <div class="text-xl sm:text-2xl font-bold text-slate-800">
+                {{ total_capacity }}
+            </div>
+
+            <div class="text-xs text-slate-500">
+                Total Beds (assigned rooms)
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <i class="fa-solid fa-user-check text-success text-xl sm:text-2xl mb-2 icon-bounce"></i>
+
+            <div class="text-xl sm:text-2xl font-bold text-slate-800">
+                {{ total_occupied }}
+            </div>
+
+            <div class="text-xs text-slate-500">
+                Occupied
+            </div>
+
+        </div>
+
+
+        <div class="stat-card col-span-2 sm:col-span-1">
+
+            <i class="fa-solid fa-bed text-amber-500 text-xl sm:text-2xl mb-2 icon-bounce"></i>
+
+            <div class="text-xl sm:text-2xl font-bold text-slate-800">
+                {{ total_vacant }}
+            </div>
+
+            <div class="text-xs text-slate-500">
+                Vacant Beds
+            </div>
+
+        </div>
+
+
+        {% for hostel in hostels %}
+
+        <div class="stat-card">
+
+            <i class="fa-solid {{ 'fa-house' if hostel == 'Old Hostel' else 'fa-city' }} text-indigo-500 text-xl sm:text-2xl mb-2 icon-bounce"></i>
+
+            <div class="text-lg sm:text-xl font-bold text-slate-800">
+                {{ hostel_summary[hostel].vacant }} free
+            </div>
+
+            <div class="text-xs text-slate-500">
+                {{ hostel }} ({{ hostel_summary[hostel].occupied }}/{{ hostel_summary[hostel].capacity }})
+            </div>
+
+        </div>
+
+        {% endfor %}
+
+    </section>
+
+
+    <!-- BACK BUTTON -->
+    <div class="flex justify-end mb-4">
+
+        <a
+            href="{{ url_for('admin_dashboard') }}"
+            class="btn-outline text-sm px-4 py-2.5 flex items-center gap-2"
+        >
+            <i class="fa-solid fa-arrow-left"></i>
+            Back to Dashboard
+        </a>
+
+    </div>
+
+
+    <!-- HOSTELS -->
+
+    {% for hostel in hostels %}
+
+    <section class="hostel-section mb-10">
+
+        <h2 class="hostel-title">
+
+            <i class="fa-solid {{ 'fa-house' if hostel == 'Old Hostel' else 'fa-city' }}"></i>
+
+            {{ hostel.upper() }}
+
+        </h2>
+
+
+        <div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
+
+
+            {% for room in room_cards if room.hostel == hostel %}
+
+            <div class="room-card">
+
+
+                <!-- ROOM HEADER -->
+
+                <div class="room-header">
+
+                    <span>
+
+                        <i class="fa-solid fa-door-open mr-1.5"></i>
+
+                        ROOM {{ room.room_number }}
+
+                    </span>
+
+
+                    {% if room.has_students %}
+
+                    <span
+                        class="occupancy-badge {{ 'occupancy-full' if room.vacant == 0 }}"
+                    >
+
+                        {{ room.occupied }}
+
+                        /
+
+                        {{ room.sharing }}
+
+                        occupied
+
+                    </span>
+
+                    {% else %}
+
+                    <span class="occupancy-badge">
+                        No students yet
+                    </span>
+
+                    {% endif %}
+
+                </div>
+
+
+                <!-- ROOM BODY -->
+
+                <div class="room-body">
+
+
+                    {% if not room.has_students %}
+
+                    <p class="empty-msg">
+
+                        <i class="fa-regular fa-circle-xmark mr-1"></i>
+
+                        No students assigned — capacity not set yet.
+
+                    </p>
+
+
+                    {% else %}
+
+
+                    <!-- OCCUPIED STUDENTS -->
+
+                    {% for s in room.occupants %}
+
+                    <div class="student-card">
+
+
+                        <div class="flex items-center justify-between gap-2">
+
+
+                            <div class="min-w-0">
+
+                                <h4 class="font-semibold text-slate-800 truncate">
+                                    {{ s.name }}
+                                </h4>
+
+
+                                <p class="text-xs text-slate-500">
+
+                                    <i class="fa-solid fa-phone text-[10px] mr-1"></i>
+
+                                    {{ s.contact }}
+
+                                </p>
+
+
+                                <p class="text-xs text-slate-500">
+
+                                    <i class="fa-solid fa-users text-[10px] mr-1"></i>
+
+                                    Sharing: {{ s.sharing }}
+
+                                </p>
+
+
+                                {% if s.note %}
+
+                                <p class="text-xs text-primary bg-primary/10 rounded px-1.5 py-0.5 mt-1 inline-block truncate max-w-full">
+
+                                    <i class="fa-solid fa-tag text-[10px] mr-1"></i>
+
+                                    {{ s.note }}
+
+                                </p>
+
+                                {% endif %}
+
+                            </div>
+
+
+                            <span
+                                class="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-success/10 text-success"
+                            >
+
+                                <i class="fa-solid fa-circle text-[8px] mr-1"></i>
+
+                                ON
+
+                            </span>
+
+                        </div>
+
+
+                        <!-- ACTION BUTTONS -->
+
+                        <div class="flex gap-2 mt-3">
+
+
+                            <a
+                                href="{{ url_for('edit_student', student_id=s.id) }}"
+                                class="btn-edit flex-1"
+                            >
+
+                                <i class="fa-solid fa-pen"></i>
+
+                                Edit
+
+                            </a>
+
+
+                            <!-- SAFE DELETE BUTTON -->
+
+                            <button
+                                type="button"
+                                class="btn-delete flex-1"
+                                data-delete-url="{{ url_for('delete_student', student_id=s.id) }}"
+                                data-student-name="{{ s.name|e }}"
+                                onclick="openDeleteModal(this.dataset.deleteUrl, this.dataset.studentName)"
+                            >
+
+                                <i class="fa-solid fa-trash"></i>
+
+                                Delete
+
+                            </button>
+
+
+                        </div>
+
+
+                    </div>
+
+                    {% endfor %}
+
+
+                    <!-- VACANT BEDS -->
+
+                    {% for i in range(room.vacant) %}
+
+                    <div class="student-card bg-slate-50">
+
+
+                        <div class="flex items-center justify-between gap-2">
+
+
+                            <div class="min-w-0">
+
+                                <h4 class="font-semibold text-slate-400">
+                                    Empty Bed
+                                </h4>
+
+                                <p class="text-xs text-slate-400">
+
+                                    <i class="fa-solid fa-users text-[10px] mr-1"></i>
+
+                                    Sharing: {{ room.sharing }}
+
+                                </p>
+
+                            </div>
+
+
+                            <span
+                                class="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-slate-200 text-slate-500"
+                            >
+
+                                <i class="fa-solid fa-circle text-[8px] mr-1"></i>
+
+                                OFF
+
+                            </span>
+
+                        </div>
+
+
+                    </div>
+
+                    {% endfor %}
+
+
+                    {% endif %}
+
+
+                    <!-- ROOM NOTE -->
+
+                    <form
+                        method="POST"
+                        action="{{ url_for('save_room_note') }}"
+                        class="flex items-center gap-2 mt-1"
+                    >
+
+                        <input
+                            type="hidden"
+                            name="csrf_token"
+                            value="{{ csrf_token() }}"
+                        >
+
+                        <input
+                            type="hidden"
+                            name="hostel"
+                            value="{{ room.hostel }}"
+                        >
+
+                        <input
+                            type="hidden"
+                            name="room_number"
+                            value="{{ room.room_number }}"
+                        >
+
+                        <input
+                            type="text"
+                            name="note"
+                            maxlength="300"
+                            placeholder="Note for this room's vacancy..."
+                            value="{{ room.note }}"
+                            class="form-input text-sm py-2 flex-1"
+                        >
+
+                        <button
+                            type="submit"
+                            class="btn-outline text-sm px-3 py-2"
+                            title="Save note"
+                        >
+
+                            <i class="fa-solid fa-floppy-disk"></i>
+
+                        </button>
+
+                    </form>
+
+
+                </div>
+
+            </div>
+
+
+            {% endfor %}
+
+
+        </div>
+
+    </section>
+
+    {% endfor %}
+
+</div>
+
+
+<!-- DELETE CONFIRMATION MODAL -->
+
+<div
+    id="deleteModal"
+    class="modal-overlay hidden"
+>
+
+    <div class="modal-box animate-pop">
+
+
+        <div class="w-14 h-14 rounded-full bg-red-50 text-danger text-2xl flex items-center justify-center mx-auto mb-4">
+
+            <i class="fa-solid fa-triangle-exclamation"></i>
+
+        </div>
+
+
+        <h3 class="text-lg font-bold text-center text-slate-800 mb-1">
+            Delete Student?
+        </h3>
+
+
+        <p class="text-sm text-slate-500 text-center mb-6">
+
+            Are you sure you want to delete
+
+            <span
+                id="deleteStudentName"
+                class="font-semibold text-slate-700"
+            ></span>?
+
+            This action cannot be undone.
+
+        </p>
+
+
+        <form
+            id="deleteForm"
+            method="POST"
+        >
+
+            <input
+                type="hidden"
+                name="csrf_token"
+                value="{{ csrf_token() }}"
+            >
+
+
+            <div class="flex gap-3">
+
+
+                <button
+                    type="button"
+                    onclick="closeModal('deleteModal')"
+                    class="btn-outline flex-1 py-2.5"
+                >
+
+                    Cancel
+
+                </button>
+
+
+                <button
+                    type="submit"
+                    class="btn-danger flex-1 py-2.5"
+                >
+
+                    Delete
+
+                </button>
+
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+{% endblock %}
+
+
+{% block extra_scripts %}
+
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+
+{% endblock %}
+```

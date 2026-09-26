@@ -72,29 +72,12 @@
     </div>
 
     <div>
-      <label class="form-label"><i class="fa-solid fa-hand-holding-dollar mr-1.5 text-primary"></i>Paid To Whom</label>
-      <input type="text" name="paid_to" maxlength="80" placeholder="e.g. Warden / Accounts office"
-             value="{{ student.paid_to or '' }}" class="form-input">
-    </div>
-
-    <div>
-      <label class="form-label"><i class="fa-solid fa-money-bill-1-wave mr-1.5 text-primary"></i>If Cash (How Much)</label>
-      <input type="number" name="cash_amount" min="0" step="1" placeholder="0"
-             value="{{ student.cash_amount if student.cash_amount is not none else '' }}" class="form-input">
-    </div>
-
-    <div>
-      <label class="form-label"><i class="fa-solid fa-note-sticky mr-1.5 text-primary"></i>Note</label>
-      <textarea name="note" rows="2" maxlength="255" placeholder="Any additional note (optional)"
-                class="form-input">{{ student.note or '' }}</textarea>
-    </div>
-
-    <div>
       <label class="form-label"><i class="fa-solid fa-camera mr-1.5 text-primary"></i>Student Photo</label>
       <div class="flex items-center gap-4">
         <div id="photoPreviewWrap" class="w-20 h-20 rounded-xl overflow-hidden border-2 border-primary/20 shrink-0 {{ '' if student.photo_filename else 'hidden' }}">
           <img id="photoPreview" class="w-full h-full object-cover" alt="Preview"
-               src="{{ url_for('uploaded_file', filename=student.photo_filename) if student.photo_filename else '' }}">
+               onerror="this.onerror=null;this.src='{{ PHOTO_PLACEHOLDER }}';"
+               src="{{ photo_url(student.photo_filename) if student.photo_filename else '' }}">
         </div>
         <label for="photo" class="upload-box flex-1">
           <i class="fa-solid fa-cloud-arrow-up text-2xl text-primary mb-1"></i>
@@ -108,6 +91,12 @@
         Remove current photo
       </label>
       {% endif %}
+    </div>
+
+    <div>
+      <label class="form-label"><i class="fa-solid fa-tag mr-1.5 text-primary"></i>Note (optional)</label>
+      <input type="text" name="note" maxlength="300" placeholder="e.g. pays on the 5th every month"
+             value="{{ student.note or '' }}" class="form-input">
     </div>
 
     <div class="flex gap-3">
