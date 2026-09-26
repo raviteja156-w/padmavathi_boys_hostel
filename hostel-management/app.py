@@ -1,6 +1,11 @@
+"""
+Hostel Management System
+A complete, production-ready Flask application for managing hostel students.
+"""
 import os
 import re
 import io
+import base64
 import secrets
 import uuid
 from datetime import datetime
@@ -8,6 +13,7 @@ from functools import wraps
 
 import psycopg2
 import psycopg2.extras
+import requests
 
 from flask import (
     Flask, render_template, request, redirect, url_for, session,
@@ -49,6 +55,17 @@ app.config['UPLOAD_FOLDER'] = os.path.join(BASE_DIR, 'static', 'uploads')
 DATABASE_URL = os.environ.get('DATABASE_URL')
 if not DATABASE_URL:
     raise RuntimeError('DATABASE_URL is not set. Add your Supabase connection string to the environment.')
+
+# Supabase Storage — used for student profile photos so they survive Render restarts/redeploys.
+# SUPABASE_SERVICE_ROLE_KEY is a server-only secret: it is read here from the environment and is
+# never sent to templates/JS, so it's never exposed to the browser.
+SUPABASE_URL = os.environ.get('SUPABASE_URL', '').rstrip('/')
+SUPABASE_SERVICE_ROLE_KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY')
+SUPABASE_STORAGE_BUCKET = os.environ.get('SUPABASE_STORAGE_BUCKET', 'student-photos')
+if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+    raise RuntimeError('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set for photo storage.')
+
+SUPABASE_PUBLIC_PREFIX = f"{SUPABASE_URL}/storage/v1/object/public/{SUPABASE_STORAGE_BUCKET}/"
 
 ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
@@ -111,18 +128,27 @@ def init_db():
             amount_paid REAL NOT NULL DEFAULT 0,
             balance REAL NOT NULL DEFAULT 0,
             photo_filename TEXT,
-            paid_to TEXT,
-            cash_amount REAL,
-            note TEXT,
+            note TEXT NOT NULL DEFAULT '',
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         )
     ''')
     cur.execute('CREATE INDEX IF NOT EXISTS idx_hostel_room ON students(hostel, room_number)')
-    # Add new columns for existing databases created before this update.
-    cur.execute("ALTER TABLE students ADD COLUMN IF NOT EXISTS paid_to TEXT")
-    cur.execute("ALTER TABLE students ADD COLUMN IF NOT EXISTS cash_amount REAL")
-    cur.execute("ALTER TABLE students ADD COLUMN IF NOT EXISTS note TEXT")
+    # Older deployments already had a students table before the "note" column existed.
+    cur.execute("ALTER TABLE students ADD COLUMN IF NOT EXISTS note TEXT NOT NULL DEFAULT ''")
+
+    # One note per (hostel, room_number) — used to tag empty beds on the Vacancy page.
+    # The UNIQUE constraint guarantees a room can never end up with two separate notes.
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS room_notes (
+            id SERIAL PRIMARY KEY,
+            hostel TEXT NOT NULL CHECK(hostel IN ('Old Hostel', 'New Hostel')),
+            room_number INTEGER NOT NULL CHECK(room_number BETWEEN 1 AND 10),
+            note TEXT NOT NULL DEFAULT '',
+            updated_at TEXT NOT NULL,
+            UNIQUE(hostel, room_number)
+        )
+    ''')
     conn.commit()
     cur.close()
     conn.close()
@@ -175,8 +201,48 @@ def decorated_check(f, *args, **kwargs):
     return f(*args, **kwargs)
 
 
+def upload_photo_to_supabase(image_bytes, storage_filename):
+    """Uploads JPEG bytes to the Supabase Storage bucket. Returns the public URL, or
+    raises ValueError with a user-friendly message on failure."""
+    upload_url = f"{SUPABASE_URL}/storage/v1/object/{SUPABASE_STORAGE_BUCKET}/{storage_filename}"
+    headers = {
+        'Authorization': f'Bearer {SUPABASE_SERVICE_ROLE_KEY}',
+        'apikey': SUPABASE_SERVICE_ROLE_KEY,
+        'Content-Type': 'image/jpeg',
+        'x-upsert': 'true',
+    }
+    try:
+        resp = requests.post(upload_url, headers=headers, data=image_bytes, timeout=20)
+    except requests.RequestException:
+        raise ValueError('Could not reach photo storage. Please try uploading again.')
+
+    if resp.status_code not in (200, 201):
+        raise ValueError('Photo upload failed. Please try a different image.')
+
+    return f"{SUPABASE_PUBLIC_PREFIX}{storage_filename}"
+
+
+def delete_photo_from_supabase(photo_value):
+    """Best-effort delete of a photo from Supabase Storage. Safely ignores empty
+    values and legacy local filenames left over from before the Supabase migration."""
+    if not photo_value or not photo_value.startswith(SUPABASE_PUBLIC_PREFIX):
+        return
+    storage_filename = photo_value[len(SUPABASE_PUBLIC_PREFIX):]
+    delete_url = f"{SUPABASE_URL}/storage/v1/object/{SUPABASE_STORAGE_BUCKET}/{storage_filename}"
+    headers = {
+        'Authorization': f'Bearer {SUPABASE_SERVICE_ROLE_KEY}',
+        'apikey': SUPABASE_SERVICE_ROLE_KEY,
+    }
+    try:
+        requests.delete(delete_url, headers=headers, timeout=20)
+    except requests.RequestException:
+        pass  # cleanup is best-effort; don't block the user's request on it
+
+
 def save_photo(file_storage):
-    """Resize/compress and save an uploaded JPG photo. Returns filename or None."""
+    """Resize/compress an uploaded JPG photo and upload it to Supabase Storage.
+    Returns the public URL to store in the student's photo_filename column, or
+    None if no file was provided."""
     if not file_storage or file_storage.filename == '':
         return None
     filename = secure_filename(file_storage.filename)
@@ -190,27 +256,43 @@ def save_photo(file_storage):
     except Exception:
         raise ValueError('The uploaded file is not a valid image.')
 
-    if img.mode in ('RGBA', 'P'):
-        img = img.convert('RGB')
-    else:
-        img = img.convert('RGB')
-
+    img = img.convert('RGB')
     img.thumbnail((800, 800), Image.LANCZOS)
-    new_filename = f"{uuid.uuid4().hex}.jpg"
-    save_path = os.path.join(app.config['UPLOAD_FOLDER'], new_filename)
-    img.save(save_path, 'JPEG', quality=78, optimize=True)
-    return new_filename
+
+    buf = io.BytesIO()
+    img.save(buf, 'JPEG', quality=78, optimize=True)
+    image_bytes = buf.getvalue()
+
+    storage_filename = f"{uuid.uuid4().hex}.jpg"
+    return upload_photo_to_supabase(image_bytes, storage_filename)
 
 
-def delete_photo(filename):
-    if not filename:
-        return
-    path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    if os.path.exists(path):
-        try:
-            os.remove(path)
-        except OSError:
-            pass
+def delete_photo(photo_value):
+    delete_photo_from_supabase(photo_value)
+
+
+def photo_url(photo_value):
+    """Resolves a student's stored photo_filename value to a displayable URL.
+    New records store a full Supabase Storage URL. Any older, pre-migration
+    local filename is routed through the legacy /static/uploads endpoint (which
+    will 404 gracefully into the onerror placeholder in the templates)."""
+    if not photo_value:
+        return None
+    if photo_value.startswith('http://') or photo_value.startswith('https://'):
+        return photo_value
+    return url_for('uploaded_file', filename=photo_value)
+
+
+PHOTO_PLACEHOLDER = 'data:image/svg+xml;base64,' + base64.b64encode(b'''
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+<rect width="100" height="100" fill="#E2E8F0"/>
+<circle cx="50" cy="38" r="18" fill="#94A3B8"/>
+<path d="M18 88c0-17.7 14.3-32 32-32s32 14.3 32 32" fill="#94A3B8"/>
+</svg>
+'''.strip()).decode('ascii')
+
+app.jinja_env.globals['photo_url'] = photo_url
+app.jinja_env.globals['PHOTO_PLACEHOLDER'] = PHOTO_PLACEHOLDER
 
 
 def room_occupancy(db, hostel, room_number, exclude_id=None):
@@ -305,9 +387,7 @@ def add_student():
         contact = request.form.get('contact', '').strip()
         total_rent = request.form.get('total_rent', '').strip()
         amount_paid = request.form.get('amount_paid', '').strip()
-        paid_to = request.form.get('paid_to', '').strip()
-        cash_amount = request.form.get('cash_amount', '').strip()
-        note = request.form.get('note', '').strip()
+        note = request.form.get('note', '').strip()[:300]
 
         errors = []
 
@@ -352,18 +432,6 @@ def add_student():
         if total_rent is not None and amount_paid is not None and amount_paid > total_rent:
             errors.append('Amount paid cannot be greater than total rent.')
 
-        # "If cash (how much)" is optional — only validate it if the user typed something.
-        if cash_amount:
-            try:
-                cash_amount = float(cash_amount)
-                if cash_amount < 0:
-                    raise ValueError()
-            except (ValueError, TypeError):
-                errors.append('Cash amount must be a valid non-negative number.')
-                cash_amount = None
-        else:
-            cash_amount = None
-
         photo_file = request.files.get('photo')
         photo_filename = None
 
@@ -389,9 +457,9 @@ def add_student():
 
         db.execute('''
             INSERT INTO students
-            (hostel, room_number, sharing, name, contact, total_rent, amount_paid, balance, photo_filename, paid_to, cash_amount, note, created_at, updated_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        ''', (hostel, room_number, sharing, name, clean_contact, total_rent, amount_paid, balance, photo_filename, paid_to or None, cash_amount, note or None, now, now))
+            (hostel, room_number, sharing, name, contact, total_rent, amount_paid, balance, photo_filename, note, created_at, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ''', (hostel, room_number, sharing, name, clean_contact, total_rent, amount_paid, balance, photo_filename, note, now, now))
         db.commit()
 
         flash(f'{name} was saved successfully to {hostel} - Room {room_number}!', 'success')
@@ -464,6 +532,103 @@ def admin_dashboard():
 
 
 # --------------------------------------------------------------------------
+# VACANCY CHECK
+# --------------------------------------------------------------------------
+
+@app.route('/admin/vacancy')
+@login_required
+def check_vacancy():
+    db = get_db()
+    students = db.execute('SELECT * FROM students ORDER BY hostel, room_number, LOWER(name)').fetchall()
+    note_rows = db.execute('SELECT * FROM room_notes').fetchall()
+    notes_map = {(n['hostel'], n['room_number']): n['note'] for n in note_rows}
+
+    occupied_rooms = {}
+    for row in students:
+        s = dict(row)
+        key = (s['hostel'], s['room_number'])
+        occupied_rooms.setdefault(key, {'sharing': s['sharing'], 'occupants': []})
+        occupied_rooms[key]['occupants'].append(s)
+
+    hostel_summary = {h: {'capacity': 0, 'occupied': 0, 'vacant': 0} for h in HOSTELS}
+    room_cards = []
+
+    for hostel in HOSTELS:
+        for room_number in ROOMS:
+            key = (hostel, room_number)
+            note = notes_map.get(key, '')
+            if key in occupied_rooms:
+                info = occupied_rooms[key]
+                sharing = info['sharing']
+                occupied = len(info['occupants'])
+                vacant = max(sharing - occupied, 0)
+                hostel_summary[hostel]['capacity'] += sharing
+                hostel_summary[hostel]['occupied'] += occupied
+                hostel_summary[hostel]['vacant'] += vacant
+                room_cards.append({
+                    'hostel': hostel, 'room_number': room_number, 'sharing': sharing,
+                    'occupied': occupied, 'vacant': vacant, 'occupants': info['occupants'],
+                    'note': note, 'has_students': True,
+                })
+            else:
+                room_cards.append({
+                    'hostel': hostel, 'room_number': room_number, 'sharing': None,
+                    'occupied': 0, 'vacant': None, 'occupants': [],
+                    'note': note, 'has_students': False,
+                })
+
+    total_capacity = sum(h['capacity'] for h in hostel_summary.values())
+    total_occupied = sum(h['occupied'] for h in hostel_summary.values())
+    total_vacant = sum(h['vacant'] for h in hostel_summary.values())
+
+    return render_template(
+        'vacancy.html',
+        room_cards=room_cards,
+        hostel_summary=hostel_summary,
+        total_capacity=total_capacity,
+        total_occupied=total_occupied,
+        total_vacant=total_vacant,
+        hostels=HOSTELS,
+    )
+
+
+@app.route('/admin/vacancy/note', methods=['POST'])
+@login_required
+def save_room_note():
+    if not validate_csrf(request.form.get('csrf_token')):
+        flash('Security check failed. Please try again.', 'error')
+        return redirect(url_for('check_vacancy'))
+
+    hostel = request.form.get('hostel', '').strip()
+    room_number = request.form.get('room_number', '').strip()
+    note = request.form.get('note', '').strip()[:300]
+
+    if hostel not in HOSTELS or not room_number.isdigit() or int(room_number) not in ROOMS:
+        flash('Invalid room.', 'error')
+        return redirect(url_for('check_vacancy'))
+    room_number = int(room_number)
+
+    db = get_db()
+    now = datetime.utcnow().isoformat()
+    if note:
+        # ON CONFLICT relies on the UNIQUE(hostel, room_number) constraint, so a room
+        # can never end up with two separate notes — the existing one is just updated.
+        db.execute('''
+            INSERT INTO room_notes (hostel, room_number, note, updated_at)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (hostel, room_number)
+            DO UPDATE SET note = EXCLUDED.note, updated_at = EXCLUDED.updated_at
+        ''', (hostel, room_number, note, now))
+        flash(f'Note saved for {hostel} - Room {room_number}.', 'success')
+    else:
+        db.execute('DELETE FROM room_notes WHERE hostel=%s AND room_number=%s', (hostel, room_number))
+        flash(f'Note cleared for {hostel} - Room {room_number}.', 'success')
+    db.commit()
+
+    return redirect(url_for('check_vacancy'))
+
+
+# --------------------------------------------------------------------------
 # EDIT / DELETE STUDENT
 # --------------------------------------------------------------------------
 
@@ -488,9 +653,7 @@ def edit_student(student_id):
         contact = request.form.get('contact', '').strip()
         total_rent = request.form.get('total_rent', '').strip()
         amount_paid = request.form.get('amount_paid', '').strip()
-        paid_to = request.form.get('paid_to', '').strip()
-        cash_amount = request.form.get('cash_amount', '').strip()
-        note = request.form.get('note', '').strip()
+        note = request.form.get('note', '').strip()[:300]
         remove_photo = request.form.get('remove_photo') == '1'
 
         errors = []
@@ -535,18 +698,6 @@ def edit_student(student_id):
         if total_rent is not None and amount_paid is not None and amount_paid > total_rent:
             errors.append('Amount paid cannot be greater than total rent.')
 
-        # "If cash (how much)" is optional — only validate it if the user typed something.
-        if cash_amount:
-            try:
-                cash_amount = float(cash_amount)
-                if cash_amount < 0:
-                    raise ValueError()
-            except (ValueError, TypeError):
-                errors.append('Cash amount must be a valid non-negative number.')
-                cash_amount = None
-        else:
-            cash_amount = None
-
         if not errors and room_number and sharing:
             room_changed = (hostel != student['hostel'] or room_number != student['room_number'])
             ok, msg = check_capacity(db, hostel, room_number, sharing, exclude_id=student_id)
@@ -581,9 +732,9 @@ def edit_student(student_id):
 
         db.execute('''
             UPDATE students
-            SET hostel=%s, room_number=%s, sharing=%s, name=%s, contact=%s, total_rent=%s, amount_paid=%s, balance=%s, photo_filename=%s, paid_to=%s, cash_amount=%s, note=%s, updated_at=%s
+            SET hostel=%s, room_number=%s, sharing=%s, name=%s, contact=%s, total_rent=%s, amount_paid=%s, balance=%s, photo_filename=%s, note=%s, updated_at=%s
             WHERE id=%s
-        ''', (hostel, room_number, sharing, name, clean_contact, total_rent, amount_paid, balance, new_photo_filename, paid_to or None, cash_amount, note or None, now, student_id))
+        ''', (hostel, room_number, sharing, name, clean_contact, total_rent, amount_paid, balance, new_photo_filename, note, now, student_id))
         db.commit()
 
         flash(f'{name} was updated successfully.', 'success')
