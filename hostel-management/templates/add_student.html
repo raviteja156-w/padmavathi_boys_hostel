@@ -64,6 +64,20 @@
 
     <div class="grid sm:grid-cols-2 gap-5">
       <div>
+        <label class="form-label"><i class="fa-solid fa-calendar-check mr-1.5 text-primary"></i>Joined Date</label>
+        <input type="date" name="joined_date"
+               value="{{ form.get('joined_date') or today_ist() }}" class="form-input">
+      </div>
+      <div>
+        <label class="form-label"><i class="fa-solid fa-calendar-day mr-1.5 text-primary"></i>Date You Paid</label>
+        <input type="date" name="paid_date"
+               value="{{ form.get('paid_date', '') }}" class="form-input">
+        <p class="text-xs text-slate-400 mt-1">Leave blank if not paid yet.</p>
+      </div>
+    </div>
+
+    <div class="grid sm:grid-cols-2 gap-5">
+      <div>
         <label class="form-label"><i class="fa-solid fa-indian-rupee-sign mr-1.5 text-primary"></i>Total Rent</label>
         <input type="number" name="total_rent" id="total_rent" required min="0" step="1"
                placeholder="0" value="{{ form.get('total_rent', '') }}" class="form-input">
@@ -96,9 +110,10 @@
     </div>
 
     <div>
-      <label class="form-label"><i class="fa-solid fa-tag mr-1.5 text-primary"></i>CASH?PAID TO WHOM AND PAYMENT DATE</label>
-      <input type="text" name="note" maxlength="300" placeholder="E.G. RAVI ON 19TH SEP"
+      <label class="form-label"><i class="fa-solid fa-tag mr-1.5 text-primary"></i>Note (cash / online / paid to whom)</label>
+      <input type="text" name="note" maxlength="300" placeholder="e.g. I paid online, remaining amount 500"
              value="{{ form.get('note', '') }}" class="form-input">
+      <p class="text-xs text-slate-400 mt-1">This note is cleared automatically at the start of every month.</p>
     </div>
 
     <button type="submit" class="btn-primary w-full text-base py-4 flex items-center justify-center gap-2">

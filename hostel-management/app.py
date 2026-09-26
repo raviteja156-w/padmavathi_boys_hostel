@@ -8,7 +8,7 @@ import io
 import base64
 import secrets
 import uuid
-from datetime import datetime
+from datetime import datetime, date, timezone, timedelta
 from functools import wraps
 
 import psycopg2
@@ -134,6 +134,17 @@ ROOMS = list(range(1, 11))
 
 SHARINGS = list(range(1, 7))
 
+# Indian Standard Time — every "month end" reset is calculated against
+# this timezone, regardless of what timezone the server itself runs in.
+IST = timezone(timedelta(hours=5, minutes=30))
+
+# Optional shared-secret for the external cron endpoint
+# (/cron/monthly-reset). Set this in your environment and point an
+# external scheduler (cron-job.org, UptimeRobot, GitHub Actions, etc.)
+# at that URL with ?key=<CRON_SECRET> so the monthly reset fires at
+# exactly 12:00 AM IST even if the app is asleep and gets no visitors.
+CRON_SECRET = os.environ.get('CRON_SECRET', '').strip()
+
 
 os.makedirs(
     app.config['UPLOAD_FOLDER'],
@@ -231,6 +242,28 @@ def init_db():
         ADD COLUMN IF NOT EXISTS note TEXT NOT NULL DEFAULT ''
     """)
 
+    cur.execute("""
+        ALTER TABLE students
+        ADD COLUMN IF NOT EXISTS joined_date DATE
+    """)
+
+    cur.execute("""
+        ALTER TABLE students
+        ADD COLUMN IF NOT EXISTS paid_date DATE
+    """)
+
+    cur.execute("""
+        ALTER TABLE students
+        ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE
+    """)
+
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS system_meta (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        )
+    ''')
+
     cur.execute('''
         CREATE TABLE IF NOT EXISTS room_notes (
             id SERIAL PRIMARY KEY,
@@ -279,6 +312,42 @@ def validate_mobile(number):
         bool(re.fullmatch(r'[6-9]\d{9}', number)),
         number
     )
+
+
+def ist_now():
+    """Current date/time in Indian Standard Time."""
+    return datetime.now(IST)
+
+
+def ist_today():
+    """Today's date (IST) as a date object."""
+    return ist_now().date()
+
+
+def ist_month_key(dt=None):
+    """'YYYY-MM' key for the given (or current) IST date."""
+    dt = dt or ist_now()
+    return dt.strftime('%Y-%m')
+
+
+def parse_date_field(raw_value):
+    """
+    Parse a 'YYYY-MM-DD' string from an <input type="date"> field.
+    Returns (date_or_None, ok). ok is False only when the field was
+    non-empty but not a valid date.
+    """
+    raw_value = (raw_value or '').strip()
+
+    if not raw_value:
+        return None, True
+
+    try:
+        return datetime.strptime(raw_value, '%Y-%m-%d').date(), True
+    except ValueError:
+        return None, False
+
+
+app.jinja_env.globals['today_ist'] = lambda: ist_today().isoformat()
 
 
 def generate_csrf_token():
@@ -595,6 +664,91 @@ app.jinja_env.globals['PHOTO_PLACEHOLDER'] = PHOTO_PLACEHOLDER
 
 
 # --------------------------------------------------------------------------
+# MONTHLY AUTO-RESET (Indian calendar)
+# --------------------------------------------------------------------------
+#
+# At the start of every new month (00:00 IST, i.e. the moment the
+# previous month ends), the following fields are wiped clean for every
+# student, ready for that month's payments:
+#   - paid_date       ("Date You Paid")
+#   - amount_paid      -> 0, balance reset to total_rent
+#   - photo_filename   (the receipt photo is deleted from storage too)
+#   - note             ("Cash? Paid to whom / payment note")
+#
+# 'joined_date' is NEVER touched — it is permanent.
+#
+# This is checked lazily on every request (run_monthly_reset_if_needed)
+# so it self-heals even if the server was asleep at midnight. For exact
+# timing regardless of traffic, also point an external cron service at
+# GET /cron/monthly-reset?key=<CRON_SECRET>.
+
+def run_monthly_reset_if_needed(db):
+
+    current_month = ist_month_key()
+
+    row = db.execute(
+        "SELECT value FROM system_meta WHERE key = %s",
+        ('last_reset_month',)
+    ).fetchone()
+
+    if row and row['value'] == current_month:
+        return False
+
+    # Atomically "claim" this month so concurrent requests/workers don't
+    # both try to run the reset at the same time.
+    cur = db.execute(
+        '''
+        INSERT INTO system_meta (key, value)
+        VALUES ('last_reset_month', %s)
+        ON CONFLICT (key) DO UPDATE
+            SET value = EXCLUDED.value
+            WHERE system_meta.value IS DISTINCT FROM EXCLUDED.value
+        RETURNING value
+        ''',
+        (current_month,)
+    )
+
+    claimed = cur.fetchone()
+
+    if not claimed:
+        db.commit()
+        return False
+
+    students = db.execute(
+        "SELECT id, photo_filename FROM students"
+    ).fetchall()
+
+    for s in students:
+
+        if s['photo_filename']:
+
+            try:
+                delete_photo(s['photo_filename'])
+            except Exception:
+                pass
+
+    now = datetime.utcnow().isoformat()
+
+    db.execute(
+        '''
+        UPDATE students
+        SET
+            paid_date = NULL,
+            amount_paid = 0,
+            balance = total_rent,
+            photo_filename = NULL,
+            note = '',
+            updated_at = %s
+        ''',
+        (now,)
+    )
+
+    db.commit()
+
+    return True
+
+
+# --------------------------------------------------------------------------
 # ROOM FUNCTIONS
 # --------------------------------------------------------------------------
 
@@ -607,7 +761,7 @@ def room_occupancy(
 
     query = '''
         SELECT
-            COUNT(*) AS c,
+            COUNT(*) FILTER (WHERE active) AS c,
             MAX(sharing) AS s
         FROM students
         WHERE hostel=%s
@@ -803,6 +957,59 @@ def row_to_student(row):
 init_db()
 
 
+@app.before_request
+def _auto_monthly_reset():
+    """
+    Self-healing monthly reset: checked on every request so the reset
+    still happens even if no external cron ever fires. Cheap (one
+    SELECT) once the month has already been reset.
+    """
+
+    if request.endpoint == 'static':
+        return
+
+    try:
+        run_monthly_reset_if_needed(get_db())
+    except Exception:
+
+        try:
+            get_db().conn.rollback()
+        except Exception:
+            pass
+
+
+@app.route('/cron/monthly-reset')
+def cron_monthly_reset():
+    """
+    Hit this from an external scheduler (cron-job.org, UptimeRobot,
+    GitHub Actions cron, etc.) at 00:00 IST daily so the reset fires at
+    the exact moment the month ends, even if the app has no visitors
+    and/or is asleep (free hosting tiers). Example:
+
+        GET https://your-app-url/cron/monthly-reset?key=YOUR_CRON_SECRET
+
+    Set CRON_SECRET in the environment to enable this endpoint.
+    """
+
+    if not CRON_SECRET:
+        abort(404)
+
+    if not secrets.compare_digest(
+        request.args.get('key', ''),
+        CRON_SECRET
+    ):
+        abort(404)
+
+    db = get_db()
+    did_reset = run_monthly_reset_if_needed(db)
+
+    return jsonify({
+        'status': 'ok',
+        'month': ist_month_key(),
+        'reset_ran': did_reset
+    })
+
+
 # --------------------------------------------------------------------------
 # PUBLIC ROUTES
 # --------------------------------------------------------------------------
@@ -875,6 +1082,16 @@ def add_student():
             'note',
             ''
         ).strip()[:300]
+
+        joined_date_raw = request.form.get(
+            'joined_date',
+            ''
+        ).strip()
+
+        paid_date_raw = request.form.get(
+            'paid_date',
+            ''
+        ).strip()
 
         errors = []
 
@@ -977,6 +1194,27 @@ def add_student():
                 'Amount paid cannot be greater than total rent.'
             )
 
+        joined_date, joined_date_ok = parse_date_field(
+            joined_date_raw
+        )
+
+        if not joined_date_ok:
+            errors.append(
+                'Please enter a valid joined date.'
+            )
+
+        if joined_date is None and joined_date_ok:
+            joined_date = ist_today()
+
+        paid_date, paid_date_ok = parse_date_field(
+            paid_date_raw
+        )
+
+        if not paid_date_ok:
+            errors.append(
+                'Please enter a valid payment date.'
+            )
+
         photo_file = request.files.get(
             'photo'
         )
@@ -1052,6 +1290,8 @@ def add_student():
                 balance,
                 photo_filename,
                 note,
+                joined_date,
+                paid_date,
                 created_at,
                 updated_at
             )
@@ -1059,7 +1299,7 @@ def add_student():
             (
                 %s, %s, %s, %s, %s,
                 %s, %s, %s, %s, %s,
-                %s, %s
+                %s, %s, %s, %s
             )
         ''', (
             hostel,
@@ -1072,6 +1312,8 @@ def add_student():
             balance,
             photo_filename,
             note,
+            joined_date,
+            paid_date,
             now,
             now
         ))
@@ -1342,8 +1584,10 @@ def check_vacancy():
 
                 sharing = info['sharing']
 
-                occupied = len(
-                    info['occupants']
+                occupied = sum(
+                    1
+                    for o in info['occupants']
+                    if o.get('active', True)
                 )
 
                 vacant = max(
@@ -1410,6 +1654,73 @@ def check_vacancy():
         total_occupied=total_occupied,
         total_vacant=total_vacant,
         hostels=HOSTELS,
+    )
+
+
+@app.route(
+    '/admin/vacancy/toggle/<int:student_id>',
+    methods=['POST']
+)
+@login_required
+def toggle_student_status(student_id):
+    """
+    Flip a student's ON/OFF status on the vacancy page. OFF frees up
+    their bed (it shows as vacant / available) without deleting the
+    student's record; ON puts them back as occupying that bed.
+    """
+
+    if not validate_csrf(
+        request.form.get('csrf_token')
+    ):
+
+        flash(
+            'Security check failed. Please try again.',
+            'error'
+        )
+
+        return redirect(
+            url_for('check_vacancy')
+        )
+
+    db = get_db()
+
+    student = db.execute(
+        '''
+        SELECT id, name, active
+        FROM students
+        WHERE id = %s
+        ''',
+        (student_id,)
+    ).fetchone()
+
+    if not student:
+        abort(404)
+
+    new_status = not student['active']
+
+    db.execute(
+        '''
+        UPDATE students
+        SET active = %s, updated_at = %s
+        WHERE id = %s
+        ''',
+        (
+            new_status,
+            datetime.utcnow().isoformat(),
+            student_id
+        )
+    )
+
+    db.commit()
+
+    flash(
+        f"{student['name']} is now marked "
+        f"{'ON (occupied)' if new_status else 'OFF (vacant)'}.",
+        'success'
+    )
+
+    return redirect(
+        url_for('check_vacancy')
     )
 
 
@@ -1614,6 +1925,16 @@ def edit_student(student_id):
             ''
         ).strip()[:300]
 
+        joined_date_raw = request.form.get(
+            'joined_date',
+            ''
+        ).strip()
+
+        paid_date_raw = request.form.get(
+            'paid_date',
+            ''
+        ).strip()
+
         remove_photo = (
             request.form.get(
                 'remove_photo'
@@ -1728,6 +2049,28 @@ def edit_student(student_id):
                 'Amount paid cannot be greater than total rent.'
             )
 
+        joined_date, joined_date_ok = parse_date_field(
+            joined_date_raw
+        )
+
+        if not joined_date_ok:
+            errors.append(
+                'Please enter a valid joined date.'
+            )
+
+        if joined_date is None and joined_date_ok:
+            # Keep the existing joined date if the field was left blank.
+            joined_date = student.get('joined_date') or ist_today()
+
+        paid_date, paid_date_ok = parse_date_field(
+            paid_date_raw
+        )
+
+        if not paid_date_ok:
+            errors.append(
+                'Please enter a valid payment date.'
+            )
+
         if (
             not errors
             and room_number
@@ -1829,6 +2172,8 @@ def edit_student(student_id):
                 balance=%s,
                 photo_filename=%s,
                 note=%s,
+                joined_date=%s,
+                paid_date=%s,
                 updated_at=%s
 
             WHERE id=%s
@@ -1844,6 +2189,8 @@ def edit_student(student_id):
                 balance,
                 new_photo_filename,
                 note,
+                joined_date,
+                paid_date,
                 now,
                 student_id
             )

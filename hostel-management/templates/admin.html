@@ -1,4 +1,3 @@
-```html
 {% extends 'base.html' %}
 
 {% block title %}Admin Dashboard — Hostel Management System{% endblock %}
@@ -412,9 +411,17 @@
                                 <div class="flex-1 min-w-0">
 
 
-                                    <h4 class="font-semibold text-slate-800 truncate">
-                                        {{ s.name }}
-                                    </h4>
+                                    <div class="flex items-center gap-2">
+
+                                        <h4 class="font-semibold text-slate-800 truncate">
+                                            {{ s.name }}
+                                        </h4>
+
+                                        <span class="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full {{ 'bg-success/10 text-success' if s.active else 'bg-slate-200 text-slate-500' }}">
+                                            {{ 'ON' if s.active else 'OFF' }}
+                                        </span>
+
+                                    </div>
 
 
                                     <p class="text-xs text-slate-500">
@@ -431,6 +438,24 @@
                                         <i class="fa-solid fa-users text-[10px] mr-1"></i>
 
                                         Sharing: {{ s.sharing }}
+
+                                    </p>
+
+
+                                    <p class="text-xs text-slate-500">
+
+                                        <i class="fa-solid fa-calendar-check text-[10px] mr-1"></i>
+
+                                        Joined: {{ s.joined_date or '—' }}
+
+                                    </p>
+
+
+                                    <p class="text-xs text-slate-500">
+
+                                        <i class="fa-solid fa-calendar-day text-[10px] mr-1"></i>
+
+                                        Paid on: {{ s.paid_date or 'Not paid yet' }}
 
                                     </p>
 
@@ -857,5 +882,4 @@
 <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
 
 {% endblock %}
-```
 
