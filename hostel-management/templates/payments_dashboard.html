@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% block title %}My Payments — Hostel Management System{% endblock %}
+{% block content %}
+
+<div class="max-w-md mx-auto animate-slide-up">
+
+  <div class="text-center mb-6">
+    <h1 class="text-2xl sm:text-3xl font-bold text-slate-800">Hi, {{ student.name.split(' ')[0] }}</h1>
+    <p class="text-slate-500 text-sm mt-1">
+      <i class="fa-solid {{ 'fa-house' if student.hostel == 'Old Hostel' else 'fa-city' }} mr-1"></i>
+      {{ student.hostel }} &bull; {{ room_label(student.room_number) }}
+    </p>
+  </div>
+
+  <div class="card p-5 sm:p-7 text-center space-y-4">
+    <div>
+      <p class="text-sm text-slate-500 uppercase tracking-wide font-semibold">Monthly Hostel Payment</p>
+      <p class="text-xs text-slate-400 mt-0.5">For: {{ for_month }}</p>
+    </div>
+
+    <div class="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3.5 inline-flex items-center gap-2 mx-auto">
+      <span class="text-sm font-medium text-slate-600">Amount Due</span>
+      <span class="text-2xl font-bold text-primary">₹{{ '{:,.0f}'.format(payment_amount|float) }}</span>
+    </div>
+
+    {% if payment_qr_url %}
+    <div class="w-56 h-56 mx-auto rounded-xl overflow-hidden border-2 border-primary/20 bg-white">
+      <img src="{{ payment_qr_url }}" alt="Payment QR Code" class="w-full h-full object-contain">
+    </div>
+    <p class="text-sm text-slate-500">Scan the QR code and complete your payment.</p>
+    {% else %}
+    <p class="text-sm text-amber-600 bg-amber-50 rounded-lg px-4 py-3">
+      <i class="fa-solid fa-triangle-exclamation mr-1"></i>QR code not set up yet — please contact the hostel admin.
+    </p>
+    {% endif %}
+
+    <a href="{{ url_for('payments_submit') }}" class="btn-primary w-full text-base py-4 flex items-center justify-center gap-2">
+      <i class="fa-solid fa-circle-check"></i> ADD MY PAYMENT
+    </a>
+  </div>
+
+  {% if recent %}
+  <div class="mt-6">
+    <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-2">Your Recent Submissions</h2>
+    <div class="space-y-2">
+      {% for r in recent %}
+      <div class="card p-3.5 flex items-center justify-between">
+        <div class="min-w-0">
+          <p class="text-sm font-semibold text-slate-800">₹{{ '{:,.0f}'.format(r.amount) }} <span class="text-xs font-normal text-slate-400">— {{ r.for_month }}</span></p>
+          <p class="text-xs text-slate-400">{{ r.submitted_at[:10] if r.submitted_at else '' }}</p>
+        </div>
+        {% if r.status == 'CONFIRMED' %}
+        <span class="text-[11px] font-bold px-2.5 py-1 rounded-full bg-success/10 text-success shrink-0">
+          <i class="fa-solid fa-check mr-1"></i>CONFIRMED
+        </span>
+        {% else %}
+        <span class="text-[11px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 shrink-0">
+          <i class="fa-solid fa-hourglass-half mr-1"></i>PENDING
+        </span>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="text-center mt-6">
+    <a href="{{ url_for('payments_lookup') }}" class="text-xs text-slate-400 hover:text-primary">
+      Not you? Switch mobile number
+    </a>
+  </div>
+
+</div>
+{% endblock %}

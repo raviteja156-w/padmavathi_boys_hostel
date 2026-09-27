@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% block title %}Due List — Hostel Management System{% endblock %}
+{% block content %}
+
+<div class="max-w-3xl mx-auto animate-slide-up">
+
+  <div class="flex items-center gap-3 mb-6">
+    <a href="{{ url_for('admin_dashboard') }}" class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-primary transition shrink-0">
+      <i class="fa-solid fa-arrow-left"></i>
+    </a>
+    <div>
+      <h1 class="text-2xl font-bold text-slate-800">Due List</h1>
+      <p class="text-slate-500 text-sm">Students whose due date has arrived (day {{ today_day }} or earlier this month) and still have a balance.</p>
+    </div>
+  </div>
+
+  {% if not students %}
+  <div class="card p-10 text-center">
+    <i class="fa-solid fa-circle-check text-success text-3xl mb-3"></i>
+    <p class="text-slate-500">No students are due right now.</p>
+  </div>
+  {% else %}
+  <div class="space-y-3">
+    {% for s in students %}
+    <div class="card p-4 sm:p-5 border-l-4 border-danger">
+      <div class="flex justify-between items-start gap-3">
+        <div class="min-w-0">
+          <h3 class="font-bold text-slate-800 truncate">{{ s.name }}</h3>
+          <p class="text-xs text-slate-500 mt-0.5">
+            <i class="fa-solid {{ 'fa-house' if s.hostel == 'Old Hostel' else 'fa-city' }} mr-1"></i>{{ s.hostel }} &bull; {{ room_label(s.room_number) }}
+          </p>
+          <p class="text-xs text-danger font-semibold mt-1">
+            <i class="fa-solid fa-calendar-day mr-1"></i>Due Date: {{ s.due_date }}{% if s.due_date == 1 %}st{% elif s.due_date == 2 %}nd{% elif s.due_date == 3 %}rd{% else %}th{% endif %} of month
+          </p>
+        </div>
+        <a href="tel:{{ s.contact }}" class="btn-primary shrink-0 px-3 py-2 text-sm flex items-center gap-1.5">
+          <i class="fa-solid fa-phone"></i> Call
+        </a>
+      </div>
+
+      <div class="grid grid-cols-3 gap-1.5 mt-3 text-center">
+        <div class="mini-stat"><span class="block text-[10px] text-slate-400">Rent</span>₹{{ '{:,.0f}'.format(s.total_rent) }}</div>
+        <div class="mini-stat"><span class="block text-[10px] text-slate-400">Paid</span>₹{{ '{:,.0f}'.format(s.amount_paid) }}</div>
+        <div class="mini-stat text-danger"><span class="block text-[10px] text-slate-400">Balance</span>₹{{ '{:,.0f}'.format(s.balance) }}</div>
+      </div>
+
+      <div class="flex items-center justify-between mt-3">
+        <span class="text-xs text-slate-400"><i class="fa-solid fa-phone text-[10px] mr-1"></i>{{ s.contact }}</span>
+        <a href="{{ url_for('edit_student', student_id=s.id) }}" class="btn-edit text-xs px-3 py-1.5">
+          <i class="fa-solid fa-pen"></i> Edit
+        </a>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

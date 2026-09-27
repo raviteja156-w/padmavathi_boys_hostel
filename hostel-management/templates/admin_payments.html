@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+{% block title %}Today's Payments — Hostel Management System{% endblock %}
+{% block content %}
+
+<div class="max-w-3xl mx-auto animate-slide-up">
+
+  <div class="flex items-center gap-3 mb-6">
+    <a href="{{ url_for('admin_dashboard') }}" class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-primary transition shrink-0">
+      <i class="fa-solid fa-arrow-left"></i>
+    </a>
+    <div>
+      <h1 class="text-2xl font-bold text-slate-800">Today's Payments</h1>
+      <p class="text-slate-500 text-sm">Payment submissions from students, waiting for your confirmation.</p>
+    </div>
+  </div>
+
+  <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-2">
+    Pending Confirmation {% if pending %}<span class="text-amber-600">({{ pending|length }})</span>{% endif %}
+  </h2>
+
+  {% if not pending %}
+  <div class="card p-8 text-center mb-8">
+    <i class="fa-solid fa-circle-check text-success text-3xl mb-3"></i>
+    <p class="text-slate-500">No pending payments right now.</p>
+  </div>
+  {% else %}
+  <div class="space-y-3 mb-8">
+    {% for p in pending %}
+    <div class="card p-4 sm:p-5 border-l-4 border-amber-400">
+      <div class="flex justify-between items-start gap-3">
+        <div class="min-w-0">
+          <h3 class="font-bold text-slate-800 truncate">{{ p.name }}</h3>
+          <p class="text-xs text-slate-500 mt-0.5">
+            <i class="fa-solid {{ 'fa-house' if p.hostel == 'Old Hostel' else 'fa-city' }} mr-1"></i>{{ p.hostel }} &bull; {{ room_label(p.room_number) }}
+          </p>
+          <p class="text-xs text-slate-400 mt-0.5"><i class="fa-solid fa-phone text-[10px] mr-1"></i>{{ p.contact }}</p>
+        </div>
+        <div class="text-right shrink-0">
+          <p class="text-xl font-bold text-primary">₹{{ '{:,.0f}'.format(p.amount) }}</p>
+          {% if p.is_today %}
+          <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">TODAY</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <p class="text-xs text-slate-400 mt-2">
+        For: {{ p.for_month }} &bull; Submitted: {{ p.submitted_at[:16].replace('T', ' ') if p.submitted_at else '' }}
+      </p>
+      {% if p.note %}
+      <p class="text-xs text-primary bg-primary/10 rounded px-2 py-1 mt-2 inline-block">
+        <i class="fa-solid fa-tag text-[10px] mr-1"></i>{{ p.note }}
+      </p>
+      {% endif %}
+
+      <div class="flex gap-2 mt-3">
+        {% if p.proof_filename %}
+        <button type="button" class="btn-outline flex-1 text-sm py-2.5"
+                onclick="openPhotoModal('{{ photo_url(p.proof_filename) }}', '{{ p.name|e }} — payment proof')">
+          <i class="fa-solid fa-image"></i> VIEW PROOF
+        </button>
+        {% endif %}
+        <form method="POST" action="{{ url_for('confirm_payment', payment_id=p.id) }}" class="flex-1">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn-primary w-full text-sm py-2.5">
+            <i class="fa-solid fa-check"></i> CONFIRM PAYMENT
+          </button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if confirmed %}
+  <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-2">Recently Confirmed</h2>
+  <div class="space-y-2">
+    {% for p in confirmed[:20] %}
+    <div class="card p-3.5">
+      <div class="flex items-center justify-between gap-3">
+        <div class="min-w-0">
+          <p class="text-sm font-semibold text-slate-800 truncate">{{ p.name }} <span class="text-slate-400 font-normal">— {{ p.hostel }}, {{ room_label(p.room_number) }}</span></p>
+          <p class="text-xs text-slate-400">₹{{ '{:,.0f}'.format(p.amount) }} &bull; {{ p.for_month }}</p>
+        </div>
+        <span class="text-[11px] font-bold px-2.5 py-1 rounded-full bg-success/10 text-success shrink-0">
+          <i class="fa-solid fa-check mr-1"></i>CONFIRMED
+        </span>
+      </div>
+      <p class="text-xs text-slate-400 mt-1.5">
+        Confirmed by: {{ p.confirmed_by }} &bull; {{ p.confirmed_at[:16].replace('T', ' ') if p.confirmed_at else '' }}
+      </p>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+</div>
+
+<!-- PROOF PHOTO MODAL (reuses the same pattern as admin.html) -->
+<div id="photoModal" class="modal-overlay hidden">
+  <div class="modal-box modal-box-photo animate-pop">
+    <button type="button" onclick="closeModal('photoModal')" class="modal-close"><i class="fa-solid fa-xmark"></i></button>
+    <img id="photoModalImg" src="" alt="" class="w-full h-auto rounded-xl">
+    <p id="photoModalName" class="text-center font-semibold text-slate-700 mt-3"></p>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% block title %}Payment Settings — Hostel Management System{% endblock %}
+{% block content %}
+
+<div class="max-w-lg mx-auto animate-slide-up">
+
+  <div class="flex items-center gap-3 mb-6">
+    <a href="{{ url_for('admin_dashboard') }}" class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-primary transition shrink-0">
+      <i class="fa-solid fa-arrow-left"></i>
+    </a>
+    <div>
+      <h1 class="text-2xl font-bold text-slate-800">Payment Settings</h1>
+      <p class="text-slate-500 text-sm">Configure the QR code and amount students see on the Payments page.</p>
+    </div>
+  </div>
+
+  <form method="POST" action="{{ url_for('payment_settings') }}" enctype="multipart/form-data" class="card p-5 sm:p-7 space-y-5">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div>
+      <label class="form-label"><i class="fa-solid fa-indian-rupee-sign mr-1.5 text-primary"></i>Amount Due (shown to students)</label>
+      <input type="number" name="payment_amount" min="0" step="1" required
+             value="{{ payment_amount }}" class="form-input">
+    </div>
+
+    <div>
+      <label class="form-label"><i class="fa-solid fa-qrcode mr-1.5 text-primary"></i>Payment QR Code</label>
+      {% if payment_qr_url %}
+      <div class="w-40 h-40 mx-auto mb-3 rounded-xl overflow-hidden border-2 border-primary/20">
+        <img src="{{ payment_qr_url }}" alt="Current QR" class="w-full h-full object-contain bg-white">
+      </div>
+      {% else %}
+      <p class="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2 mb-3">
+        <i class="fa-solid fa-triangle-exclamation mr-1"></i>No QR code uploaded yet — students won't see one on the Payments page.
+      </p>
+      {% endif %}
+      <label for="qr_image" class="upload-box block">
+        <i class="fa-solid fa-cloud-arrow-up text-2xl text-primary mb-1"></i>
+        <span class="text-sm text-slate-500">Tap to upload a new QR code (JPG)</span>
+      </label>
+      <input type="file" id="qr_image" name="qr_image" accept=".jpg,.jpeg,image/jpeg" class="hidden">
+      <p class="text-xs text-slate-400 mt-1">Leave empty to keep the current QR code.</p>
+    </div>
+
+    <button type="submit" class="btn-primary w-full text-base py-4 flex items-center justify-center gap-2">
+      <i class="fa-solid fa-floppy-disk"></i> Save Settings
+    </button>
+  </form>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.getElementById('qr_image').addEventListener('change', function () {
+  const file = this.files[0];
+  if (!file) return;
+  if (!/\.(jpg|jpeg)$/i.test(file.name)) {
+    showToast('Only JPG/JPEG files are allowed.', 'error');
+    this.value = '';
+  }
+});
+</script>
+{% endblock %}

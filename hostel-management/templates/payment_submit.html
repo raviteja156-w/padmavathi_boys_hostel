@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+{% block title %}Add My Payment — Hostel Management System{% endblock %}
+{% block content %}
+
+<div class="max-w-xl mx-auto animate-slide-up">
+  <div class="text-center mb-6">
+    <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 text-primary text-2xl mb-3">
+      <i class="fa-solid fa-circle-check"></i>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-slate-800">Add My Payment</h1>
+    <p class="text-slate-500 text-sm mt-1">
+      <span class="inline-block bg-primary/10 text-primary text-xs font-bold px-2.5 py-1 rounded-full mb-1">NEXT MONTH PAYMENT — {{ for_month.upper() }}</span>
+    </p>
+  </div>
+
+  <form method="POST" action="{{ url_for('payments_submit') }}" enctype="multipart/form-data" class="card p-5 sm:p-7 space-y-5" id="paymentForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="bg-slate-50 rounded-xl px-4 py-3.5 space-y-1 text-sm">
+      <p class="font-semibold text-slate-800">{{ student.name }}</p>
+      <p class="text-slate-500"><i class="fa-solid {{ 'fa-house' if student.hostel == 'Old Hostel' else 'fa-city' }} mr-1.5"></i>{{ student.hostel }} &bull; {{ room_label(student.room_number) }}</p>
+      <p class="text-slate-500"><i class="fa-solid fa-phone mr-1.5"></i>{{ student.contact }}</p>
+    </div>
+
+    <div>
+      <label class="form-label"><i class="fa-solid fa-indian-rupee-sign mr-1.5 text-primary"></i>Amount Paid</label>
+      <input type="number" name="amount" required min="1" step="1" placeholder="0" class="form-input">
+    </div>
+
+    <div>
+      <label class="form-label"><i class="fa-solid fa-camera mr-1.5 text-primary"></i>Payment Screenshot / Proof (optional)</label>
+      <div class="flex items-center gap-4">
+        <div id="photoPreviewWrap" class="hidden w-20 h-20 rounded-xl overflow-hidden border-2 border-primary/20 shrink-0">
+          <img id="photoPreview" class="w-full h-full object-cover" alt="Preview">
+        </div>
+        <label for="proof" class="upload-box flex-1">
+          <i class="fa-solid fa-cloud-arrow-up text-2xl text-primary mb-1"></i>
+          <span class="text-sm text-slate-500" id="photoLabel">Tap to upload JPG screenshot</span>
+        </label>
+        <input type="file" id="proof" name="proof" accept=".jpg,.jpeg,image/jpeg" class="hidden">
+      </div>
+      <p class="text-xs text-slate-400 mt-1">Only .jpg / .jpeg files, max 8MB.</p>
+    </div>
+
+    <div>
+      <label class="form-label"><i class="fa-solid fa-tag mr-1.5 text-primary"></i>Note (optional)</label>
+      <input type="text" name="note" maxlength="300" placeholder="e.g. paid via GPay" class="form-input">
+    </div>
+
+    <div class="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 text-xs text-amber-700">
+      <i class="fa-solid fa-circle-info mr-1"></i>
+      After you submit, your payment status will be <strong>PENDING CONFIRMATION</strong> until the hostel admin checks and confirms it.
+    </div>
+
+    <button type="submit" class="btn-primary w-full text-base py-4 flex items-center justify-center gap-2">
+      <i class="fa-solid fa-paper-plane"></i> SUBMIT PAYMENT
+    </button>
+  </form>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const photoInput = document.getElementById('proof');
+  const photoPreview = document.getElementById('photoPreview');
+  const photoPreviewWrap = document.getElementById('photoPreviewWrap');
+  const photoLabel = document.getElementById('photoLabel');
+
+  photoInput.addEventListener('change', function () {
+    const file = this.files[0];
+    if (!file) return;
+    if (!/\.(jpg|jpeg)$/i.test(file.name)) {
+      showToast('Only JPG/JPEG files are allowed.', 'error');
+      this.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      photoPreview.src = e.target.result;
+      photoPreviewWrap.classList.remove('hidden');
+      photoLabel.textContent = file.name;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  const form = document.getElementById('paymentForm');
+  form.addEventListener('submit', function () {
+    const btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting...';
+  });
+});
+</script>
+{% endblock %}

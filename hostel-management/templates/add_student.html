@@ -7,8 +7,8 @@
     <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 text-primary text-2xl mb-3">
       <i class="fa-solid fa-user-plus"></i>
     </div>
-    <h1 class="text-2xl sm:text-3xl font-bold text-slate-800">ADD YOUR DETAILS</h1>
-    <p class="text-slate-500 text-sm mt-1">MAKE SURE YOUR FILLING CORRECT DETAILS.</p>
+    <h1 class="text-2xl sm:text-3xl font-bold text-slate-800">Add Student</h1>
+    <p class="text-slate-500 text-sm mt-1">Fill in the details below to place a student into their room.</p>
   </div>
 
   <div id="flashArea"></div>
@@ -34,6 +34,7 @@
           {% for r in ROOMS %}
           <option value="{{ r }}" {{ 'selected' if form.get('room_number')|string == r|string }}>Room {{ r }}</option>
           {% endfor %}
+          <option value="{{ HALL_ROOM_NUMBER }}" {{ 'selected' if form.get('room_number')|string == HALL_ROOM_NUMBER|string }}>Hall (New Hostel only, 8 Sharing)</option>
         </select>
       </div>
     </div>
@@ -64,20 +65,6 @@
 
     <div class="grid sm:grid-cols-2 gap-5">
       <div>
-        <label class="form-label"><i class="fa-solid fa-calendar-check mr-1.5 text-primary"></i>Joined Date</label>
-        <input type="date" name="joined_date"
-               value="{{ form.get('joined_date') or today_ist() }}" class="form-input">
-      </div>
-      <div>
-        <label class="form-label"><i class="fa-solid fa-calendar-day mr-1.5 text-primary"></i>Date You Paid</label>
-        <input type="date" name="paid_date"
-               value="{{ form.get('paid_date', '') }}" class="form-input">
-        <p class="text-xs text-slate-400 mt-1">Leave blank if not paid yet.</p>
-      </div>
-    </div>
-
-    <div class="grid sm:grid-cols-2 gap-5">
-      <div>
         <label class="form-label"><i class="fa-solid fa-indian-rupee-sign mr-1.5 text-primary"></i>Total Rent</label>
         <input type="number" name="total_rent" id="total_rent" required min="0" step="1"
                placeholder="0" value="{{ form.get('total_rent', '') }}" class="form-input">
@@ -95,7 +82,7 @@
     </div>
 
     <div>
-      <label class="form-label"><i class="fa-solid fa-camera mr-1.5 text-primary"></i>ONLINE PAYMENT RECEIPT(JPG only)</label>
+      <label class="form-label"><i class="fa-solid fa-camera mr-1.5 text-primary"></i>Student Photo (JPG only)</label>
       <div class="flex items-center gap-4">
         <div id="photoPreviewWrap" class="hidden w-20 h-20 rounded-xl overflow-hidden border-2 border-primary/20 shrink-0">
           <img id="photoPreview" class="w-full h-full object-cover" alt="Preview">
@@ -110,10 +97,16 @@
     </div>
 
     <div>
-      <label class="form-label"><i class="fa-solid fa-tag mr-1.5 text-primary"></i>Note (cash / online / paid to whom)</label>
-      <input type="text" name="note" maxlength="300" placeholder="e.g. I paid online, remaining amount 500"
+      <label class="form-label"><i class="fa-solid fa-tag mr-1.5 text-primary"></i>Note (optional)</label>
+      <input type="text" name="note" maxlength="300" placeholder="e.g. pays on the 5th every month"
              value="{{ form.get('note', '') }}" class="form-input">
-      <p class="text-xs text-slate-400 mt-1">This note is cleared automatically at the start of every month.</p>
+    </div>
+
+    <div>
+      <label class="form-label"><i class="fa-solid fa-calendar-day mr-1.5 text-primary"></i>Monthly Due Date (optional)</label>
+      <input type="number" name="due_date" min="1" max="31" placeholder="Day of month, e.g. 5"
+             value="{{ form.get('due_date', '') }}" class="form-input">
+      <p class="text-xs text-slate-400 mt-1">Used for the admin Due List — e.g. 5 means rent is due on the 5th of every month.</p>
     </div>
 
     <button type="submit" class="btn-primary w-full text-base py-4 flex items-center justify-center gap-2">

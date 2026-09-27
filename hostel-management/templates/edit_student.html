@@ -31,6 +31,7 @@
           {% for r in ROOMS %}
           <option value="{{ r }}" {{ 'selected' if student.room_number|string == r|string }}>Room {{ r }}</option>
           {% endfor %}
+          <option value="{{ HALL_ROOM_NUMBER }}" {{ 'selected' if student.room_number|string == HALL_ROOM_NUMBER|string }}>Hall (New Hostel only, 8 Sharing)</option>
         </select>
       </div>
     </div>
@@ -53,20 +54,6 @@
       <label class="form-label"><i class="fa-solid fa-phone mr-1.5 text-primary"></i>Contact Number</label>
       <input type="tel" name="contact" id="contact" required pattern="[6-9][0-9]{9}" maxlength="10"
              value="{{ student.contact }}" class="form-input" inputmode="numeric">
-    </div>
-
-    <div class="grid sm:grid-cols-2 gap-5">
-      <div>
-        <label class="form-label"><i class="fa-solid fa-calendar-check mr-1.5 text-primary"></i>Joined Date</label>
-        <input type="date" name="joined_date"
-               value="{{ student.joined_date or '' }}" class="form-input">
-      </div>
-      <div>
-        <label class="form-label"><i class="fa-solid fa-calendar-day mr-1.5 text-primary"></i>Date You Paid</label>
-        <input type="date" name="paid_date"
-               value="{{ student.paid_date or '' }}" class="form-input">
-        <p class="text-xs text-slate-400 mt-1">Leave blank if not paid yet.</p>
-      </div>
     </div>
 
     <div class="grid sm:grid-cols-2 gap-5">
@@ -108,10 +95,16 @@
     </div>
 
     <div>
-      <label class="form-label"><i class="fa-solid fa-tag mr-1.5 text-primary"></i>Note (cash / online / paid to whom)</label>
-      <input type="text" name="note" maxlength="300" placeholder="e.g. I paid online, remaining amount 500"
+      <label class="form-label"><i class="fa-solid fa-tag mr-1.5 text-primary"></i>Note (optional)</label>
+      <input type="text" name="note" maxlength="300" placeholder="e.g. pays on the 5th every month"
              value="{{ student.note or '' }}" class="form-input">
-      <p class="text-xs text-slate-400 mt-1">This note is cleared automatically at the start of every month.</p>
+    </div>
+
+    <div>
+      <label class="form-label"><i class="fa-solid fa-calendar-day mr-1.5 text-primary"></i>Monthly Due Date (optional)</label>
+      <input type="number" name="due_date" min="1" max="31" placeholder="Day of month, e.g. 5"
+             value="{{ student.due_date if student.due_date is not none else '' }}" class="form-input">
+      <p class="text-xs text-slate-400 mt-1">Used for the admin Due List — e.g. 5 means rent is due on the 5th of every month.</p>
     </div>
 
     <div class="flex gap-3">
@@ -173,3 +166,4 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 {% endblock %}
+
