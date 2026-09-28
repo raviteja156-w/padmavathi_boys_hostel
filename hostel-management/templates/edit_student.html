@@ -73,6 +73,77 @@
     </div>
 
     <div>
+      <label class="form-label"><i class="fa-solid fa-calendar-plus mr-1.5 text-primary"></i>Date of Join</label>
+      <input type="date" name="date_of_join" value="{{ student.date_of_join or '' }}" class="form-input">
+      <p class="text-xs text-slate-400 mt-1">Rent is due on this day of every month, and the student appears in the Due List from that day until paid.</p>
+    </div>
+
+    <div class="border-t border-slate-100 pt-5 space-y-5">
+      <h2 class="text-sm font-bold text-slate-700 uppercase tracking-wide">
+        <i class="fa-solid fa-receipt mr-1.5 text-primary"></i>Payment Details
+      </h2>
+
+      <div class="grid sm:grid-cols-2 gap-5">
+        <div>
+          <label class="form-label"><i class="fa-solid fa-calendar-check mr-1.5 text-primary"></i>Payment Date</label>
+          <input type="date" name="payment_date" value="{{ student.payment_date or '' }}" class="form-input">
+        </div>
+        <div>
+          <label class="form-label"><i class="fa-solid fa-wallet mr-1.5 text-primary"></i>Payment Mode</label>
+          <select name="payment_mode" id="payment_mode" class="form-input">
+            <option value="">— Not paid yet —</option>
+            {% for m in PAYMENT_MODES %}
+            <option value="{{ m }}" {{ 'selected' if student.payment_mode == m }}>{{ m }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div id="onlineBox" class="hidden" data-has-receipt="{{ 1 if student.receipt_filename else 0 }}">
+        <label class="form-label"><i class="fa-solid fa-file-image mr-1.5 text-primary"></i>Online Payment Receipt</label>
+        {% if student.receipt_filename %}
+        <div class="flex items-center gap-3 mb-3">
+          <a href="{{ photo_url(student.receipt_filename) }}" target="_blank" rel="noopener"
+             class="w-20 h-20 rounded-xl overflow-hidden border-2 border-primary/20 shrink-0 block">
+            <img src="{{ photo_url(student.receipt_filename) }}" class="w-full h-full object-cover" alt="Current receipt"
+                 onerror="this.onerror=null;this.src='{{ PHOTO_PLACEHOLDER }}';">
+          </a>
+          <div class="text-sm text-slate-500">
+            Current receipt (tap to open)
+            <label class="flex items-center gap-2 mt-1 text-sm text-slate-500">
+              <input type="checkbox" name="remove_receipt" value="1" class="rounded">
+              Remove this receipt
+            </label>
+          </div>
+        </div>
+        {% endif %}
+        <div class="flex items-center gap-4">
+          <div id="receiptPreviewWrap" class="hidden w-20 h-20 rounded-xl overflow-hidden border-2 border-primary/20 shrink-0">
+            <img id="receiptPreview" class="w-full h-full object-cover" alt="Receipt preview">
+          </div>
+          <label for="receipt" class="upload-box flex-1">
+            <i class="fa-solid fa-cloud-arrow-up text-2xl text-primary mb-1"></i>
+            <span class="text-sm text-slate-500" id="receiptLabel">{{ "Tap to replace receipt" if student.receipt_filename else "Tap to upload receipt screenshot" }}</span>
+          </label>
+          <input type="file" id="receipt" name="receipt" accept=".jpg,.jpeg,.png,image/jpeg,image/png" class="hidden">
+        </div>
+        <p class="text-xs text-slate-400 mt-1">JPG or PNG, max 8MB.</p>
+      </div>
+
+      <div id="cashBox" class="hidden">
+        <label class="form-label"><i class="fa-solid fa-money-bill-1 mr-1.5 text-primary"></i>Cash Amount Received</label>
+        <input type="number" name="cash_amount" min="0" step="1" placeholder="How much was paid in cash?"
+               value="{{ '%g'|format(student.cash_amount|float) if student.cash_amount is not none and student.cash_amount != '' else '' }}" class="form-input">
+      </div>
+
+      <div>
+        <label class="form-label"><i class="fa-solid fa-user-check mr-1.5 text-primary"></i>Paid To</label>
+        <input type="text" name="paid_to" maxlength="100" placeholder="Name of the person who received the payment"
+               value="{{ student.paid_to or '' }}" class="form-input">
+      </div>
+    </div>
+
+    <div>
       <label class="form-label"><i class="fa-solid fa-camera mr-1.5 text-primary"></i>Student Photo</label>
       <div class="flex items-center gap-4">
         <div id="photoPreviewWrap" class="w-20 h-20 rounded-xl overflow-hidden border-2 border-primary/20 shrink-0 {{ '' if student.photo_filename else 'hidden' }}">
@@ -142,6 +213,41 @@ document.addEventListener('DOMContentLoaded', function () {
   totalRent.addEventListener('input', updateBalance);
   amountPaid.addEventListener('input', updateBalance);
 
+
+  // ---- payment mode: show receipt upload for Online, cash amount for Cash ----
+  const modeSel = document.getElementById('payment_mode');
+  const onlineBox = document.getElementById('onlineBox');
+  const cashBox = document.getElementById('cashBox');
+  function syncPaymentBoxes() {
+    const m = modeSel.value;
+    const hasReceipt = onlineBox.getAttribute('data-has-receipt') === '1';
+    onlineBox.classList.toggle('hidden', !(m === 'Online' || m === 'Online + Cash' || hasReceipt));
+    cashBox.classList.toggle('hidden', !(m === 'Cash' || m === 'Online + Cash'));
+  }
+  modeSel.addEventListener('change', syncPaymentBoxes);
+  syncPaymentBoxes();
+
+  const receiptInput = document.getElementById('receipt');
+  const receiptPreview = document.getElementById('receiptPreview');
+  const receiptPreviewWrap = document.getElementById('receiptPreviewWrap');
+  const receiptLabel = document.getElementById('receiptLabel');
+  receiptInput.addEventListener('change', function () {
+    const file = this.files[0];
+    if (!file) return;
+    if (!/\.(jpg|jpeg|png)$/i.test(file.name)) {
+      showToast('Receipt must be a JPG or PNG image.', 'error');
+      this.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      receiptPreview.src = e.target.result;
+      receiptPreviewWrap.classList.remove('hidden');
+      receiptLabel.textContent = file.name;
+    };
+    reader.readAsDataURL(file);
+  });
+
   contact.addEventListener('input', function () {
     this.value = this.value.replace(/\D/g, '').slice(0, 10);
   });
@@ -166,4 +272,3 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 {% endblock %}
-

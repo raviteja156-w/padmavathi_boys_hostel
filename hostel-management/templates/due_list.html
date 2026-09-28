@@ -8,34 +8,52 @@
     <a href="{{ url_for('admin_dashboard') }}" class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-primary transition shrink-0">
       <i class="fa-solid fa-arrow-left"></i>
     </a>
-    <div>
+    <div class="min-w-0">
       <h1 class="text-2xl font-bold text-slate-800">Due List</h1>
-      <p class="text-slate-500 text-sm">Students whose due date has arrived (day {{ today_day }} or earlier this month) and still have a balance.</p>
+      <p class="text-slate-500 text-sm">
+        Today is {{ today|pretty_date }}. Students appear here from their due day (the day of their join date, every month) until their balance is cleared.
+      </p>
     </div>
   </div>
 
-  {% if not students %}
+  {% if not tracking_started %}
+  <div class="card p-8 text-center">
+    <i class="fa-solid fa-hourglass-start text-primary text-3xl mb-3"></i>
+    <p class="font-semibold text-slate-800">Due tracking starts on {{ launch_date|pretty_date }}</p>
+    <p class="text-slate-500 text-sm mt-1">From that day the Due List works automatically, and payment details reset on the 1st of every month.</p>
+  </div>
+
+  {% elif not students %}
   <div class="card p-10 text-center">
     <i class="fa-solid fa-circle-check text-success text-3xl mb-3"></i>
     <p class="text-slate-500">No students are due right now.</p>
   </div>
+
   {% else %}
+  <p class="text-sm font-semibold text-slate-500 mb-3">{{ students|length }} student{{ '' if students|length == 1 else 's' }} due</p>
   <div class="space-y-3">
     {% for s in students %}
-    <div class="card p-4 sm:p-5 border-l-4 border-danger">
+    <div id="student-{{ s.id }}" class="card p-4 sm:p-5 border-l-4 {{ 'border-danger' if s.days_overdue > 0 else 'border-amber-400' }}">
+
       <div class="flex justify-between items-start gap-3">
         <div class="min-w-0">
           <h3 class="font-bold text-slate-800 truncate">{{ s.name }}</h3>
           <p class="text-xs text-slate-500 mt-0.5">
             <i class="fa-solid {{ 'fa-house' if s.hostel == 'Old Hostel' else 'fa-city' }} mr-1"></i>{{ s.hostel }} &bull; {{ room_label(s.room_number) }}
           </p>
-          <p class="text-xs text-danger font-semibold mt-1">
-            <i class="fa-solid fa-calendar-day mr-1"></i>Due Date: {{ s.due_date }}{% if s.due_date == 1 %}st{% elif s.due_date == 2 %}nd{% elif s.due_date == 3 %}rd{% else %}th{% endif %} of month
+          <p class="text-xs font-semibold mt-1 {{ 'text-danger' if s.days_overdue > 0 else 'text-amber-600' }}">
+            <i class="fa-solid fa-calendar-day mr-1"></i>Due: {{ s.due_on|pretty_date }}
+            &bull;
+            {% if s.days_overdue == 0 %}Due today{% elif s.days_overdue == 1 %}1 day overdue{% else %}{{ s.days_overdue }} days overdue{% endif %}
           </p>
         </div>
-        <a href="tel:{{ s.contact }}" class="btn-primary shrink-0 px-3 py-2 text-sm flex items-center gap-1.5">
+        {% if s.contact %}
+        <a href="tel:{{ s.contact }}" class="btn-primary shrink-0 px-4 py-2.5 text-sm flex items-center gap-1.5">
           <i class="fa-solid fa-phone"></i> Call
         </a>
+        {% else %}
+        <span class="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-400">No number</span>
+        {% endif %}
       </div>
 
       <div class="grid grid-cols-3 gap-1.5 mt-3 text-center">
@@ -44,10 +62,23 @@
         <div class="mini-stat text-danger"><span class="block text-[10px] text-slate-400">Balance</span>₹{{ '{:,.0f}'.format(s.balance) }}</div>
       </div>
 
-      <div class="flex items-center justify-between mt-3">
-        <span class="text-xs text-slate-400"><i class="fa-solid fa-phone text-[10px] mr-1"></i>{{ s.contact }}</span>
-        <a href="{{ url_for('edit_student', student_id=s.id) }}" class="btn-edit text-xs px-3 py-1.5">
-          <i class="fa-solid fa-pen"></i> Edit
+      <p class="text-xs text-slate-400 mt-2">
+        {% if s.date_of_join %}Joined {{ s.date_of_join|pretty_date }}{% endif %}
+        {% if s.contact %}{% if s.date_of_join %} &bull; {% endif %}<i class="fa-solid fa-phone text-[10px] mr-0.5"></i>{{ s.contact }}{% endif %}
+      </p>
+
+      <form method="POST" action="{{ url_for('save_due_note', student_id=s.id) }}" class="flex items-center gap-2 mt-3">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="text" name="note" maxlength="300" value="{{ s.note or '' }}"
+               placeholder="Note (e.g. will pay on the 5th)" class="form-input text-sm py-2 flex-1 min-w-0">
+        <button type="submit" class="btn-outline text-sm px-3 py-2 shrink-0" title="Save note">
+          <i class="fa-solid fa-floppy-disk"></i>
+        </button>
+      </form>
+
+      <div class="flex justify-end mt-3">
+        <a href="{{ url_for('edit_student', student_id=s.id) }}" class="btn-edit text-xs px-4 py-2">
+          <i class="fa-solid fa-pen"></i> Edit / Record Payment
         </a>
       </div>
     </div>

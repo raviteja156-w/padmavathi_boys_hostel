@@ -9,7 +9,7 @@ import base64
 import calendar
 import secrets
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta, date
 from functools import wraps
 
 import psycopg2
@@ -72,6 +72,32 @@ ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
 
 ALLOWED_EXTENSIONS = {'jpg', 'jpeg'}
+ALLOWED_RECEIPT_EXTENSIONS = {'jpg', 'jpeg', 'png'}
+PAYMENT_MODES = ['Online', 'Cash', 'Online + Cash']
+
+# All "today" / "this month" logic uses Indian Standard Time (UTC+5:30).
+IST_OFFSET = timedelta(hours=5, minutes=30)
+
+
+def now_ist():
+    return datetime.utcnow() + IST_OFFSET
+
+
+def today_ist():
+    return now_ist().date()
+
+
+# Due-date tracking and the monthly payment reset start on this date (12:00 AM IST).
+try:
+    LAUNCH_DATE = datetime.strptime(os.environ.get('LAUNCH_DATE', '2026-10-01').strip(), '%Y-%m-%d').date()
+except ValueError:
+    LAUNCH_DATE = date(2026, 10, 1)
+
+
+def previous_month_label(d):
+    """'YYYY-MM' label of the month before the month that date d falls in."""
+    return (d.replace(day=1) - timedelta(days=1)).strftime('%Y-%m')
+
 HOSTELS = ['Old Hostel', 'New Hostel']
 ROOMS = list(range(1, 11))
 SHARINGS = list(range(1, 9))  # 1..8 (8-sharing needed for the New Hostel Hall)
@@ -179,6 +205,40 @@ def init_db():
     cur.execute("ALTER TABLE room_notes DROP CONSTRAINT IF EXISTS room_notes_room_number_check")
     cur.execute("ALTER TABLE room_notes ADD CONSTRAINT room_notes_room_number_check CHECK (room_number BETWEEN 1 AND 11)")
 
+    # Join date + payment details (all optional, so every existing student stays valid).
+    # Dates are stored as ISO text 'YYYY-MM-DD' (what <input type="date"> submits).
+    cur.execute("ALTER TABLE students ADD COLUMN IF NOT EXISTS date_of_join TEXT")
+    cur.execute("ALTER TABLE students ADD COLUMN IF NOT EXISTS payment_date TEXT")
+    cur.execute("ALTER TABLE students ADD COLUMN IF NOT EXISTS payment_mode TEXT")
+    cur.execute("ALTER TABLE students ADD COLUMN IF NOT EXISTS cash_amount REAL")
+    cur.execute("ALTER TABLE students ADD COLUMN IF NOT EXISTS paid_to TEXT")
+    cur.execute("ALTER TABLE students ADD COLUMN IF NOT EXISTS receipt_filename TEXT")
+
+    # Every month's payment details are copied here before the 1st-of-month reset,
+    # so nothing is ever lost. No foreign key: history must outlive a deleted student.
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS payment_history (
+            id SERIAL PRIMARY KEY,
+            student_id INTEGER,
+            hostel TEXT,
+            room_number INTEGER,
+            name TEXT,
+            contact TEXT,
+            billing_month TEXT NOT NULL,
+            total_rent REAL,
+            amount_paid REAL,
+            balance REAL,
+            payment_date TEXT,
+            payment_mode TEXT,
+            cash_amount REAL,
+            paid_to TEXT,
+            receipt_filename TEXT,
+            note TEXT,
+            archived_at TEXT NOT NULL
+        )
+    ''')
+    cur.execute('CREATE INDEX IF NOT EXISTS idx_history_month ON payment_history(billing_month)')
+
     # Simple key/value store for site-wide settings (payment QR image URL, amount due, etc.)
     cur.execute('''
         CREATE TABLE IF NOT EXISTS app_settings (
@@ -207,6 +267,13 @@ def init_db():
         )
     ''')
     cur.execute('CREATE INDEX IF NOT EXISTS idx_payment_status ON payment_submissions(status)')
+
+    # The billing cycle the students' payment fields currently belong to. Starts as the month
+    # before launch, so the very first request on/after LAUNCH_DATE archives + resets them.
+    cur.execute('''
+        INSERT INTO app_settings (key, value) VALUES ('billing_cycle', %s)
+        ON CONFLICT (key) DO NOTHING
+    ''', (previous_month_label(LAUNCH_DATE),))
     conn.commit()
     cur.close()
     conn.close()
@@ -434,7 +501,7 @@ def set_setting(db, key, value):
 
 
 def next_month_label():
-    today = datetime.utcnow().date()
+    today = today_ist()
     month, year = today.month + 1, today.year
     if month > 12:
         month, year = 1, year + 1
@@ -442,10 +509,210 @@ def next_month_label():
 
 
 # --------------------------------------------------------------------------
+# DATES, PAYMENT FIELDS, RECEIPTS
+# --------------------------------------------------------------------------
+
+def parse_iso_date(value):
+    """'YYYY-MM-DD' -> date, or None if empty/invalid."""
+    if not value:
+        return None
+    try:
+        return datetime.strptime(str(value).strip()[:10], '%Y-%m-%d').date()
+    except ValueError:
+        return None
+
+
+def pretty_date(value):
+    d = parse_iso_date(value)
+    return d.strftime('%d %b %Y') if d else ''
+
+
+app.jinja_env.filters['pretty_date'] = pretty_date
+app.jinja_env.globals['PAYMENT_MODES'] = PAYMENT_MODES
+app.jinja_env.globals['today_iso'] = lambda: today_ist().isoformat()
+
+
+def _form_date(raw, label, errors):
+    raw = (raw or '').strip()
+    if not raw:
+        return None
+    d = parse_iso_date(raw)
+    if not d:
+        errors.append(f'{label} is not a valid date.')
+        return None
+    return d.isoformat()
+
+
+def parse_payment_fields(form, amount_paid, errors):
+    """Validates the join date / payment detail fields shared by the add + edit forms."""
+    date_of_join = _form_date(form.get('date_of_join'), 'Date of join', errors)
+    payment_date = _form_date(form.get('payment_date'), 'Payment date', errors)
+
+    mode = (form.get('payment_mode') or '').strip()
+    if mode and mode not in PAYMENT_MODES:
+        errors.append('Please select a valid payment mode.')
+        mode = ''
+    mode = mode or None
+
+    paid_to = (form.get('paid_to') or '').strip()[:100] or None
+
+    cash_amount = None
+    cash_raw = (form.get('cash_amount') or '').strip()
+    if cash_raw:
+        try:
+            cash_amount = float(cash_raw)
+            if cash_amount < 0:
+                raise ValueError()
+        except ValueError:
+            errors.append('Cash amount must be a valid non-negative number.')
+            cash_amount = None
+    if mode not in ('Cash', 'Online + Cash'):
+        cash_amount = None  # a cash amount only makes sense when cash was involved
+    if cash_amount is not None and amount_paid is not None and cash_amount > amount_paid:
+        errors.append('Cash amount cannot be greater than the amount paid.')
+
+    return {
+        'date_of_join': date_of_join,
+        'payment_date': payment_date,
+        'payment_mode': mode,
+        'cash_amount': cash_amount,
+        'paid_to': paid_to,
+    }
+
+
+def save_receipt(file_storage):
+    """Compress an uploaded payment receipt (JPG/PNG) and upload it to Supabase Storage.
+    Returns the public URL, or None if no file was provided."""
+    if not file_storage or file_storage.filename == '':
+        return None
+    filename = secure_filename(file_storage.filename)
+    ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+    if ext not in ALLOWED_RECEIPT_EXTENSIONS:
+        raise ValueError('Receipt must be a JPG or PNG image.')
+    try:
+        img = Image.open(file_storage.stream)
+        img.verify()
+        file_storage.stream.seek(0)
+        img = Image.open(file_storage.stream)
+    except Exception:
+        raise ValueError('The uploaded receipt is not a valid image.')
+
+    img = img.convert('RGB')
+    img.thumbnail((1400, 1400), Image.LANCZOS)
+    buf = io.BytesIO()
+    img.save(buf, 'JPEG', quality=80, optimize=True)
+    return upload_photo_to_supabase(buf.getvalue(), f"receipt_{uuid.uuid4().hex}.jpg")
+
+
+# --------------------------------------------------------------------------
+# DUE LIST LOGIC + MONTHLY RESET
+# --------------------------------------------------------------------------
+
+def effective_due_day(student, year, month):
+    """Day of the month rent is due: the admin-set due_date if present, otherwise the day of
+    the student's join date. Capped to the month's length (join day 31 -> 30 in April, etc.)."""
+    day = student.get('due_date')
+    if not day:
+        joined = parse_iso_date(student.get('date_of_join'))
+        if not joined:
+            return None
+        day = joined.day
+    return min(int(day), calendar.monthrange(year, month)[1])
+
+
+def get_due_students(db):
+    """Students whose due day has arrived this month and who still have a balance.
+    Nothing is due before LAUNCH_DATE."""
+    today = today_ist()
+    if today < LAUNCH_DATE:
+        return []
+    rows = db.execute('SELECT * FROM students WHERE balance > 0').fetchall()
+    due = []
+    for row in rows:
+        s = dict(row)
+        due_day = effective_due_day(s, today.year, today.month)
+        if due_day is None or due_day > today.day:
+            continue
+        joined = parse_iso_date(s.get('date_of_join'))
+        if joined and joined > today:
+            continue
+        s['due_day'] = due_day
+        s['due_on'] = date(today.year, today.month, due_day).isoformat()
+        s['days_overdue'] = today.day - due_day
+        due.append(s)
+    due.sort(key=lambda x: (x['due_day'], (x['name'] or '').lower()))
+    return due
+
+
+_rollover_checked_cycle = None
+
+
+def ensure_monthly_rollover():
+    """On the first request of each new month (IST), copy every student's payment details into
+    payment_history and then blank them (amount paid, payment date, mode, receipt, cash amount,
+    paid to, note). Everything else stays. Safe with several workers: the billing_cycle row is
+    locked, so only one of them performs the reset."""
+    global _rollover_checked_cycle
+    today = today_ist()
+    if today < LAUNCH_DATE:
+        return
+    cycle = today.strftime('%Y-%m')
+    if _rollover_checked_cycle == cycle:
+        return
+
+    conn = psycopg2.connect(DATABASE_URL)
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT value FROM app_settings WHERE key = 'billing_cycle' FOR UPDATE")
+        row = cur.fetchone()
+        if row is None:
+            cur.execute("INSERT INTO app_settings (key, value) VALUES ('billing_cycle', %s) ON CONFLICT (key) DO NOTHING",
+                        (previous_month_label(LAUNCH_DATE),))
+            cur.execute("SELECT value FROM app_settings WHERE key = 'billing_cycle' FOR UPDATE")
+            row = cur.fetchone()
+        closing_cycle = row[0]
+
+        if closing_cycle < cycle:
+            now_iso = datetime.utcnow().isoformat()
+            cur.execute('''
+                INSERT INTO payment_history
+                (student_id, hostel, room_number, name, contact, billing_month, total_rent, amount_paid, balance,
+                 payment_date, payment_mode, cash_amount, paid_to, receipt_filename, note, archived_at)
+                SELECT id, hostel, room_number, name, contact, %s, total_rent, amount_paid, balance,
+                       payment_date, payment_mode, cash_amount, paid_to, receipt_filename, note, %s
+                FROM students
+            ''', (closing_cycle, now_iso))
+            cur.execute('''
+                UPDATE students
+                SET amount_paid = 0, balance = total_rent, payment_date = NULL, payment_mode = NULL,
+                    cash_amount = NULL, paid_to = NULL, receipt_filename = NULL, note = '', updated_at = %s
+            ''', (now_iso,))
+            cur.execute("UPDATE app_settings SET value = %s WHERE key = 'billing_cycle'", (cycle,))
+        conn.commit()
+        _rollover_checked_cycle = cycle
+    except Exception:
+        conn.rollback()
+        app.logger.exception('Monthly payment rollover failed')
+    finally:
+        conn.close()
+
+
+# --------------------------------------------------------------------------
 # INITIALIZE DATABASE ON STARTUP
 # --------------------------------------------------------------------------
 
 init_db()
+
+
+@app.before_request
+def _monthly_rollover_hook():
+    if request.endpoint == 'static':
+        return
+    try:
+        ensure_monthly_rollover()
+    except Exception:
+        app.logger.exception('Monthly payment rollover hook failed')
+
 
 
 # --------------------------------------------------------------------------
@@ -526,8 +793,12 @@ def add_student():
         if total_rent is not None and amount_paid is not None and amount_paid > total_rent:
             errors.append('Amount paid cannot be greater than total rent.')
 
+        pay = parse_payment_fields(request.form, amount_paid, errors)
+
         photo_file = request.files.get('photo')
         photo_filename = None
+        receipt_file = request.files.get('receipt')
+        receipt_filename = None
 
         if not errors and room_number and sharing:
             ok, msg = check_capacity(db, hostel, room_number, sharing)
@@ -542,6 +813,8 @@ def add_student():
         try:
             if photo_file and photo_file.filename:
                 photo_filename = save_photo(photo_file)
+            if receipt_file and receipt_file.filename:
+                receipt_filename = save_receipt(receipt_file)
         except ValueError as e:
             flash(str(e), 'error')
             return render_template('add_student.html', form=request.form)
@@ -551,9 +824,12 @@ def add_student():
 
         db.execute('''
             INSERT INTO students
-            (hostel, room_number, sharing, name, contact, total_rent, amount_paid, balance, photo_filename, note, due_date, created_at, updated_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        ''', (hostel, room_number, sharing, name, clean_contact, total_rent, amount_paid, balance, photo_filename, note, due_date, now, now))
+            (hostel, room_number, sharing, name, contact, total_rent, amount_paid, balance, photo_filename, note, due_date,
+             date_of_join, payment_date, payment_mode, cash_amount, paid_to, receipt_filename, created_at, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ''', (hostel, room_number, sharing, name, clean_contact, total_rent, amount_paid, balance, photo_filename, note, due_date,
+              pay['date_of_join'], pay['payment_date'], pay['payment_mode'], pay['cash_amount'], pay['paid_to'],
+              receipt_filename, now, now))
         db.commit()
 
         flash(f'{name} was saved successfully to {hostel} - Room {room_number}!', 'success')
@@ -617,11 +893,7 @@ def admin_dashboard():
     all_students = db.execute('SELECT * FROM students ORDER BY LOWER(name)').fetchall()
     all_students = [row_to_student(r) for r in all_students]
 
-    today_day = datetime.utcnow().day
-    due_row = db.execute('''
-        SELECT COUNT(*) AS c FROM students
-        WHERE due_date IS NOT NULL AND due_date <= %s AND balance > 0
-    ''', (today_day,)).fetchone()
+    due_count = len(get_due_students(db))
     pending_row = db.execute("SELECT COUNT(*) AS c FROM payment_submissions WHERE status='PENDING'").fetchone()
 
     return render_template(
@@ -631,7 +903,7 @@ def admin_dashboard():
         hostels=HOSTELS,
         rooms=ROOMS,
         all_students=all_students,
-        due_count=due_row['c'] or 0,
+        due_count=due_count,
         pending_payments_count=pending_row['c'] or 0,
     )
 
@@ -741,14 +1013,33 @@ def save_room_note():
 @login_required
 def due_list():
     db = get_db()
-    today_day = datetime.utcnow().day
-    rows = db.execute('''
-        SELECT * FROM students
-        WHERE due_date IS NOT NULL AND due_date <= %s AND balance > 0
-        ORDER BY due_date ASC, LOWER(name)
-    ''', (today_day,)).fetchall()
-    students = [dict(r) for r in rows]
-    return render_template('due_list.html', students=students, today_day=today_day)
+    today = today_ist()
+    students = get_due_students(db)
+    return render_template(
+        'due_list.html',
+        students=students,
+        today=today.isoformat(),
+        tracking_started=(today >= LAUNCH_DATE),
+        launch_date=LAUNCH_DATE.isoformat(),
+    )
+
+
+@app.route('/admin/due-list/<int:student_id>/note', methods=['POST'])
+@login_required
+def save_due_note(student_id):
+    if not validate_csrf(request.form.get('csrf_token')):
+        flash('Security check failed. Please try again.', 'error')
+        return redirect(url_for('due_list'))
+    db = get_db()
+    student = db.execute('SELECT id, name FROM students WHERE id=%s', (student_id,)).fetchone()
+    if not student:
+        abort(404)
+    note = request.form.get('note', '').strip()[:300]
+    db.execute('UPDATE students SET note=%s, updated_at=%s WHERE id=%s',
+               (note, datetime.utcnow().isoformat(), student_id))
+    db.commit()
+    flash(f"Note saved for {student['name']}." if note else f"Note cleared for {student['name']}.", 'success')
+    return redirect(url_for('due_list') + f'#student-{student_id}')
 
 
 # --------------------------------------------------------------------------
@@ -918,7 +1209,7 @@ def payments_submit():
 @login_required
 def admin_payments():
     db = get_db()
-    today_str = datetime.utcnow().date().isoformat()
+    today_str = today_ist().isoformat()
     rows = db.execute('SELECT * FROM payment_submissions ORDER BY id DESC LIMIT 200').fetchall()
     submissions = [dict(r) for r in rows]
     for s in submissions:
@@ -958,9 +1249,14 @@ def confirm_payment(payment_id):
         if student:
             new_paid = (student['amount_paid'] or 0) + payment['amount']
             new_balance = max(round((student['total_rent'] or 0) - new_paid, 2), 0)
+            old_mode = student.get('payment_mode')
+            new_mode = 'Online' if not old_mode else ('Online + Cash' if old_mode == 'Cash' else old_mode)
+            new_receipt = payment['proof_filename'] or student.get('receipt_filename')
             db.execute('''
-                UPDATE students SET amount_paid=%s, balance=%s, updated_at=%s WHERE id=%s
-            ''', (new_paid, new_balance, now, payment['student_id']))
+                UPDATE students
+                SET amount_paid=%s, balance=%s, payment_date=%s, payment_mode=%s, receipt_filename=%s, updated_at=%s
+                WHERE id=%s
+            ''', (new_paid, new_balance, today_ist().isoformat(), new_mode, new_receipt, now, payment['student_id']))
 
     db.commit()
     flash(f"Payment of ₹{payment['amount']:,.0f} from {payment['name']} confirmed.", 'success')
@@ -995,6 +1291,7 @@ def edit_student(student_id):
         note = request.form.get('note', '').strip()[:300]
         due_date = request.form.get('due_date', '').strip()
         remove_photo = request.form.get('remove_photo') == '1'
+        remove_receipt = request.form.get('remove_receipt') == '1'
 
         errors = []
         if hostel not in HOSTELS:
@@ -1049,6 +1346,8 @@ def edit_student(student_id):
         if total_rent is not None and amount_paid is not None and amount_paid > total_rent:
             errors.append('Amount paid cannot be greater than total rent.')
 
+        pay = parse_payment_fields(request.form, amount_paid, errors)
+
         if not errors and room_number and sharing:
             room_changed = (hostel != student['hostel'] or room_number != student['room_number'])
             ok, msg = check_capacity(db, hostel, room_number, sharing, exclude_id=student_id)
@@ -1057,6 +1356,8 @@ def edit_student(student_id):
 
         photo_file = request.files.get('photo')
         new_photo_filename = student['photo_filename']
+        receipt_file = request.files.get('receipt')
+        new_receipt_filename = student.get('receipt_filename')
 
         if errors:
             for e in errors:
@@ -1074,6 +1375,13 @@ def edit_student(student_id):
             elif remove_photo:
                 delete_photo(student['photo_filename'])
                 new_photo_filename = None
+            # Receipts are never deleted from storage (payment history may still point to them).
+            if receipt_file and receipt_file.filename:
+                saved_receipt = save_receipt(receipt_file)
+                if saved_receipt:
+                    new_receipt_filename = saved_receipt
+            elif remove_receipt:
+                new_receipt_filename = None
         except ValueError as e:
             flash(str(e), 'error')
             return render_template('edit_student.html', student=student)
@@ -1083,9 +1391,12 @@ def edit_student(student_id):
 
         db.execute('''
             UPDATE students
-            SET hostel=%s, room_number=%s, sharing=%s, name=%s, contact=%s, total_rent=%s, amount_paid=%s, balance=%s, photo_filename=%s, note=%s, due_date=%s, updated_at=%s
+            SET hostel=%s, room_number=%s, sharing=%s, name=%s, contact=%s, total_rent=%s, amount_paid=%s, balance=%s, photo_filename=%s, note=%s, due_date=%s,
+                date_of_join=%s, payment_date=%s, payment_mode=%s, cash_amount=%s, paid_to=%s, receipt_filename=%s, updated_at=%s
             WHERE id=%s
-        ''', (hostel, room_number, sharing, name, clean_contact, total_rent, amount_paid, balance, new_photo_filename, note, due_date, now, student_id))
+        ''', (hostel, room_number, sharing, name, clean_contact, total_rent, amount_paid, balance, new_photo_filename, note, due_date,
+              pay['date_of_join'], pay['payment_date'], pay['payment_mode'], pay['cash_amount'], pay['paid_to'],
+              new_receipt_filename, now, student_id))
         db.commit()
 
         flash(f'{name} was updated successfully.', 'success')
