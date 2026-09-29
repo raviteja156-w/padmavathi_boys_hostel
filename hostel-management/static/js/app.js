@@ -1,5 +1,5 @@
 // ============================================================
-// Hostel Management System — Global JavaScript
+// Padmavathi Boys hostel — Global JavaScript
 // Mobile navigation + toast notifications
 // ============================================================
 
@@ -70,5 +70,28 @@ document.addEventListener('keydown', function (e) {
     document.querySelectorAll('.modal-overlay:not(.hidden)').forEach(function (m) {
       m.classList.add('hidden');
     });
+  }
+});
+
+// COPY buttons (payment number): <button class="copy-btn" data-copy="...">
+document.addEventListener('click', function (e) {
+  const btn = e.target.closest('.copy-btn');
+  if (!btn) return;
+  const text = btn.getAttribute('data-copy') || '';
+  function done() { showToast('Copied: ' + text, 'success'); }
+  function fallback() {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); done(); } catch (err) { showToast('Could not copy. Please copy manually.', 'error'); }
+    document.body.removeChild(ta);
+  }
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(done, fallback);
+  } else {
+    fallback();
   }
 });

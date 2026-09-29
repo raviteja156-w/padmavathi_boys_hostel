@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}Add My Payment — Hostel Management System{% endblock %}
+{% block title %}Add My Payment — Padmavathi Boys hostel{% endblock %}
 {% block content %}
 
 <div class="max-w-xl mx-auto animate-slide-up">
@@ -24,7 +24,8 @@
 
     <div>
       <label class="form-label"><i class="fa-solid fa-indian-rupee-sign mr-1.5 text-primary"></i>Amount Paid</label>
-      <input type="number" name="amount" required min="1" step="1" placeholder="0" class="form-input">
+      <input type="number" name="amount" required min="1" step="1" placeholder="0" value="{{ '%d'|format(due_amount) if due_amount and due_amount > 0 and due_amount == due_amount|int else '' }}" class="form-input">
+      <p class="text-xs text-slate-400 mt-1">Your current due: ₹{{ '{:,.0f}'.format(due_amount or 0) }}</p>
     </div>
 
     <div>

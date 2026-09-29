@@ -330,14 +330,14 @@ def decorated_check(f, *args, **kwargs):
     return f(*args, **kwargs)
 
 
-def upload_photo_to_supabase(image_bytes, storage_filename):
+def upload_photo_to_supabase(image_bytes, storage_filename, content_type='image/jpeg'):
     """Uploads JPEG bytes to the Supabase Storage bucket. Returns the public URL, or
     raises ValueError with a user-friendly message on failure."""
     upload_url = f"{SUPABASE_URL}/storage/v1/object/{SUPABASE_STORAGE_BUCKET}/{storage_filename}"
     headers = {
         'Authorization': f'Bearer {SUPABASE_SERVICE_ROLE_KEY}',
         'apikey': SUPABASE_SERVICE_ROLE_KEY,
-        'Content-Type': 'image/jpeg',
+        'Content-Type': content_type,
         'x-upsert': 'true',
     }
     try:
@@ -398,6 +398,36 @@ def save_photo(file_storage):
 
 def delete_photo(photo_value):
     delete_photo_from_supabase(photo_value)
+
+
+def save_qr(file_storage, key_prefix):
+    """Validate a hostel payment QR image (JPG/PNG), store it as a PNG in Supabase Storage and
+    return its public URL (None if no file was provided). Stored losslessly so it stays scannable."""
+    if not file_storage or file_storage.filename == '':
+        return None
+    filename = secure_filename(file_storage.filename)
+    ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+    if ext not in ALLOWED_RECEIPT_EXTENSIONS:
+        raise ValueError('QR code must be a JPG or PNG image.')
+    try:
+        img = Image.open(file_storage.stream)
+        img.verify()
+        file_storage.stream.seek(0)
+        img = Image.open(file_storage.stream)
+        img.load()
+    except Exception:
+        raise ValueError('The uploaded QR code is not a valid image.')
+    if img.mode in ('RGBA', 'LA', 'P'):
+        img = img.convert('RGBA')
+        bg = Image.new('RGB', img.size, (255, 255, 255))
+        bg.paste(img, mask=img.split()[-1])
+        img = bg
+    else:
+        img = img.convert('RGB')
+    img.thumbnail((1200, 1200), Image.LANCZOS)
+    buf = io.BytesIO()
+    img.save(buf, 'PNG', optimize=True)
+    return upload_photo_to_supabase(buf.getvalue(), f"{key_prefix}_{uuid.uuid4().hex}.png", 'image/png')
 
 
 def photo_url(photo_value):
@@ -498,6 +528,26 @@ def set_setting(db, key, value):
         INSERT INTO app_settings (key, value) VALUES (%s, %s)
         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
     ''', (key, value))
+
+
+HOSTEL_SETTING_KEYS = {'Old Hostel': 'old', 'New Hostel': 'new'}
+
+
+def get_hostel_payment_info(db, hostel):
+    """Per-hostel payment details (QR url, payment/PhonePe number, account name) set by the admin."""
+    k = HOSTEL_SETTING_KEYS.get(hostel)
+    if not k:
+        return {'qr_url': '', 'phone': '', 'name': ''}
+    return {
+        'qr_url': get_setting(db, f'qr_url_{k}', ''),
+        'phone': get_setting(db, f'pay_phone_{k}', ''),
+        'name': get_setting(db, f'pay_name_{k}', ''),
+    }
+
+
+def student_due_amount(student):
+    """The student's actual current due, taken from their own record (never from settings)."""
+    return max(round((student.get('total_rent') or 0) - (student.get('amount_paid') or 0), 2), 0)
 
 
 def next_month_label():
@@ -1055,33 +1105,44 @@ def payment_settings():
             flash('Security check failed. Please try again.', 'error')
             return redirect(url_for('payment_settings'))
 
-        amount = request.form.get('payment_amount', '').strip()
-        try:
-            amount_val = float(amount)
-            if amount_val < 0:
-                raise ValueError()
-            set_setting(db, 'payment_amount', str(amount_val))
-        except (ValueError, TypeError):
-            flash('Amount due must be a valid non-negative number.', 'error')
+        hostel = request.form.get('hostel', '').strip()
+        if hostel not in HOSTEL_SETTING_KEYS:
+            flash('Invalid hostel.', 'error')
             return redirect(url_for('payment_settings'))
+        k = HOSTEL_SETTING_KEYS[hostel]
 
+        phone_raw = request.form.get('pay_phone', '').strip()
+        pay_name = request.form.get('pay_name', '').strip()[:100]
+        phone = ''
+        if phone_raw:
+            ok, phone = validate_mobile(phone_raw)
+            if not ok:
+                flash('Payment / PhonePe number must be a valid 10-digit mobile number.', 'error')
+                return redirect(url_for('payment_settings'))
+
+        old_qr = get_setting(db, f'qr_url_{k}', '')
+        new_qr = None
         qr_file = request.files.get('qr_image')
         if qr_file and qr_file.filename:
             try:
-                qr_url = save_photo(qr_file)
-                if qr_url:
-                    set_setting(db, 'payment_qr_url', qr_url)
+                new_qr = save_qr(qr_file, f'qr_{k}')
             except ValueError as e:
                 flash(str(e), 'error')
                 return redirect(url_for('payment_settings'))
 
+        set_setting(db, f'pay_phone_{k}', phone)
+        set_setting(db, f'pay_name_{k}', pay_name)
+        if new_qr:
+            set_setting(db, f'qr_url_{k}', new_qr)
         db.commit()
-        flash('Payment settings updated.', 'success')
-        return redirect(url_for('payment_settings'))
+        if new_qr and old_qr and old_qr != new_qr:
+            delete_photo_from_supabase(old_qr)
 
-    payment_amount = get_setting(db, 'payment_amount', '0')
-    payment_qr_url = get_setting(db, 'payment_qr_url', '')
-    return render_template('payment_settings.html', payment_amount=payment_amount, payment_qr_url=payment_qr_url)
+        flash(f'{hostel} payment details updated.', 'success')
+        return redirect(url_for('payment_settings') + f'#{k}-hostel')
+
+    hostel_payment = {h: get_hostel_payment_info(db, h) for h in HOSTELS}
+    return render_template('payment_settings.html', hostel_payment=hostel_payment)
 
 
 # --------------------------------------------------------------------------
@@ -1130,8 +1191,8 @@ def payments_dashboard():
         return redirect(url_for('payments_lookup'))
     student = dict(student)
 
-    payment_amount = get_setting(db, 'payment_amount', '0')
-    payment_qr_url = get_setting(db, 'payment_qr_url', '')
+    pay_info = get_hostel_payment_info(db, student['hostel'])
+    due_amount = student_due_amount(student)
     recent = db.execute('''
         SELECT * FROM payment_submissions WHERE student_id=%s ORDER BY id DESC LIMIT 5
     ''', (student_id,)).fetchall()
@@ -1139,8 +1200,8 @@ def payments_dashboard():
     return render_template(
         'payments_dashboard.html',
         student=student,
-        payment_amount=payment_amount,
-        payment_qr_url=payment_qr_url,
+        due_amount=due_amount,
+        pay_info=pay_info,
         for_month=next_month_label(),
         recent=[dict(r) for r in recent],
     )
@@ -1175,7 +1236,7 @@ def payments_submit():
                 raise ValueError()
         except (ValueError, TypeError):
             flash('Please enter a valid payment amount.', 'error')
-            return render_template('payment_submit.html', student=student, for_month=next_month_label())
+            return render_template('payment_submit.html', student=student, for_month=next_month_label(), due_amount=student_due_amount(student))
 
         proof_file = request.files.get('proof')
         proof_url = None
@@ -1184,7 +1245,7 @@ def payments_submit():
                 proof_url = save_photo(proof_file)
         except ValueError as e:
             flash(str(e), 'error')
-            return render_template('payment_submit.html', student=student, for_month=next_month_label())
+            return render_template('payment_submit.html', student=student, for_month=next_month_label(), due_amount=student_due_amount(student))
 
         now = datetime.utcnow().isoformat()
         db.execute('''
@@ -1198,7 +1259,7 @@ def payments_submit():
         flash('Payment submitted! It is now PENDING CONFIRMATION by the hostel admin.', 'success')
         return redirect(url_for('payments_dashboard'))
 
-    return render_template('payment_submit.html', student=student, for_month=next_month_label())
+    return render_template('payment_submit.html', student=student, for_month=next_month_label(), due_amount=student_due_amount(student))
 
 
 # --------------------------------------------------------------------------
