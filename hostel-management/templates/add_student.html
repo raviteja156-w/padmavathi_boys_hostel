@@ -1,25 +1,34 @@
 {% extends 'base.html' %}
-{% block title %}Add Student — Hostel Management System{% endblock %}
+{% block title %}{{ 'Record Payment' if record_payment else 'Add Student' }} — Padmavathi Boys hostel{% endblock %}
 {% block content %}
+{% set ro = true if record_payment else false %}
 
 <div class="max-w-xl mx-auto animate-slide-up">
   <div class="text-center mb-6">
     <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 text-primary text-2xl mb-3">
-      <i class="fa-solid fa-user-plus"></i>
+      <i class="fa-solid {{ 'fa-pen-to-square' if ro else 'fa-user-plus' }}"></i>
     </div>
+    {% if ro %}
+    <h1 class="text-2xl sm:text-3xl font-bold text-slate-800">Record Payment</h1>
+    <p class="text-slate-500 text-sm mt-1">
+      Your details are already filled in. Enter the payment you made.<br>
+      <span class="inline-block bg-primary/10 text-primary text-xs font-bold px-2.5 py-1 rounded-full mt-1.5">NEXT MONTH PAYMENT — {{ for_month.upper() }}</span>
+    </p>
+    {% else %}
     <h1 class="text-2xl sm:text-3xl font-bold text-slate-800">Add Student</h1>
     <p class="text-slate-500 text-sm mt-1">Fill in the details below to place a student into their room.</p>
+    {% endif %}
   </div>
 
   <div id="flashArea"></div>
 
-  <form method="POST" action="{{ url_for('add_student') }}" enctype="multipart/form-data" class="card p-5 sm:p-7 space-y-5" id="studentForm" novalidate>
+  <form method="POST" action="{{ url_for('payments_submit') if ro else url_for('add_student') }}" enctype="multipart/form-data" class="card p-5 sm:p-7 space-y-5" id="studentForm" novalidate>
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
     <div class="grid sm:grid-cols-2 gap-5">
       <div>
         <label class="form-label"><i class="fa-solid fa-hotel mr-1.5 text-primary"></i>Hostel</label>
-        <select name="hostel" required class="form-input">
+        <select name="hostel" required class="form-input {{ 'bg-slate-100 text-slate-600' if ro }}" {{ 'disabled' if ro }}>
           <option value="" disabled {{ 'selected' if not form.get('hostel') }}>Select Hostel</option>
           {% for h in HOSTELS %}
           <option value="{{ h }}" {{ 'selected' if form.get('hostel') == h }}>{{ h }}</option>
@@ -29,7 +38,7 @@
 
       <div>
         <label class="form-label"><i class="fa-solid fa-door-closed mr-1.5 text-primary"></i>Room Number</label>
-        <select name="room_number" required class="form-input">
+        <select name="room_number" required class="form-input {{ 'bg-slate-100 text-slate-600' if ro }}" {{ 'disabled' if ro }}>
           <option value="" disabled {{ 'selected' if not form.get('room_number') }}>Select Room</option>
           {% for r in ROOMS %}
           <option value="{{ r }}" {{ 'selected' if form.get('room_number')|string == r|string }}>Room {{ r }}</option>
@@ -41,7 +50,7 @@
 
     <div>
       <label class="form-label"><i class="fa-solid fa-users-rectangle mr-1.5 text-primary"></i>Sharing</label>
-      <select name="sharing" required class="form-input">
+      <select name="sharing" required class="form-input {{ 'bg-slate-100 text-slate-600' if ro }}" {{ 'disabled' if ro }}>
         <option value="" disabled {{ 'selected' if not form.get('sharing') }}>Select Sharing</option>
         {% for s in SHARINGS %}
         <option value="{{ s }}" {{ 'selected' if form.get('sharing')|string == s|string }}>{{ s }} Sharing</option>
@@ -52,35 +61,73 @@
     <div>
       <label class="form-label"><i class="fa-solid fa-user mr-1.5 text-primary"></i>Student Name</label>
       <input type="text" name="name" required minlength="2" maxlength="80" placeholder="Full name"
-             value="{{ form.get('name', '') }}" class="form-input">
+             value="{{ form.get('name', '') }}" class="form-input {{ 'bg-slate-100 text-slate-600' if ro }}" {{ 'readonly' if ro }}>
     </div>
 
     <div>
       <label class="form-label"><i class="fa-solid fa-phone mr-1.5 text-primary"></i>Contact Number</label>
       <input type="tel" name="contact" id="contact" required pattern="[6-9][0-9]{9}" maxlength="10"
-             placeholder="10-digit mobile number" value="{{ form.get('contact', '') }}" class="form-input"
-             inputmode="numeric">
-      <p class="text-xs text-slate-400 mt-1">Indian mobile number, e.g. 9876543210</p>
+             placeholder="10-digit mobile number" value="{{ form.get('contact', '') }}" class="form-input {{ 'bg-slate-100 text-slate-600' if ro }}"
+             inputmode="numeric" {{ 'readonly' if ro }}>
+      {% if not ro %}<p class="text-xs text-slate-400 mt-1">Indian mobile number, e.g. 9876543210</p>{% endif %}
     </div>
 
     <div class="grid sm:grid-cols-2 gap-5">
       <div>
         <label class="form-label"><i class="fa-solid fa-indian-rupee-sign mr-1.5 text-primary"></i>Total Rent</label>
         <input type="number" name="total_rent" id="total_rent" required min="0" step="1"
-               placeholder="0" value="{{ form.get('total_rent', '') }}" class="form-input">
+               placeholder="0" value="{{ form.get('total_rent', '') }}" class="form-input {{ 'bg-slate-100 text-slate-600' if ro }}" {{ 'readonly' if ro }}>
       </div>
       <div>
-        <label class="form-label"><i class="fa-solid fa-money-bill-wave mr-1.5 text-primary"></i>Amount Paid</label>
+        <label class="form-label"><i class="fa-solid fa-money-bill-wave mr-1.5 text-primary"></i>{{ 'Paid So Far (confirmed)' if ro else 'Amount Paid' }}</label>
         <input type="number" name="amount_paid" id="amount_paid" required min="0" step="1"
-               placeholder="0" value="{{ form.get('amount_paid', '') }}" class="form-input">
+               placeholder="0" value="{{ form.get('amount_paid', '') }}" class="form-input {{ 'bg-slate-100 text-slate-600' if ro }}" {{ 'readonly' if ro }}>
       </div>
     </div>
 
     <div class="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3.5 flex items-center justify-between">
-      <span class="text-sm font-medium text-slate-600"><i class="fa-solid fa-scale-balanced mr-1.5 text-primary"></i>Balance</span>
+      <span class="text-sm font-medium text-slate-600"><i class="fa-solid fa-scale-balanced mr-1.5 text-primary"></i>{{ 'Current Due' if ro else 'Balance' }}</span>
       <span id="balanceDisplay" class="text-xl font-bold text-primary">₹0</span>
     </div>
 
+    {% if ro %}
+    <div class="border-t border-slate-100 pt-5 space-y-5">
+      <h2 class="text-sm font-bold text-slate-700 uppercase tracking-wide">
+        <i class="fa-solid fa-receipt mr-1.5 text-primary"></i>Payment Details
+      </h2>
+
+      <div>
+        <label class="form-label"><i class="fa-solid fa-indian-rupee-sign mr-1.5 text-primary"></i>Amount Being Paid</label>
+        {% set default_amt = due_amount if (due_amount and due_amount > 0 and due_amount == due_amount|int) else '' %}
+        <input type="number" name="amount" required min="1" step="1" placeholder="0"
+               value="{{ form.get('amount', '%d'|format(default_amt) if default_amt != '' else '') }}" class="form-input">
+      </div>
+
+      <div>
+        <label class="form-label"><i class="fa-solid fa-wallet mr-1.5 text-primary"></i>Paid By</label>
+        <select name="payment_mode" required class="form-input">
+          <option value="" disabled {{ 'selected' if not form.get('payment_mode') }}>Select Online or Cash</option>
+          <option value="Online" {{ 'selected' if form.get('payment_mode') == 'Online' }}>Online</option>
+          <option value="Cash" {{ 'selected' if form.get('payment_mode') == 'Cash' }}>Cash</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="form-label"><i class="fa-solid fa-camera mr-1.5 text-primary"></i>Payment Screenshot / Proof (optional)</label>
+        <div class="flex items-center gap-4">
+          <div id="proofPreviewWrap" class="hidden w-20 h-20 rounded-xl overflow-hidden border-2 border-primary/20 shrink-0">
+            <img id="proofPreview" class="w-full h-full object-cover" alt="Preview">
+          </div>
+          <label for="proof" class="upload-box flex-1">
+            <i class="fa-solid fa-cloud-arrow-up text-2xl text-primary mb-1"></i>
+            <span class="text-sm text-slate-500" id="proofLabel">Tap to upload screenshot</span>
+          </label>
+          <input type="file" id="proof" name="proof" accept=".jpg,.jpeg,.png,image/jpeg,image/png" class="hidden">
+        </div>
+        <p class="text-xs text-slate-400 mt-1">JPG or PNG, max 8MB.</p>
+      </div>
+    </div>
+    {% else %}
     <div>
       <label class="form-label"><i class="fa-solid fa-calendar-plus mr-1.5 text-primary"></i>Date of Join</label>
       {% set dj = form.get('date_of_join') if 'date_of_join' in form else today_iso() %}
@@ -152,12 +199,15 @@
       <p class="text-xs text-slate-400 mt-1">Only .jpg / .jpeg files, max 8MB. Image will be auto-compressed.</p>
     </div>
 
+    {% endif %}
+
     <div>
       <label class="form-label"><i class="fa-solid fa-tag mr-1.5 text-primary"></i>Note (optional)</label>
       <input type="text" name="note" maxlength="300" placeholder="e.g. pays on the 5th every month"
              value="{{ form.get('note', '') }}" class="form-input">
     </div>
 
+    {% if not ro %}
     <div>
       <label class="form-label"><i class="fa-solid fa-calendar-day mr-1.5 text-primary"></i>Monthly Due Date (optional)</label>
       <input type="number" name="due_date" min="1" max="31" placeholder="Day of month, e.g. 5"
@@ -165,8 +215,17 @@
       <p class="text-xs text-slate-400 mt-1">Used for the admin Due List — e.g. 5 means rent is due on the 5th of every month.</p>
     </div>
 
+    {% endif %}
+
+    {% if ro %}
+    <div class="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 text-xs text-amber-700">
+      <i class="fa-solid fa-circle-info mr-1"></i>
+      After you submit, your payment status will be <strong>PENDING CONFIRMATION</strong>. Your paid amount and due change only after the hostel admin confirms it.
+    </div>
+    {% endif %}
+
     <button type="submit" class="btn-primary w-full text-base py-4 flex items-center justify-center gap-2">
-      <i class="fa-solid fa-floppy-disk"></i> SAVE STUDENT
+      {% if ro %}<i class="fa-solid fa-paper-plane"></i> SUBMIT PAYMENT{% else %}<i class="fa-solid fa-floppy-disk"></i> SAVE STUDENT{% endif %}
     </button>
   </form>
 </div>
@@ -179,10 +238,6 @@ document.addEventListener('DOMContentLoaded', function () {
   const totalRent = document.getElementById('total_rent');
   const amountPaid = document.getElementById('amount_paid');
   const balanceDisplay = document.getElementById('balanceDisplay');
-  const photoInput = document.getElementById('photo');
-  const photoPreview = document.getElementById('photoPreview');
-  const photoPreviewWrap = document.getElementById('photoPreviewWrap');
-  const photoLabel = document.getElementById('photoLabel');
   const contact = document.getElementById('contact');
 
   function updateBalance() {
@@ -205,64 +260,51 @@ document.addEventListener('DOMContentLoaded', function () {
     this.value = this.value.replace(/\D/g, '').slice(0, 10);
   });
 
-  photoInput.addEventListener('change', function () {
-    const file = this.files[0];
-    if (!file) return;
-    const validExt = /\.(jpg|jpeg)$/i.test(file.name);
-    if (!validExt) {
-      showToast('Only JPG/JPEG files are allowed.', 'error');
-      this.value = '';
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = function (e) {
-      photoPreview.src = e.target.result;
-      photoPreviewWrap.classList.remove('hidden');
-      photoLabel.textContent = file.name;
-    };
-    reader.readAsDataURL(file);
-  });
+  // Image picker with preview. Fields that are not on the page (e.g. in payment mode) are skipped.
+  function wirePicker(inputId, previewId, wrapId, labelId, pattern, message) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    input.addEventListener('change', function () {
+      const file = this.files[0];
+      if (!file) return;
+      if (!pattern.test(file.name)) {
+        showToast(message, 'error');
+        this.value = '';
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        document.getElementById(previewId).src = e.target.result;
+        document.getElementById(wrapId).classList.remove('hidden');
+        document.getElementById(labelId).textContent = file.name;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+  wirePicker('photo', 'photoPreview', 'photoPreviewWrap', 'photoLabel', /\.(jpg|jpeg)$/i, 'Only JPG/JPEG files are allowed.');
+  wirePicker('receipt', 'receiptPreview', 'receiptPreviewWrap', 'receiptLabel', /\.(jpg|jpeg|png)$/i, 'Receipt must be a JPG or PNG image.');
+  wirePicker('proof', 'proofPreview', 'proofPreviewWrap', 'proofLabel', /\.(jpg|jpeg|png)$/i, 'Proof must be a JPG or PNG image.');
 
-
-  // ---- payment mode: show receipt upload for Online, cash amount for Cash ----
+  // ---- payment mode: show receipt upload for Online, cash amount for Cash (add-student mode only) ----
   const modeSel = document.getElementById('payment_mode');
   const onlineBox = document.getElementById('onlineBox');
   const cashBox = document.getElementById('cashBox');
-  function syncPaymentBoxes() {
-    const m = modeSel.value;
-    const hasReceipt = onlineBox.getAttribute('data-has-receipt') === '1';
-    onlineBox.classList.toggle('hidden', !(m === 'Online' || m === 'Online + Cash' || hasReceipt));
-    cashBox.classList.toggle('hidden', !(m === 'Cash' || m === 'Online + Cash'));
-  }
-  modeSel.addEventListener('change', syncPaymentBoxes);
-  syncPaymentBoxes();
-
-  const receiptInput = document.getElementById('receipt');
-  const receiptPreview = document.getElementById('receiptPreview');
-  const receiptPreviewWrap = document.getElementById('receiptPreviewWrap');
-  const receiptLabel = document.getElementById('receiptLabel');
-  receiptInput.addEventListener('change', function () {
-    const file = this.files[0];
-    if (!file) return;
-    if (!/\.(jpg|jpeg|png)$/i.test(file.name)) {
-      showToast('Receipt must be a JPG or PNG image.', 'error');
-      this.value = '';
-      return;
+  if (modeSel && onlineBox && cashBox) {
+    function syncPaymentBoxes() {
+      const m = modeSel.value;
+      const hasReceipt = onlineBox.getAttribute('data-has-receipt') === '1';
+      onlineBox.classList.toggle('hidden', !(m === 'Online' || m === 'Online + Cash' || hasReceipt));
+      cashBox.classList.toggle('hidden', !(m === 'Cash' || m === 'Online + Cash'));
     }
-    const reader = new FileReader();
-    reader.onload = function (e) {
-      receiptPreview.src = e.target.result;
-      receiptPreviewWrap.classList.remove('hidden');
-      receiptLabel.textContent = file.name;
-    };
-    reader.readAsDataURL(file);
-  });
+    modeSel.addEventListener('change', syncPaymentBoxes);
+    syncPaymentBoxes();
+  }
 
   const form = document.getElementById('studentForm');
   form.addEventListener('submit', function (e) {
     const btn = form.querySelector('button[type="submit"]');
     btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> {{ "Submitting..." if record_payment else "Saving..." }}';
   });
 });
 </script>

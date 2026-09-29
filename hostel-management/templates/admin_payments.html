@@ -44,7 +44,7 @@
       </div>
 
       <p class="text-xs text-slate-400 mt-2">
-        For: {{ p.for_month }} &bull; Submitted: {{ p.submitted_at[:16].replace('T', ' ') if p.submitted_at else '' }}
+        {% if p.payment_mode %}<span class="font-semibold text-slate-500">{{ p.payment_mode }}</span> &bull; {% endif %}For: {{ p.for_month }} &bull; Submitted: {{ p.submitted_at[:16].replace('T', ' ') if p.submitted_at else '' }}
       </p>
       {% if p.note %}
       <p class="text-xs text-primary bg-primary/10 rounded px-2 py-1 mt-2 inline-block">

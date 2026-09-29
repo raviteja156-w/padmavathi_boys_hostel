@@ -4,6 +4,11 @@
 
 <div class="max-w-md mx-auto animate-slide-up">
 
+  <!-- Stays visible under the navbar while the student reads the payment information -->
+  <div class="sticky top-16 z-30 -mx-1 mb-4 bg-amber-50 border border-amber-200 text-amber-800 text-xs sm:text-sm font-semibold rounded-xl px-3 py-2 text-center shadow-sm">
+    <i class="fa-solid fa-money-bill-1 mr-1"></i>If paying by cash, please continue to RECORD PAYMENT.
+  </div>
+
   <div class="text-center mb-6">
     <h1 class="text-2xl sm:text-3xl font-bold text-slate-800">Hi, {{ student.name.split(' ')[0] }}</h1>
     <p class="text-slate-500 text-sm mt-1">
@@ -24,43 +29,46 @@
     </div>
     <p class="text-xs text-slate-400">Total rent ₹{{ '{:,.0f}'.format(student.total_rent or 0) }} &bull; Paid ₹{{ '{:,.0f}'.format(student.amount_paid or 0) }}</p>
 
-    {% if pay_info.qr_url %}
-    <div class="w-56 h-56 mx-auto rounded-xl overflow-hidden border-2 border-primary/20 bg-white">
-      <img src="{{ pay_info.qr_url }}" alt="{{ student.hostel }} Payment QR Code" class="w-full h-full object-contain">
-    </div>
-    <p class="text-sm text-slate-500">Scan the {{ student.hostel }} QR code and complete your payment.</p>
-    {% else %}
-    <p class="text-sm text-amber-600 bg-amber-50 rounded-lg px-4 py-3">
-      <i class="fa-solid fa-triangle-exclamation mr-1"></i>QR code not set up yet — please contact the hostel admin.
-    </p>
-    {% endif %}
+    <div class="border border-slate-200 rounded-2xl p-4 space-y-4 text-center">
+      <p class="text-sm font-bold text-slate-800">Use this information for online payment.</p>
 
-    {% if pay_info.phone or pay_info.name %}
-    <div class="bg-slate-50 rounded-xl px-4 py-3 text-sm text-left space-y-2">
-      {% if pay_info.phone %}
-      <div class="flex items-center justify-between gap-3">
-        <div class="min-w-0">
-          <p class="text-xs text-slate-400 uppercase tracking-wide font-semibold">Payment Number</p>
-          <p class="font-bold text-slate-800 tracking-wide">{{ pay_info.phone }}</p>
+      {% if pay_info.qr_url %}
+      <div class="w-56 h-56 mx-auto rounded-xl overflow-hidden border-2 border-primary/20 bg-white">
+        <img src="{{ pay_info.qr_url }}" alt="{{ student.hostel }} Payment QR Code" class="w-full h-full object-contain">
+      </div>
+      {% else %}
+      <p class="text-sm text-amber-600 bg-amber-50 rounded-lg px-4 py-3">
+        <i class="fa-solid fa-triangle-exclamation mr-1"></i>QR code not set up yet — please contact the hostel admin.
+      </p>
+      {% endif %}
+
+      {% if pay_info.phone or pay_info.name %}
+      <div class="bg-slate-50 rounded-xl px-4 py-3 text-sm text-left space-y-2">
+        {% if pay_info.phone %}
+        <div class="flex items-center justify-between gap-3">
+          <div class="min-w-0">
+            <p class="text-xs text-slate-400 uppercase tracking-wide font-semibold">Payment Number</p>
+            <p class="font-bold text-slate-800 tracking-wide">{{ pay_info.phone }}</p>
+          </div>
+          <button type="button" class="copy-btn text-xs font-bold px-3 py-2 rounded-lg bg-primary/10 text-primary shrink-0" data-copy="{{ pay_info.phone }}">
+            <i class="fa-regular fa-copy mr-1"></i>COPY
+          </button>
         </div>
-        <button type="button" class="copy-btn text-xs font-bold px-3 py-2 rounded-lg bg-primary/10 text-primary shrink-0" data-copy="{{ pay_info.phone }}">
-          <i class="fa-regular fa-copy mr-1"></i>COPY
-        </button>
-      </div>
-      {% endif %}
-      {% if pay_info.name %}
-      <div>
-        <p class="text-xs text-slate-400 uppercase tracking-wide font-semibold">Payment Name</p>
-        <p class="font-semibold text-slate-800">{{ pay_info.name }}</p>
+        {% endif %}
+        {% if pay_info.name %}
+        <div>
+          <p class="text-xs text-slate-400 uppercase tracking-wide font-semibold">Payment Name</p>
+          <p class="font-semibold text-slate-800">{{ pay_info.name }}</p>
+        </div>
+        {% endif %}
       </div>
       {% endif %}
     </div>
-    {% endif %}
 
-    <a href="{{ url_for('payments_submit') }}" class="btn-primary w-full text-base py-4 flex items-center justify-center gap-2">
-      <i class="fa-solid fa-circle-check"></i> PAY NOW
+    <a href="{{ url_for('add_student', record_payment=1) }}" class="btn-primary w-full text-base py-4 flex items-center justify-center gap-2">
+      <i class="fa-solid fa-pen-to-square"></i> RECORD PAYMENT
     </a>
-    <p class="text-xs text-slate-400">After paying, tap PAY NOW to submit your payment. It counts once the hostel admin confirms it.</p>
+    <p class="text-xs text-slate-400">Paid online or in cash? Tap RECORD PAYMENT. Your payment stays pending until the hostel admin confirms it.</p>
   </div>
 
   {% if recent %}

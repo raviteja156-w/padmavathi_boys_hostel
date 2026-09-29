@@ -267,6 +267,8 @@ def init_db():
         )
     ''')
     cur.execute('CREATE INDEX IF NOT EXISTS idx_payment_status ON payment_submissions(status)')
+    # How the student says they paid ('Online' or 'Cash'); lets the admin confirmation record it correctly.
+    cur.execute("ALTER TABLE payment_submissions ADD COLUMN IF NOT EXISTS payment_mode TEXT")
 
     # The billing cycle the students' payment fields currently belong to. Starts as the month
     # before launch, so the very first request on/after LAUNCH_DATE archives + resets them.
@@ -558,6 +560,52 @@ def next_month_label():
     return f'{calendar.month_name[month]} {year}'
 
 
+def _num(v):
+    """Whole numbers show without a trailing .0 in the number inputs."""
+    v = v or 0
+    return int(v) if float(v) == int(v) else v
+
+
+def student_prefill_form(student, extra=None):
+    """Values for the existing Add Student form when it is opened in 'record payment' mode.
+    Everything comes from the student's own record (found via their mobile number)."""
+    form = {
+        'hostel': student['hostel'],
+        'room_number': student['room_number'],
+        'sharing': student['sharing'],
+        'name': student['name'],
+        'contact': student['contact'],
+        'total_rent': _num(student.get('total_rent')),
+        'amount_paid': _num(student.get('amount_paid')),
+    }
+    if extra:
+        form.update(extra)
+    return form
+
+
+def render_record_payment(student, extra=None):
+    """The existing Add Student page, pre-filled with the student's details, in payment mode."""
+    return render_template(
+        'add_student.html',
+        form=student_prefill_form(student, extra),
+        record_payment=True,
+        due_amount=student_due_amount(student),
+        for_month=next_month_label(),
+    )
+
+
+def current_payment_student(db):
+    """The student identified by mobile number on the payments page (or None)."""
+    student_id = session.get('payment_student_id')
+    if not student_id:
+        return None
+    row = db.execute('SELECT * FROM students WHERE id=%s', (student_id,)).fetchone()
+    if not row:
+        session.pop('payment_student_id', None)
+        return None
+    return dict(row)
+
+
 # --------------------------------------------------------------------------
 # DATES, PAYMENT FIELDS, RECEIPTS
 # --------------------------------------------------------------------------
@@ -773,6 +821,15 @@ def _monthly_rollover_hook():
 @app.route('/add-student', methods=['GET', 'POST'], endpoint='add_student')
 def add_student():
     db = get_db()
+
+    # "RECORD PAYMENT" opens this same page with the identified student's details pre-filled.
+    # It only works for a student identified by mobile number on the payments page.
+    if request.method == 'GET' and request.args.get('record_payment') == '1':
+        student = current_payment_student(db)
+        if not student:
+            flash('Please enter your mobile number first.', 'error')
+            return redirect(url_for('payments_lookup'))
+        return render_record_payment(student)
 
     if request.method == 'POST':
         if not validate_csrf(request.form.get('csrf_token')):
@@ -1093,7 +1150,7 @@ def save_due_note(student_id):
 
 
 # --------------------------------------------------------------------------
-# PAYMENT SETTINGS (admin-configurable QR + amount, used by the student flow)
+# PAYMENT SETTINGS (per-hostel QR, payment number and account name only)
 # --------------------------------------------------------------------------
 
 @app.route('/admin/settings/payment', methods=['GET', 'POST'])
@@ -1110,6 +1167,17 @@ def payment_settings():
             flash('Invalid hostel.', 'error')
             return redirect(url_for('payment_settings'))
         k = HOSTEL_SETTING_KEYS[hostel]
+
+        if request.form.get('action') == 'remove':
+            old_qr = get_setting(db, f'qr_url_{k}', '')
+            set_setting(db, f'qr_url_{k}', '')
+            set_setting(db, f'pay_phone_{k}', '')
+            set_setting(db, f'pay_name_{k}', '')
+            db.commit()
+            if old_qr:
+                delete_photo_from_supabase(old_qr)
+            flash(f'{hostel} saved payment details removed.', 'success')
+            return redirect(url_for('payment_settings') + f'#{k}-hostel')
 
         phone_raw = request.form.get('pay_phone', '').strip()
         pay_name = request.form.get('pay_name', '').strip()[:100]
@@ -1209,57 +1277,60 @@ def payments_dashboard():
 
 @app.route('/payments/submit', methods=['GET', 'POST'])
 def payments_submit():
-    student_id = session.get('payment_student_id')
-    if not student_id:
-        flash('Please enter your contact number first.', 'error')
-        return redirect(url_for('payments_lookup'))
-
     db = get_db()
-    student = db.execute('SELECT * FROM students WHERE id=%s', (student_id,)).fetchone()
+    student = current_payment_student(db)
     if not student:
-        session.pop('payment_student_id', None)
-        flash('Student record not found. Please try again.', 'error')
+        flash('Please enter your mobile number first.', 'error')
         return redirect(url_for('payments_lookup'))
-    student = dict(student)
 
-    if request.method == 'POST':
-        if not validate_csrf(request.form.get('csrf_token')):
-            flash('Security check failed. Please try again.', 'error')
-            return redirect(url_for('payments_submit'))
+    # There is no separate payment page: the form is the existing Add Student page (pre-filled).
+    if request.method == 'GET':
+        return redirect(url_for('add_student', record_payment=1))
 
-        amount = request.form.get('amount', '').strip()
-        note = request.form.get('note', '').strip()[:300]
+    if not validate_csrf(request.form.get('csrf_token')):
+        flash('Security check failed. Please try again.', 'error')
+        return redirect(url_for('add_student', record_payment=1))
 
-        try:
-            amount_val = float(amount)
-            if amount_val <= 0:
-                raise ValueError()
-        except (ValueError, TypeError):
-            flash('Please enter a valid payment amount.', 'error')
-            return render_template('payment_submit.html', student=student, for_month=next_month_label(), due_amount=student_due_amount(student))
+    # Student identity always comes from the database record, never from submitted fields.
+    amount = request.form.get('amount', '').strip()
+    note = request.form.get('note', '').strip()[:300]
+    mode = (request.form.get('payment_mode') or '').strip()
+    entered = {'amount': amount, 'note': note, 'payment_mode': mode}
 
+    try:
+        amount_val = float(amount)
+        if amount_val <= 0:
+            raise ValueError()
+    except (ValueError, TypeError):
+        flash('Please enter a valid payment amount.', 'error')
+        return render_record_payment(student, entered)
+
+    if mode not in ('Online', 'Cash'):
+        flash('Please select whether you paid Online or in Cash.', 'error')
+        return render_record_payment(student, entered)
+
+    proof_url = None
+    try:
         proof_file = request.files.get('proof')
-        proof_url = None
-        try:
-            if proof_file and proof_file.filename:
-                proof_url = save_photo(proof_file)
-        except ValueError as e:
-            flash(str(e), 'error')
-            return render_template('payment_submit.html', student=student, for_month=next_month_label(), due_amount=student_due_amount(student))
+        if proof_file and proof_file.filename:
+            proof_url = save_receipt(proof_file)
+    except ValueError as e:
+        flash(str(e), 'error')
+        return render_record_payment(student, entered)
 
-        now = datetime.utcnow().isoformat()
-        db.execute('''
-            INSERT INTO payment_submissions
-            (student_id, hostel, room_number, name, contact, amount, for_month, proof_filename, note, status, submitted_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'PENDING', %s)
-        ''', (student['id'], student['hostel'], student['room_number'], student['name'], student['contact'],
-              amount_val, next_month_label(), proof_url, note, now))
-        db.commit()
+    # Saved as PENDING only: the student's official paid amount and due are NOT touched here.
+    # They change only when the admin clicks CONFIRM PAYMENT.
+    now = datetime.utcnow().isoformat()
+    db.execute('''
+        INSERT INTO payment_submissions
+        (student_id, hostel, room_number, name, contact, amount, for_month, proof_filename, note, status, submitted_at, payment_mode)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'PENDING', %s, %s)
+    ''', (student['id'], student['hostel'], student['room_number'], student['name'], student['contact'],
+          amount_val, next_month_label(), proof_url, note, now, mode))
+    db.commit()
 
-        flash('Payment submitted! It is now PENDING CONFIRMATION by the hostel admin.', 'success')
-        return redirect(url_for('payments_dashboard'))
-
-    return render_template('payment_submit.html', student=student, for_month=next_month_label(), due_amount=student_due_amount(student))
+    flash('Payment recorded! It is now PENDING CONFIRMATION by the hostel admin.', 'success')
+    return redirect(url_for('payments_dashboard'))
 
 
 # --------------------------------------------------------------------------
@@ -1311,13 +1382,19 @@ def confirm_payment(payment_id):
             new_paid = (student['amount_paid'] or 0) + payment['amount']
             new_balance = max(round((student['total_rent'] or 0) - new_paid, 2), 0)
             old_mode = student.get('payment_mode')
-            new_mode = 'Online' if not old_mode else ('Online + Cash' if old_mode == 'Cash' else old_mode)
+            paid_mode = payment.get('payment_mode') or 'Online'
+            if paid_mode == 'Cash':
+                new_mode = 'Cash' if not old_mode else ('Online + Cash' if old_mode == 'Online' else old_mode)
+                new_cash = (student.get('cash_amount') or 0) + payment['amount']
+            else:
+                new_mode = 'Online' if not old_mode else ('Online + Cash' if old_mode == 'Cash' else old_mode)
+                new_cash = student.get('cash_amount')
             new_receipt = payment['proof_filename'] or student.get('receipt_filename')
             db.execute('''
                 UPDATE students
-                SET amount_paid=%s, balance=%s, payment_date=%s, payment_mode=%s, receipt_filename=%s, updated_at=%s
+                SET amount_paid=%s, balance=%s, payment_date=%s, payment_mode=%s, cash_amount=%s, receipt_filename=%s, updated_at=%s
                 WHERE id=%s
-            ''', (new_paid, new_balance, today_ist().isoformat(), new_mode, new_receipt, now, payment['student_id']))
+            ''', (new_paid, new_balance, today_ist().isoformat(), new_mode, new_cash, new_receipt, now, payment['student_id']))
 
     db.commit()
     flash(f"Payment of ₹{payment['amount']:,.0f} from {payment['name']} confirmed.", 'success')
