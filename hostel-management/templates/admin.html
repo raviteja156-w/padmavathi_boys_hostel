@@ -1,24 +1,42 @@
 {% extends 'base.html' %}
-{% block title %}Admin Dashboard — Hostel Management System{% endblock %}
+{% block title %}Admin Dashboard — Padmavathi Boys hostel{% endblock %}
 {% block content %}
 
-<div class="animate-slide-up">
+<style>
+  /* Mobile-friendly tweaks scoped to the admin dashboard */
+  .admin-dash .form-input { font-size: 16px; }            /* stops iOS zooming into fields */
+  .admin-dash .btn-edit, .admin-dash .btn-delete { min-height: 44px; }
+  .admin-dash .tap { min-height: 44px; }
+  .admin-dash .student-card, .admin-dash .student-card * { overflow-wrap: anywhere; }
+  .admin-dash .student-card img.student-thumb { flex-shrink: 0; }
+  .admin-fab { position: fixed; right: 1rem; bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); z-index: 45; }
+  @media (max-width: 640px) {
+    .admin-dash .room-body { padding: 0.75rem; }
+    .admin-dash .room-header { flex-wrap: wrap; gap: 0.35rem; }
+    .modal-box { padding: 1.25rem; }
+    #photoModalImg { max-height: 65vh; object-fit: contain; }
+    main { padding-bottom: 5.5rem; }                        /* room for the floating button */
+  }
+  @media (min-width: 641px) { .admin-fab { display: none; } }
+</style>
+
+<div class="animate-slide-up admin-dash">
 
   <!-- HERO / WELCOME -->
-  <section class="text-center py-4 sm:py-8 mb-2">
-    <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 text-primary text-3xl mb-4">
+  <section class="text-center py-2 sm:py-8 mb-2">
+    <div class="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-primary/10 text-primary text-2xl sm:text-3xl mb-3 sm:mb-4">
       <i class="fa-solid fa-building-shield"></i>
     </div>
-    <h1 class="text-2xl sm:text-4xl font-extrabold text-slate-800 tracking-tight mb-2">
+    <h1 class="text-xl sm:text-4xl font-extrabold text-slate-800 tracking-tight mb-1 sm:mb-2">
       Hostel Admin Dashboard
     </h1>
-    <p class="text-slate-500 max-w-xl mx-auto text-sm sm:text-base">
+    <p class="text-slate-500 max-w-xl mx-auto text-xs sm:text-base">
       Manage residents across Old &amp; New Hostel — rooms, sharing, rent and payments, all in one place.
     </p>
   </section>
 
   <!-- FEATURE HIGHLIGHTS -->
-  <section class="grid sm:grid-cols-3 gap-4 mb-8">
+  <section class="hidden sm:grid sm:grid-cols-3 gap-4 mb-8">
     <div class="feature-card">
       <i class="fa-solid fa-bed text-primary text-2xl mb-3"></i>
       <h3 class="font-semibold text-slate-800 mb-1">Room-wise Tracking</h3>
@@ -37,7 +55,7 @@
   </section>
 
   <!-- SUMMARY CARDS -->
-  <section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-8">
+  <section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6 sm:mb-8">
     <div class="stat-card">
       <i class="fa-solid fa-users text-primary text-xl sm:text-2xl mb-2 icon-bounce"></i>
       <div class="text-xl sm:text-2xl font-bold text-slate-800">{{ stats.total }}</div>
@@ -66,18 +84,18 @@
   </section>
 
   <!-- QUICK ACTION CARDS: DUE LIST / TODAY'S PAYMENTS -->
-  <section class="grid grid-cols-2 gap-3 sm:gap-4 mb-8">
-    <a href="{{ url_for('due_list') }}" class="stat-card relative block hover:shadow-md transition">
+  <section class="grid grid-cols-2 gap-3 sm:gap-4 mb-6 sm:mb-8">
+    <a href="{{ url_for('due_list') }}" class="stat-card relative block hover:shadow-md transition tap">
       {% if due_count %}
-      <span class="absolute top-2 right-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-danger text-white">{{ due_count }}</span>
+      <span class="absolute top-2 right-2 text-[11px] font-bold px-2 py-0.5 rounded-full bg-danger text-white">{{ due_count }}</span>
       {% endif %}
       <i class="fa-solid fa-calendar-days text-danger text-xl sm:text-2xl mb-2 icon-bounce"></i>
       <div class="text-base sm:text-xl font-bold text-slate-800">Due List</div>
       <div class="text-xs text-slate-500">Students due for payment</div>
     </a>
-    <a href="{{ url_for('admin_payments') }}" class="stat-card relative block hover:shadow-md transition">
+    <a href="{{ url_for('admin_payments') }}" class="stat-card relative block hover:shadow-md transition tap">
       {% if pending_payments_count %}
-      <span class="absolute top-2 right-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-white">{{ pending_payments_count }}</span>
+      <span class="absolute top-2 right-2 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-white">{{ pending_payments_count }}</span>
       {% endif %}
       <i class="fa-solid fa-hourglass-half text-amber-500 text-xl sm:text-2xl mb-2 icon-bounce"></i>
       <div class="text-base sm:text-xl font-bold text-slate-800">Today's Payments</div>
@@ -85,46 +103,52 @@
     </a>
   </section>
 
-  <!-- TOOLBAR -->
-  <section class="card p-4 sm:p-5 mb-8">
-    <div class="grid sm:grid-cols-3 gap-3 mb-4">
-      <div class="sm:col-span-1 relative">
+  <!-- ACTIONS -->
+  <section class="card p-3 sm:p-5 mb-4">
+    <div class="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
+      <a href="{{ url_for('add_student') }}" class="btn-primary tap text-sm px-4 py-2.5 flex items-center justify-center gap-2 col-span-2 sm:col-span-1 sm:order-last sm:ml-auto">
+        <i class="fa-solid fa-user-plus"></i> Add Student
+      </a>
+      <a href="{{ url_for('export_excel') }}" class="btn-outline tap text-sm px-3 sm:px-4 py-2.5 flex items-center justify-center gap-2">
+        <i class="fa-solid fa-file-excel text-success"></i> Export Excel
+      </a>
+      <button type="button" onclick="openModal('importModal')" class="btn-outline tap text-sm px-3 sm:px-4 py-2.5 flex items-center justify-center gap-2">
+        <i class="fa-solid fa-file-arrow-up text-success"></i> Import Excel
+      </button>
+      <button type="button" onclick="openModal('pdfModal')" class="btn-outline tap text-sm px-3 sm:px-4 py-2.5 flex items-center justify-center gap-2">
+        <i class="fa-solid fa-file-pdf text-danger"></i> Generate PDF
+      </button>
+      <a href="{{ url_for('check_vacancy') }}" class="btn-outline tap text-sm px-3 sm:px-4 py-2.5 flex items-center justify-center gap-2">
+        <i class="fa-solid fa-bed text-primary"></i> Check Vacancy
+      </a>
+      <a href="{{ url_for('payment_settings') }}" class="btn-outline tap text-sm px-3 sm:px-4 py-2.5 flex items-center justify-center gap-2 col-span-2 sm:col-span-1">
+        <i class="fa-solid fa-qrcode text-primary"></i> Payment Settings
+      </a>
+    </div>
+  </section>
+
+  <!-- SEARCH & FILTERS (stay pinned under the navbar while scrolling on phones) -->
+  <section class="card p-3 sm:p-5 mb-6 sm:mb-8 sticky top-16 z-30 sm:static shadow-md sm:shadow-none">
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
+      <div class="col-span-2 sm:col-span-1 relative">
         <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
-        <input type="text" id="searchInput" placeholder="Search name, contact or room..."
-               class="form-input pl-10" autocomplete="off">
+        <input type="search" id="searchInput" placeholder="Search name, contact or room..."
+               class="form-input pl-10" autocomplete="off" enterkeyhint="search">
       </div>
-      <select id="hostelFilter" class="form-input">
+      <select id="hostelFilter" class="form-input" aria-label="Filter by hostel">
         <option value="all">All Hostels</option>
         <option value="Old Hostel">Old Hostel</option>
         <option value="New Hostel">New Hostel</option>
       </select>
-      <select id="roomFilter" class="form-input">
+      <select id="roomFilter" class="form-input" aria-label="Filter by room">
         <option value="all">All Rooms</option>
         {% for r in rooms %}
         <option value="{{ r }}">Room {{ r }}</option>
         {% endfor %}
+        {% if HALL_ROOM_NUMBER not in rooms %}
+        <option value="{{ HALL_ROOM_NUMBER }}">Hall</option>
+        {% endif %}
       </select>
-    </div>
-
-    <div class="flex flex-wrap gap-2">
-      <a href="{{ url_for('export_excel') }}" class="btn-outline text-sm px-4 py-2.5 flex items-center gap-2">
-        <i class="fa-solid fa-file-excel text-success"></i> Export Excel
-      </a>
-      <button type="button" onclick="openModal('importModal')" class="btn-outline text-sm px-4 py-2.5 flex items-center gap-2">
-        <i class="fa-solid fa-file-arrow-up text-success"></i> Import Excel
-      </button>
-      <button type="button" onclick="openModal('pdfModal')" class="btn-outline text-sm px-4 py-2.5 flex items-center gap-2">
-        <i class="fa-solid fa-file-pdf text-danger"></i> Generate PDF
-      </button>
-      <a href="{{ url_for('check_vacancy') }}" class="btn-outline text-sm px-4 py-2.5 flex items-center gap-2">
-        <i class="fa-solid fa-bed text-primary"></i> Check Vacancy
-      </a>
-      <a href="{{ url_for('payment_settings') }}" class="btn-outline text-sm px-4 py-2.5 flex items-center gap-2">
-        <i class="fa-solid fa-qrcode text-primary"></i> Payment Settings
-      </a>
-      <a href="{{ url_for('add_student') }}" class="btn-primary text-sm px-4 py-2.5 flex items-center gap-2 ml-auto">
-        <i class="fa-solid fa-user-plus"></i> Add Student
-      </a>
     </div>
   </section>
 
@@ -135,13 +159,13 @@
 
   <!-- ROOM-WISE VIEW -->
   {% for hostel in hostels %}
-  <section class="hostel-section mb-10" data-hostel-section="{{ hostel }}">
+  <section class="hostel-section mb-8 sm:mb-10 scroll-mt-40" data-hostel-section="{{ hostel }}">
     <h2 class="hostel-title">
       <i class="fa-solid {{ 'fa-house' if hostel == 'Old Hostel' else 'fa-city' }}"></i>
       {{ hostel.upper() }}
     </h2>
 
-    <div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
       {% for room_no in rooms_for_hostel(hostel) %}
       {% set students = rooms_structure[hostel][room_no] %}
       <div class="room-block" data-hostel="{{ hostel }}" data-room="{{ room_no }}">
@@ -173,17 +197,17 @@
                 </div>
                 {% endif %}
                 <div class="flex-1 min-w-0">
-                  <h4 class="font-semibold text-slate-800 truncate">{{ s.name }}</h4>
-                  <p class="text-xs text-slate-500"><i class="fa-solid fa-phone text-[10px] mr-1"></i>{{ s.contact }}</p>
+                  <h4 class="font-semibold text-slate-800 break-words">{{ s.name }}</h4>
+                  <p class="text-xs text-slate-500"><i class="fa-solid fa-phone text-[10px] mr-1"></i><a href="tel:{{ s.contact }}" class="hover:underline">{{ s.contact }}</a></p>
                   <p class="text-xs text-slate-500"><i class="fa-solid fa-users text-[10px] mr-1"></i>Sharing: {{ s.sharing }}</p>
                   {% if s.date_of_join %}
                   <p class="text-xs text-slate-500"><i class="fa-solid fa-calendar-plus text-[10px] mr-1"></i>Joined: {{ s.date_of_join|pretty_date }}</p>
                   {% endif %}
                   {% if s.payment_date %}
-                  <p class="text-xs text-slate-500">
+                  <p class="text-xs text-slate-500 leading-relaxed">
                     <i class="fa-solid fa-calendar-check text-[10px] mr-1"></i>Paid: {{ s.payment_date|pretty_date }}{% if s.payment_mode %} &bull; {{ s.payment_mode }}{% endif %}{% if s.paid_to %} &bull; to {{ s.paid_to }}{% endif %}{% if s.cash_amount %} &bull; cash ₹{{ '{:,.0f}'.format(s.cash_amount) }}{% endif %}
                     {% if s.receipt_filename %}
-                    <a href="#" class="text-primary font-semibold ml-1"
+                    <a href="#" class="text-primary font-semibold ml-1 inline-block py-1 px-1.5 rounded bg-primary/10"
                        data-receipt-url="{{ photo_url(s.receipt_filename) }}"
                        data-receipt-name="{{ s.name }} - receipt"
                        onclick="openPhotoModal(this.dataset.receiptUrl, this.dataset.receiptName); return false;">Receipt</a>
@@ -191,7 +215,7 @@
                   </p>
                   {% endif %}
                   {% if s.note %}
-                  <p class="text-xs text-primary bg-primary/10 rounded px-1.5 py-0.5 mt-1 inline-block truncate max-w-full">
+                  <p class="text-xs text-primary bg-primary/10 rounded px-1.5 py-0.5 mt-1 inline-block max-w-full break-words">
                     <i class="fa-solid fa-tag text-[10px] mr-1"></i>{{ s.note }}
                   </p>
                   {% endif %}
@@ -227,6 +251,11 @@
   {% endfor %}
 </div>
 
+<!-- FLOATING ADD STUDENT (phones only) -->
+<a href="{{ url_for('add_student') }}" class="admin-fab btn-primary rounded-full w-14 h-14 flex items-center justify-center text-xl shadow-lg" aria-label="Add Student">
+  <i class="fa-solid fa-user-plus"></i>
+</a>
+
 <!-- DELETE CONFIRMATION MODAL -->
 <div id="deleteModal" class="modal-overlay hidden">
   <div class="modal-box animate-pop">
@@ -237,7 +266,7 @@
     <p class="text-sm text-slate-500 text-center mb-6">
       Are you sure you want to delete <span id="deleteStudentName" class="font-semibold text-slate-700"></span>? This action cannot be undone.
     </p>
-    <form id="deleteForm" method="POST">
+    <form id="deleteForm" method="POST" onsubmit="var b=this.querySelector('button[type=submit]'); b.disabled=true; b.textContent='Deleting...';">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="flex gap-3">
         <button type="button" onclick="closeModal('deleteModal')" class="btn-outline flex-1 py-2.5">Cancel</button>
@@ -250,7 +279,7 @@
 <!-- PHOTO MODAL -->
 <div id="photoModal" class="modal-overlay hidden">
   <div class="modal-box modal-box-photo animate-pop">
-    <button type="button" onclick="closeModal('photoModal')" class="modal-close"><i class="fa-solid fa-xmark"></i></button>
+    <button type="button" onclick="closeModal('photoModal')" class="modal-close" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
     <img id="photoModalImg" src="" alt="" class="w-full h-auto rounded-xl">
     <p id="photoModalName" class="text-center font-semibold text-slate-700 mt-3"></p>
   </div>
@@ -266,7 +295,7 @@
     <p class="text-sm text-slate-500 text-center mb-5">
       Columns required: Hostel, Room Number, Sharing, Name, Contact, Total Rent, Amount Paid.
     </p>
-    <form method="POST" action="{{ url_for('import_excel') }}" enctype="multipart/form-data">
+    <form method="POST" action="{{ url_for('import_excel') }}" enctype="multipart/form-data" onsubmit="var b=this.querySelector('button[type=submit]'); b.disabled=true; b.textContent='Importing...';">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="file" name="excel_file" accept=".xlsx" required class="form-input mb-4">
       <div class="flex gap-3">
