@@ -36,7 +36,7 @@
           {% for r in ROOMS %}
           <option value="{{ r }}" {{ 'selected' if form.get('room_number')|string == r|string }}>Room {{ r }}</option>
           {% endfor %}
-          <option value="{{ HALL_ROOM_NUMBER }}" {{ 'selected' if form.get('room_number')|string == HALL_ROOM_NUMBER|string }}>Hall (New Hostel only, 8 Sharing)</option>
+          <option value="{{ HALL_ROOM_NUMBER }}" {{ 'selected' if form.get('room_number')|string == HALL_ROOM_NUMBER|string }}>Hall (New Hostel only, 9 Sharing)</option>
         </select>
       </div>
     </div>

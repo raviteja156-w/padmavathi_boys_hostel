@@ -101,9 +101,9 @@ def previous_month_label(d):
 
 HOSTELS = ['Old Hostel', 'New Hostel']
 ROOMS = list(range(1, 11))
-SHARINGS = list(range(1, 9))  # 1..8 (8-sharing needed for the New Hostel Hall)
+SHARINGS = list(range(1, 10))  # 1..9 (9-sharing needed for the New Hostel Hall)
 
-# The New Hostel has one extra, non-numbered room: the "Hall" (8-sharing).
+# The New Hostel has one extra, non-numbered room: the "Hall" (9-sharing).
 # It's stored internally as room_number = 11 so no column type changes are needed.
 HALL_ROOM_NUMBER = 11
 HALL_HOSTEL = 'New Hostel'
@@ -165,7 +165,7 @@ def init_db():
             id SERIAL PRIMARY KEY,
             hostel TEXT NOT NULL CHECK(hostel IN ('Old Hostel', 'New Hostel')),
             room_number INTEGER NOT NULL CHECK(room_number BETWEEN 1 AND 11),
-            sharing INTEGER NOT NULL CHECK(sharing BETWEEN 1 AND 8),
+            sharing INTEGER NOT NULL CHECK(sharing BETWEEN 1 AND 9),
             name TEXT NOT NULL,
             contact TEXT NOT NULL,
             total_rent REAL NOT NULL DEFAULT 0,
@@ -182,10 +182,10 @@ def init_db():
     # Older deployments already had a students table before these columns/constraints existed.
     cur.execute("ALTER TABLE students ADD COLUMN IF NOT EXISTS note TEXT NOT NULL DEFAULT ''")
     cur.execute("ALTER TABLE students ADD COLUMN IF NOT EXISTS due_date INTEGER")
-    # Relax the old constraints so sharing can go up to 8 and room_number can be 11 (the Hall).
+    # Relax the old constraints so sharing can go up to 9 and room_number can be 11 (the Hall).
     # Existing rows (1-6 sharing, 1-10 rooms) already satisfy these wider bounds, so nothing is touched.
     cur.execute("ALTER TABLE students DROP CONSTRAINT IF EXISTS students_sharing_check")
-    cur.execute("ALTER TABLE students ADD CONSTRAINT students_sharing_check CHECK (sharing BETWEEN 1 AND 8)")
+    cur.execute("ALTER TABLE students ADD CONSTRAINT students_sharing_check CHECK (sharing BETWEEN 1 AND 9)")
     cur.execute("ALTER TABLE students DROP CONSTRAINT IF EXISTS students_room_number_check")
     cur.execute("ALTER TABLE students ADD CONSTRAINT students_room_number_check CHECK (room_number BETWEEN 1 AND 11)")
     cur.execute("ALTER TABLE students DROP CONSTRAINT IF EXISTS students_due_date_check")

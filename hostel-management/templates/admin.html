@@ -55,7 +55,7 @@
   </section>
 
   <!-- SUMMARY CARDS -->
-  <section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6 sm:mb-8">
+  <section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 mb-6 sm:mb-8">
     <div class="stat-card">
       <i class="fa-solid fa-users text-primary text-xl sm:text-2xl mb-2 icon-bounce"></i>
       <div class="text-xl sm:text-2xl font-bold text-slate-800">{{ stats.total }}</div>
@@ -72,11 +72,16 @@
       <div class="text-xs text-slate-500">New Hostel</div>
     </div>
     <div class="stat-card">
+      <i class="fa-solid fa-hand-holding-dollar text-primary text-xl sm:text-2xl mb-2 icon-bounce"></i>
+      <div class="text-lg sm:text-2xl font-bold text-slate-800">₹{{ '{:,.0f}'.format(stats.total_rent) }}</div>
+      <div class="text-xs text-slate-500">Total Rent to Receive</div>
+    </div>
+    <div class="stat-card">
       <i class="fa-solid fa-sack-dollar text-success text-xl sm:text-2xl mb-2 icon-bounce"></i>
       <div class="text-lg sm:text-2xl font-bold text-slate-800">₹{{ '{:,.0f}'.format(stats.total_paid) }}</div>
       <div class="text-xs text-slate-500">Total Paid</div>
     </div>
-    <div class="stat-card col-span-2 sm:col-span-1">
+    <div class="stat-card">
       <i class="fa-solid fa-triangle-exclamation text-danger text-xl sm:text-2xl mb-2 icon-bounce"></i>
       <div class="text-lg sm:text-2xl font-bold text-slate-800">₹{{ '{:,.0f}'.format(stats.total_balance) }}</div>
       <div class="text-xs text-slate-500">Balance Due</div>
