@@ -25,7 +25,8 @@ from PIL import Image
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import A4, landscape
+from xml.sax.saxutils import escape as xml_escape
 from reportlab.lib.units import mm
 from reportlab.platypus import (
     SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer,
@@ -269,6 +270,12 @@ def init_db():
     cur.execute('CREATE INDEX IF NOT EXISTS idx_payment_status ON payment_submissions(status)')
     # How the student says they paid ('Online' or 'Cash'); lets the admin confirmation record it correctly.
     cur.execute("ALTER TABLE payment_submissions ADD COLUMN IF NOT EXISTS payment_mode TEXT")
+    cur.execute("ALTER TABLE payment_submissions ADD COLUMN IF NOT EXISTS cash_amount REAL")
+    cur.execute("ALTER TABLE payment_submissions ADD COLUMN IF NOT EXISTS paid_to TEXT")
+    cur.execute("ALTER TABLE payment_submissions ADD COLUMN IF NOT EXISTS payment_date TEXT")
+    cur.execute("ALTER TABLE payment_submissions ADD COLUMN IF NOT EXISTS cash_amount REAL")
+    cur.execute("ALTER TABLE payment_submissions ADD COLUMN IF NOT EXISTS payment_date TEXT")
+    cur.execute("ALTER TABLE payment_submissions ADD COLUMN IF NOT EXISTS paid_to TEXT")
 
     # The billing cycle the students' payment fields currently belong to. Starts as the month
     # before launch, so the very first request on/after LAUNCH_DATE archives + resets them.
@@ -567,8 +574,9 @@ def _num(v):
 
 
 def student_prefill_form(student, extra=None):
-    """Values for the existing Add Student form when it is opened in 'record payment' mode.
-    Everything comes from the student's own record (found via their mobile number)."""
+    """Values for the existing Add Student form when it is opened after RECORD PAYMENT.
+    The student's own details come from their record (found via their mobile number) and are locked;
+    the payment fields start empty for the student to fill in."""
     form = {
         'hostel': student['hostel'],
         'room_number': student['room_number'],
@@ -576,7 +584,14 @@ def student_prefill_form(student, extra=None):
         'name': student['name'],
         'contact': student['contact'],
         'total_rent': _num(student.get('total_rent')),
-        'amount_paid': _num(student.get('amount_paid')),
+        'amount_paid': '',
+        'date_of_join': student.get('date_of_join') or '',
+        'due_date': student.get('due_date') or '',
+        'payment_date': '',
+        'payment_mode': '',
+        'cash_amount': '',
+        'paid_to': '',
+        'note': '',
     }
     if extra:
         form.update(extra)
@@ -584,13 +599,13 @@ def student_prefill_form(student, extra=None):
 
 
 def render_record_payment(student, extra=None):
-    """The existing Add Student page, pre-filled with the student's details, in payment mode."""
+    """The existing Add Student page, pre-filled with the student's (locked) details."""
     return render_template(
         'add_student.html',
         form=student_prefill_form(student, extra),
         record_payment=True,
-        due_amount=student_due_amount(student),
-        for_month=next_month_label(),
+        official_paid=_num(student.get('amount_paid')),
+        student_photo=photo_url(student.get('photo_filename')),
     )
 
 
@@ -1292,28 +1307,43 @@ def payments_submit():
         return redirect(url_for('add_student', record_payment=1))
 
     # Student identity always comes from the database record, never from submitted fields.
-    amount = request.form.get('amount', '').strip()
+    # The Add Student form's own fields are reused: "Amount Paid" is the payment being recorded.
     note = request.form.get('note', '').strip()[:300]
-    mode = (request.form.get('payment_mode') or '').strip()
-    entered = {'amount': amount, 'note': note, 'payment_mode': mode}
+    entered = {
+        'amount_paid': request.form.get('amount_paid', '').strip(),
+        'payment_date': request.form.get('payment_date', '').strip(),
+        'payment_mode': request.form.get('payment_mode', '').strip(),
+        'cash_amount': request.form.get('cash_amount', '').strip(),
+        'paid_to': request.form.get('paid_to', '').strip(),
+        'note': note,
+    }
 
+    errors = []
+    amount_val = None
     try:
-        amount_val = float(amount)
+        amount_val = float(entered['amount_paid'])
         if amount_val <= 0:
             raise ValueError()
     except (ValueError, TypeError):
-        flash('Please enter a valid payment amount.', 'error')
-        return render_record_payment(student, entered)
+        errors.append('Please enter a valid payment amount.')
+        amount_val = None
+    if amount_val is not None and amount_val > student_due_amount(student):
+        errors.append('Amount paid cannot be greater than your current due.')
 
-    if mode not in ('Online', 'Cash'):
-        flash('Please select whether you paid Online or in Cash.', 'error')
+    pay = parse_payment_fields(request.form, amount_val, errors)
+    if not pay['payment_mode']:
+        errors.append('Please select the payment mode.')
+
+    if errors:
+        for e in errors:
+            flash(e, 'error')
         return render_record_payment(student, entered)
 
     proof_url = None
     try:
-        proof_file = request.files.get('proof')
-        if proof_file and proof_file.filename:
-            proof_url = save_receipt(proof_file)
+        receipt_file = request.files.get('receipt')
+        if receipt_file and receipt_file.filename:
+            proof_url = save_receipt(receipt_file)
     except ValueError as e:
         flash(str(e), 'error')
         return render_record_payment(student, entered)
@@ -1323,10 +1353,12 @@ def payments_submit():
     now = datetime.utcnow().isoformat()
     db.execute('''
         INSERT INTO payment_submissions
-        (student_id, hostel, room_number, name, contact, amount, for_month, proof_filename, note, status, submitted_at, payment_mode)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'PENDING', %s, %s)
+        (student_id, hostel, room_number, name, contact, amount, for_month, proof_filename, note, status, submitted_at,
+         payment_mode, cash_amount, paid_to, payment_date)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'PENDING', %s, %s, %s, %s, %s)
     ''', (student['id'], student['hostel'], student['room_number'], student['name'], student['contact'],
-          amount_val, next_month_label(), proof_url, note, now, mode))
+          amount_val, next_month_label(), proof_url, note, now,
+          pay['payment_mode'], pay['cash_amount'], pay['paid_to'], pay['payment_date']))
     db.commit()
 
     flash('Payment recorded! It is now PENDING CONFIRMATION by the hostel admin.', 'success')
@@ -1383,18 +1415,23 @@ def confirm_payment(payment_id):
             new_balance = max(round((student['total_rent'] or 0) - new_paid, 2), 0)
             old_mode = student.get('payment_mode')
             paid_mode = payment.get('payment_mode') or 'Online'
+            new_mode = paid_mode if not old_mode or old_mode == paid_mode else 'Online + Cash'
             if paid_mode == 'Cash':
-                new_mode = 'Cash' if not old_mode else ('Online + Cash' if old_mode == 'Online' else old_mode)
-                new_cash = (student.get('cash_amount') or 0) + payment['amount']
+                cash_part = payment['amount']
+            elif paid_mode == 'Online + Cash':
+                cash_part = payment.get('cash_amount') or 0
             else:
-                new_mode = 'Online' if not old_mode else ('Online + Cash' if old_mode == 'Cash' else old_mode)
-                new_cash = student.get('cash_amount')
+                cash_part = 0
+            new_cash = (student.get('cash_amount') or 0) + cash_part if cash_part else student.get('cash_amount')
             new_receipt = payment['proof_filename'] or student.get('receipt_filename')
+            new_paid_to = payment.get('paid_to') or student.get('paid_to')
+            new_pay_date = payment.get('payment_date') or today_ist().isoformat()
             db.execute('''
                 UPDATE students
-                SET amount_paid=%s, balance=%s, payment_date=%s, payment_mode=%s, cash_amount=%s, receipt_filename=%s, updated_at=%s
+                SET amount_paid=%s, balance=%s, payment_date=%s, payment_mode=%s, cash_amount=%s, paid_to=%s,
+                    receipt_filename=%s, updated_at=%s
                 WHERE id=%s
-            ''', (new_paid, new_balance, today_ist().isoformat(), new_mode, new_cash, new_receipt, now, payment['student_id']))
+            ''', (new_paid, new_balance, new_pay_date, new_mode, new_cash, new_paid_to, new_receipt, now, payment['student_id']))
 
     db.commit()
     flash(f"Payment of ₹{payment['amount']:,.0f} from {payment['name']} confirmed.", 'success')
@@ -1760,55 +1797,119 @@ def _footer(canvas_obj, doc):
     canvas_obj.setFont('Helvetica', 8)
     canvas_obj.setFillColor(colors.HexColor('#888888'))
     canvas_obj.drawString(20 * mm, 12 * mm, f"Generated on {datetime.now().strftime('%d-%m-%Y %H:%M')}")
-    canvas_obj.drawRightString(190 * mm, 12 * mm, f"Page {doc.page}")
+    canvas_obj.drawRightString(doc.pagesize[0] - 20 * mm, 12 * mm, f"Page {doc.page}")
     canvas_obj.restoreState()
+
+
+def _cell(text, style):
+    return Paragraph(xml_escape(str(text)) if text not in (None, '') else '-', style)
+
+
+def _receipt_cell(url, style):
+    if url and str(url).startswith(('http://', 'https://')):
+        return Paragraph(f'<link href="{xml_escape(url, {chr(34): "&quot;"})}" color="#1D4ED8"><u>View</u></link>', style)
+    return Paragraph('-', style)
+
+
+def _pdf_date(value):
+    return pretty_date(value) or '-'
 
 
 def _room_table(students, styles):
     if not students:
         return Paragraph('No students assigned.', styles['EmptyRoom'])
 
-    data = [['Name', 'Contact', 'Sharing', 'Total Rent', 'Paid', 'Balance']]
+    cell = ParagraphStyle('PdfCell', parent=styles['Normal'], fontSize=8.5, leading=10.5)
+    data = [['Name', 'Contact', 'Sharing', 'Total Rent', 'Paid', 'Balance',
+             'Payment Date', 'Mode', 'Cash Amt', 'Paid To', 'Receipt']]
     for s in students:
+        cash = s.get('cash_amount')
         data.append([
-            s['name'], s['contact'], f"{s['sharing']} Sharing",
-            f"Rs.{s['total_rent']:,.0f}", f"Rs.{s['amount_paid']:,.0f}", f"Rs.{s['balance']:,.0f}"
+            _cell(s['name'], cell), s['contact'], f"{s['sharing']} Sharing",
+            f"Rs.{s['total_rent']:,.0f}", f"Rs.{s['amount_paid']:,.0f}", f"Rs.{s['balance']:,.0f}",
+            _pdf_date(s.get('payment_date')), _cell(s.get('payment_mode'), cell),
+            f"Rs.{cash:,.0f}" if cash else '-', _cell(s.get('paid_to'), cell),
+            _receipt_cell(s.get('receipt_filename'), cell),
         ])
 
-    table = Table(data, colWidths=[38 * mm, 28 * mm, 20 * mm, 24 * mm, 22 * mm, 24 * mm], repeatRows=1)
+    table = Table(data, colWidths=[40 * mm, 24 * mm, 19 * mm, 22 * mm, 22 * mm, 22 * mm,
+                                   26 * mm, 24 * mm, 20 * mm, 30 * mm, 16 * mm], repeatRows=1)
     style = TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#DBEAFE')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#1E3A8A')),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('FONTSIZE', (0, 0), (-1, -1), 8.5),
         ('GRID', (0, 0), (-1, -1), 0.6, colors.HexColor('#B0BEC5')),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('ALIGN', (2, 0), (-1, -1), 'CENTER'),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
         ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F8FAFC')]),
     ])
     table.setStyle(style)
     return table
 
 
-def _build_hostel_section(story, styles, hostel_name, rooms_dict):
+def _payments_recorded_table(db, hostel, styles):
+    """Individual payments confirmed by the admin during the current month for one hostel."""
+    month_start = today_ist().replace(day=1).isoformat()
+    rows = db.execute(
+        "SELECT * FROM payment_submissions WHERE status='CONFIRMED' AND hostel=%s AND confirmed_at >= %s "
+        "ORDER BY confirmed_at", (hostel, month_start)).fetchall()
+    if not rows:
+        return Paragraph('No confirmed payments recorded this month.', styles['EmptyRoom'])
+
+    cell = ParagraphStyle('PdfCell2', parent=styles['Normal'], fontSize=8.5, leading=10.5)
+    data = [['Date', 'Name', 'Room', 'Amount', 'Mode', 'Cash Amt', 'Paid To', 'Receipt / Proof', 'Confirmed By']]
+    for r in rows:
+        r = dict(r)
+        cash = r.get('cash_amount')
+        data.append([
+            _pdf_date(r.get('payment_date') or (r.get('confirmed_at') or '')[:10]),
+            _cell(r['name'], cell), room_label(r['room_number']),
+            f"Rs.{r['amount']:,.0f}", _cell(r.get('payment_mode'), cell),
+            f"Rs.{cash:,.0f}" if cash else '-', _cell(r.get('paid_to'), cell),
+            _receipt_cell(r.get('proof_filename'), cell), _cell(r.get('confirmed_by'), cell),
+        ])
+    table = Table(data, colWidths=[26 * mm, 45 * mm, 20 * mm, 24 * mm, 26 * mm, 22 * mm, 36 * mm, 24 * mm, 30 * mm], repeatRows=1)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#DCFCE7')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#166534')),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 8.5),
+        ('GRID', (0, 0), (-1, -1), 0.6, colors.HexColor('#B0BEC5')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN', (2, 0), (-1, -1), 'CENTER'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F0FDF4')]),
+    ]))
+    return table
+
+
+def _build_hostel_section(story, styles, hostel_name, rooms_dict, db=None):
     story.append(Paragraph(hostel_name.upper(), styles['HostelHeading']))
-    for room_no in ROOMS:
+    for room_no in rooms_for_hostel(hostel_name):  # includes the Hall for the New Hostel
         students = rooms_dict.get(room_no, [])
         occ = len(students)
         cap = students[0]['sharing'] if students else None
         cap_text = f" ({occ}/{cap} occupied)" if cap else " (0 occupied)"
-        room_block = [Paragraph(f"ROOM {room_no}{cap_text}", styles['RoomHeading']),
+        title = 'HALL' if room_no == HALL_ROOM_NUMBER else f"ROOM {room_no}"
+        room_block = [Paragraph(f"{title}{cap_text}", styles['RoomHeading']),
                       _room_table(students, styles)]
         story.append(KeepTogether(room_block))
         story.append(Spacer(1, 4))
+    if db is not None:
+        story.append(KeepTogether([
+            Paragraph('PAYMENTS RECORDED THIS MONTH', styles['RoomHeading']),
+            _payments_recorded_table(db, hostel_name, styles),
+        ]))
 
 
 def generate_pdf(hostel_filter=None):
     db = get_db()
     buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=A4,
+    doc = SimpleDocTemplate(buf, pagesize=landscape(A4),
                              topMargin=16 * mm, bottomMargin=18 * mm,
                              leftMargin=16 * mm, rightMargin=16 * mm)
     styles = _pdf_styles()
@@ -1856,11 +1957,11 @@ def generate_pdf(hostel_filter=None):
 
     if hostel_filter:
         rooms_structure = get_rooms_structure(db, hostel=hostel_filter)
-        _build_hostel_section(story, styles, hostel_filter, rooms_structure[hostel_filter])
+        _build_hostel_section(story, styles, hostel_filter, rooms_structure[hostel_filter], db)
     else:
         rooms_structure = get_rooms_structure(db)
         for h in HOSTELS:
-            _build_hostel_section(story, styles, h, rooms_structure[h])
+            _build_hostel_section(story, styles, h, rooms_structure[h], db)
             if h != HOSTELS[-1]:
                 story.append(PageBreak())
 
