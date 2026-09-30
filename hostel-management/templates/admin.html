@@ -126,6 +126,9 @@
       <a href="{{ url_for('check_vacancy') }}" class="btn-outline tap text-sm px-3 sm:px-4 py-2.5 flex items-center justify-center gap-2">
         <i class="fa-solid fa-bed text-primary"></i> Check Vacancy
       </a>
+      <button type="button" onclick="openModal('loadModal')" class="btn-outline tap text-sm px-3 sm:px-4 py-2.5 flex items-center justify-center gap-2 col-span-2 sm:col-span-1">
+        <i class="fa-solid fa-database text-danger"></i> Load Register Data
+      </button>
       <a href="{{ url_for('payment_settings') }}" class="btn-outline tap text-sm px-3 sm:px-4 py-2.5 flex items-center justify-center gap-2 col-span-2 sm:col-span-1">
         <i class="fa-solid fa-qrcode text-primary"></i> Payment Settings
       </a>
@@ -306,6 +309,28 @@
       <div class="flex gap-3">
         <button type="button" onclick="closeModal('importModal')" class="btn-outline flex-1 py-2.5">Cancel</button>
         <button type="submit" class="btn-primary flex-1 py-2.5">Import</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- LOAD REGISTER DATA MODAL -->
+<div id="loadModal" class="modal-overlay hidden">
+  <div class="modal-box animate-pop">
+    <div class="w-14 h-14 rounded-full bg-red-50 text-danger text-2xl flex items-center justify-center mx-auto mb-4">
+      <i class="fa-solid fa-database"></i>
+    </div>
+    <h3 class="text-lg font-bold text-center text-slate-800 mb-1">Load Register Data</h3>
+    <p class="text-sm text-slate-500 text-center mb-4">
+      This <strong>deletes ALL current students</strong> and loads the Old &amp; New Hostel register
+      into their correct hostel, room and sharing. Type <strong>YES</strong> to confirm.
+    </p>
+    <form method="POST" action="{{ url_for('load_register_data') }}" onsubmit="var b=this.querySelector('button[type=submit]'); b.disabled=true; b.textContent='Loading...';">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="text" name="confirm" placeholder="Type YES" autocomplete="off" required class="form-input mb-4">
+      <div class="flex gap-3">
+        <button type="button" onclick="closeModal('loadModal')" class="btn-outline flex-1 py-2.5">Cancel</button>
+        <button type="submit" class="btn-primary flex-1 py-2.5">Replace Data</button>
       </div>
     </form>
   </div>

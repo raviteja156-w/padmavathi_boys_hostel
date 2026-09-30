@@ -1676,6 +1676,43 @@ def export_excel():
                       mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 
+@app.route('/admin/load-register', methods=['POST'])
+@login_required
+def load_register_data():
+    """One-time tool: deletes ALL students and loads the hostel register from seed_data.py."""
+    if not validate_csrf(request.form.get('csrf_token')):
+        flash('Security check failed. Please try again.', 'error')
+        return redirect(url_for('admin_dashboard'))
+    if request.form.get('confirm', '').strip() != 'YES':
+        flash('Nothing was changed. Type YES (capital letters) to confirm.', 'error')
+        return redirect(url_for('admin_dashboard'))
+
+    from seed_data import build_rows
+    rows = build_rows()
+    db = get_db()
+    try:
+        # make sure up-to-9 sharing is allowed (same rule init_db applies)
+        db.execute("ALTER TABLE students DROP CONSTRAINT IF EXISTS students_sharing_check")
+        db.execute("ALTER TABLE students ADD CONSTRAINT students_sharing_check CHECK (sharing BETWEEN 1 AND 9)")
+        db.execute('DELETE FROM students')
+        now = datetime.utcnow().isoformat()
+        for r in rows:
+            db.execute('''
+                INSERT INTO students
+                (hostel, room_number, sharing, name, contact, total_rent, amount_paid, balance,
+                 note, date_of_join, created_at, updated_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ''', tuple(r) + (now, now))
+        db.commit()
+    except Exception as exc:
+        db.conn.rollback()
+        flash(f'Could not load the register data: {exc}', 'error')
+        return redirect(url_for('admin_dashboard'))
+
+    flash(f'Done! Old students removed and {len(rows)} students loaded into their hostel, room and sharing.', 'success')
+    return redirect(url_for('admin_dashboard'))
+
+
 @app.route('/admin/import-excel', methods=['POST'])
 @login_required
 def import_excel():
