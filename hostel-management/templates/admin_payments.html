@@ -65,6 +65,13 @@
             <i class="fa-solid fa-check"></i> CONFIRM PAYMENT
           </button>
         </form>
+        <form method="POST" action="{{ url_for('delete_payment_notification', payment_id=p.id) }}"
+              onsubmit="return confirm('Delete this notification from {{ p.name|e }}? It will be removed from the pending list.');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn-outline text-sm py-2.5 px-3.5 text-danger" aria-label="Delete notification" title="Delete notification">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </form>
       </div>
     </div>
     {% endfor %}
@@ -72,7 +79,14 @@
   {% endif %}
 
   {% if confirmed %}
-  <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-2">Recently Confirmed</h2>
+  <div class="flex items-center justify-between mb-2">
+    <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wide">Recently Confirmed</h2>
+    <form method="POST" action="{{ url_for('clear_confirmed_notifications') }}"
+          onsubmit="return confirm('Clear all confirmed notifications from this list? The payments stay recorded on the students.');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="text-xs font-semibold text-danger hover:underline"><i class="fa-solid fa-trash mr-1"></i>Clear all</button>
+    </form>
+  </div>
   <div class="space-y-2">
     {% for p in confirmed[:20] %}
     <div class="card p-3.5">
@@ -81,9 +95,16 @@
           <p class="text-sm font-semibold text-slate-800 truncate">{{ p.name }} <span class="text-slate-400 font-normal">— {{ p.hostel }}, {{ room_label(p.room_number) }}</span></p>
           <p class="text-xs text-slate-400">₹{{ '{:,.0f}'.format(p.amount) }} &bull; {{ p.for_month }}</p>
         </div>
-        <span class="text-[11px] font-bold px-2.5 py-1 rounded-full bg-success/10 text-success shrink-0">
-          <i class="fa-solid fa-check mr-1"></i>CONFIRMED
-        </span>
+        <div class="flex items-center gap-2 shrink-0">
+          <span class="text-[11px] font-bold px-2.5 py-1 rounded-full bg-success/10 text-success">
+            <i class="fa-solid fa-check mr-1"></i>CONFIRMED
+          </span>
+          <form method="POST" action="{{ url_for('delete_payment_notification', payment_id=p.id) }}"
+                onsubmit="return confirm('Delete this notification? The payment stays recorded on the student.');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="text-slate-400 hover:text-danger w-8 h-8" aria-label="Delete notification" title="Delete notification"><i class="fa-solid fa-trash"></i></button>
+          </form>
+        </div>
       </div>
       <p class="text-xs text-slate-400 mt-1.5">
         Confirmed by: {{ p.confirmed_by }} &bull; {{ p.confirmed_at[:16].replace('T', ' ') if p.confirmed_at else '' }}

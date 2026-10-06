@@ -276,6 +276,9 @@ def init_db():
     cur.execute("ALTER TABLE payment_submissions ADD COLUMN IF NOT EXISTS cash_amount REAL")
     cur.execute("ALTER TABLE payment_submissions ADD COLUMN IF NOT EXISTS payment_date TEXT")
     cur.execute("ALTER TABLE payment_submissions ADD COLUMN IF NOT EXISTS paid_to TEXT")
+    # Admin can hide a confirmed payment from the "Today's Payments" list; the record itself is kept
+    # (it still feeds the PDF "payments recorded this month" section).
+    cur.execute("ALTER TABLE payment_submissions ADD COLUMN IF NOT EXISTS dismissed INTEGER NOT NULL DEFAULT 0")
 
     # The billing cycle the students' payment fields currently belong to. Starts as the month
     # before launch, so the very first request on/after LAUNCH_DATE archives + resets them.
@@ -1031,100 +1034,210 @@ def admin_dashboard():
 
 
 # --------------------------------------------------------------------------
-# VACANCY CHECK
+# ADMIN BOT (chat helper on the admin dashboard)
+#   1) Check Vacancy   2) Make Empty (remove a member from a room)   3) Per-day rent
+# The old /admin/vacancy page was removed; the bot's "Check Vacancy" replaces it.
 # --------------------------------------------------------------------------
 
-@app.route('/admin/vacancy')
-@login_required
-def check_vacancy():
+RENT_MONTH_DAYS = 30  # monthly rent is divided by 30 to get the per-day rent
+
+
+def admin_api_required(f):
+    """Like login_required, but answers JSON (401) instead of redirecting to the login page."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get('admin_logged_in'):
+            return jsonify({'ok': False, 'error': 'Your session expired. Please log in again.'}), 401
+        return f(*args, **kwargs)
+    return decorated
+
+
+def bot_csrf_ok():
+    return validate_csrf(request.headers.get('X-CSRF-Token', ''))
+
+
+def _bot_json_body():
+    return request.get_json(silent=True) or {}
+
+
+def _bot_parse_hostel_room(hostel, room_raw):
+    """Returns (hostel, room_number, error)."""
+    hostel = (hostel or '').strip()
+    if hostel not in HOSTELS:
+        return None, None, 'Please choose Old Hostel or New Hostel.'
+    raw = str(room_raw or '').strip().lower()
+    if raw == 'hall':
+        room_number = HALL_ROOM_NUMBER
+    elif raw.isdigit():
+        room_number = int(raw)
+    else:
+        return None, None, 'Please type a valid room number.'
+    if room_number not in rooms_for_hostel(hostel):
+        valid = '1-10' + (' or Hall' if hostel == HALL_HOSTEL else '')
+        return None, None, f'{hostel} has no such room. Valid rooms: {valid}.'
+    return hostel, room_number, None
+
+
+def prorated_rent(monthly_rent, days):
+    """monthly rent / 30 = per-day rent; per-day rent x number of days."""
+    per_day = (monthly_rent or 0) / RENT_MONTH_DAYS
+    return per_day, round(per_day * days, 2)
+
+
+@app.route('/admin/api/bot/vacancy')
+@admin_api_required
+def bot_vacancy():
     db = get_db()
-    students = db.execute('SELECT * FROM students ORDER BY hostel, room_number, LOWER(name)').fetchall()
+    students = db.execute('SELECT hostel, room_number, sharing FROM students').fetchall()
     note_rows = db.execute('SELECT * FROM room_notes').fetchall()
     notes_map = {(n['hostel'], n['room_number']): n['note'] for n in note_rows}
 
-    occupied_rooms = {}
+    occupied = {}
     for row in students:
-        s = dict(row)
-        key = (s['hostel'], s['room_number'])
-        occupied_rooms.setdefault(key, {'sharing': s['sharing'], 'occupants': []})
-        occupied_rooms[key]['occupants'].append(s)
+        key = (row['hostel'], row['room_number'])
+        info = occupied.setdefault(key, {'sharing': row['sharing'], 'count': 0})
+        info['count'] += 1
 
-    hostel_summary = {h: {'capacity': 0, 'occupied': 0, 'vacant': 0} for h in HOSTELS}
-    room_cards = []
-
+    hostels = []
+    total = {'capacity': 0, 'occupied': 0, 'vacant': 0}
     for hostel in HOSTELS:
+        h = {'name': hostel, 'capacity': 0, 'occupied': 0, 'vacant': 0, 'rooms': []}
         for room_number in rooms_for_hostel(hostel):
             key = (hostel, room_number)
             note = notes_map.get(key, '')
-            if key in occupied_rooms:
-                info = occupied_rooms[key]
-                sharing = info['sharing']
-                occupied = len(info['occupants'])
-                vacant = max(sharing - occupied, 0)
-                hostel_summary[hostel]['capacity'] += sharing
-                hostel_summary[hostel]['occupied'] += occupied
-                hostel_summary[hostel]['vacant'] += vacant
-                room_cards.append({
-                    'hostel': hostel, 'room_number': room_number, 'sharing': sharing,
-                    'occupied': occupied, 'vacant': vacant, 'occupants': info['occupants'],
-                    'note': note, 'has_students': True,
-                })
+            if key in occupied:
+                sharing = occupied[key]['sharing']
+                count = occupied[key]['count']
+                vacant = max(sharing - count, 0)
+                h['capacity'] += sharing
+                h['occupied'] += count
+                h['vacant'] += vacant
+                h['rooms'].append({'room_number': room_number, 'label': room_label(room_number),
+                                   'sharing': sharing, 'occupied': count, 'vacant': vacant,
+                                   'assigned': True, 'note': note})
             else:
-                room_cards.append({
-                    'hostel': hostel, 'room_number': room_number, 'sharing': None,
-                    'occupied': 0, 'vacant': None, 'occupants': [],
-                    'note': note, 'has_students': False,
-                })
-
-    total_capacity = sum(h['capacity'] for h in hostel_summary.values())
-    total_occupied = sum(h['occupied'] for h in hostel_summary.values())
-    total_vacant = sum(h['vacant'] for h in hostel_summary.values())
-
-    return render_template(
-        'vacancy.html',
-        room_cards=room_cards,
-        hostel_summary=hostel_summary,
-        total_capacity=total_capacity,
-        total_occupied=total_occupied,
-        total_vacant=total_vacant,
-        hostels=HOSTELS,
-    )
+                h['rooms'].append({'room_number': room_number, 'label': room_label(room_number),
+                                   'sharing': None, 'occupied': 0, 'vacant': None,
+                                   'assigned': False, 'note': note})
+        for k in total:
+            total[k] += h[k]
+        hostels.append(h)
+    return jsonify({'ok': True, 'hostels': hostels, 'total': total})
 
 
-@app.route('/admin/vacancy/note', methods=['POST'])
-@login_required
-def save_room_note():
-    if not validate_csrf(request.form.get('csrf_token')):
-        flash('Security check failed. Please try again.', 'error')
-        return redirect(url_for('check_vacancy'))
+@app.route('/admin/api/bot/room')
+@admin_api_required
+def bot_room():
+    hostel, room_number, err = _bot_parse_hostel_room(request.args.get('hostel'), request.args.get('room'))
+    if err:
+        return jsonify({'ok': False, 'error': err}), 400
+    db = get_db()
+    rows = db.execute(
+        'SELECT id, name, contact, sharing, total_rent, amount_paid, balance FROM students '
+        'WHERE hostel=%s AND room_number=%s ORDER BY LOWER(name)', (hostel, room_number)).fetchall()
+    members = [dict(r) for r in rows]
+    sharing = members[0]['sharing'] if members else None
+    return jsonify({
+        'ok': True, 'hostel': hostel, 'room_number': room_number, 'label': room_label(room_number),
+        'sharing': sharing, 'occupied': len(members),
+        'vacant': max(sharing - len(members), 0) if sharing else None,
+        'members': members,
+    })
 
-    hostel = request.form.get('hostel', '').strip()
-    room_number = request.form.get('room_number', '').strip()
-    note = request.form.get('note', '').strip()[:300]
 
-    if hostel not in HOSTELS or not room_number.isdigit() or int(room_number) not in rooms_for_hostel(hostel):
-        flash('Invalid room.', 'error')
-        return redirect(url_for('check_vacancy'))
-    room_number = int(room_number)
+@app.route('/admin/api/bot/make-empty', methods=['POST'])
+@admin_api_required
+def bot_make_empty():
+    """Removes one member from their room (frees the bed). Same effect as the dashboard Delete button."""
+    if not bot_csrf_ok():
+        return jsonify({'ok': False, 'error': 'Security check failed. Please refresh the page.'}), 400
+    try:
+        student_id = int(_bot_json_body().get('student_id'))
+    except (TypeError, ValueError):
+        return jsonify({'ok': False, 'error': 'Invalid member.'}), 400
 
     db = get_db()
-    now = datetime.utcnow().isoformat()
-    if note:
-        # ON CONFLICT relies on the UNIQUE(hostel, room_number) constraint, so a room
-        # can never end up with two separate notes — the existing one is just updated.
-        db.execute('''
-            INSERT INTO room_notes (hostel, room_number, note, updated_at)
-            VALUES (%s, %s, %s, %s)
-            ON CONFLICT (hostel, room_number)
-            DO UPDATE SET note = EXCLUDED.note, updated_at = EXCLUDED.updated_at
-        ''', (hostel, room_number, note, now))
-        flash(f'Note saved for {hostel} - Room {room_number}.', 'success')
-    else:
-        db.execute('DELETE FROM room_notes WHERE hostel=%s AND room_number=%s', (hostel, room_number))
-        flash(f'Note cleared for {hostel} - Room {room_number}.', 'success')
+    student = db.execute('SELECT * FROM students WHERE id=%s', (student_id,)).fetchone()
+    if not student:
+        return jsonify({'ok': False, 'error': 'That member was not found (maybe already removed).'}), 404
+    student = dict(student)
+    delete_photo(student['photo_filename'])
+    db.execute('DELETE FROM students WHERE id=%s', (student_id,))
     db.commit()
 
-    return redirect(url_for('check_vacancy'))
+    count, _ = room_occupancy(db, student['hostel'], student['room_number'])
+    vacant = max(student['sharing'] - count, 0)
+    return jsonify({'ok': True, 'name': student['name'], 'hostel': student['hostel'],
+                    'label': room_label(student['room_number']), 'occupied': count,
+                    'sharing': student['sharing'], 'vacant': vacant})
+
+
+def _bot_days(value):
+    try:
+        days = int(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+    return days if 1 <= days <= 31 else None
+
+
+@app.route('/admin/api/bot/rent/calc', methods=['POST'])
+@admin_api_required
+def bot_rent_calc():
+    if not bot_csrf_ok():
+        return jsonify({'ok': False, 'error': 'Security check failed. Please refresh the page.'}), 400
+    body = _bot_json_body()
+    days = _bot_days(body.get('days'))
+    if days is None:
+        return jsonify({'ok': False, 'error': 'Please enter the number of days as a whole number between 1 and 31.'}), 400
+    try:
+        student_id = int(body.get('student_id'))
+    except (TypeError, ValueError):
+        return jsonify({'ok': False, 'error': 'Invalid member.'}), 400
+    db = get_db()
+    student = db.execute('SELECT id, name, total_rent, amount_paid FROM students WHERE id=%s', (student_id,)).fetchone()
+    if not student:
+        return jsonify({'ok': False, 'error': 'Member not found.'}), 404
+    monthly = student['total_rent'] or 0
+    per_day, total = prorated_rent(monthly, days)
+    return jsonify({'ok': True, 'student_id': student['id'], 'name': student['name'], 'days': days,
+                    'monthly_rent': monthly, 'per_day': round(per_day, 2), 'total': total,
+                    'amount_paid': student['amount_paid'] or 0,
+                    'new_balance': max(round(total - (student['amount_paid'] or 0), 2), 0),
+                    'overpaid': (student['amount_paid'] or 0) > total})
+
+
+@app.route('/admin/api/bot/rent/update', methods=['POST'])
+@admin_api_required
+def bot_rent_update():
+    """Saves the calculated per-day rent as this student's total rent (and recomputes the balance)."""
+    if not bot_csrf_ok():
+        return jsonify({'ok': False, 'error': 'Security check failed. Please refresh the page.'}), 400
+    body = _bot_json_body()
+    days = _bot_days(body.get('days'))
+    if days is None:
+        return jsonify({'ok': False, 'error': 'Invalid number of days.'}), 400
+    try:
+        student_id = int(body.get('student_id'))
+        expected_monthly = float(body.get('monthly_rent'))
+    except (TypeError, ValueError):
+        return jsonify({'ok': False, 'error': 'Invalid request.'}), 400
+
+    db = get_db()
+    student = db.execute('SELECT * FROM students WHERE id=%s', (student_id,)).fetchone()
+    if not student:
+        return jsonify({'ok': False, 'error': 'Member not found.'}), 404
+    monthly = student['total_rent'] or 0
+    # Guards against a double tap applying the same proration twice on an already-updated rent.
+    if abs(monthly - expected_monthly) > 0.005:
+        return jsonify({'ok': False, 'error': "This member's rent has changed since you calculated. Please calculate again."}), 409
+
+    _, new_total = prorated_rent(monthly, days)
+    paid = student['amount_paid'] or 0
+    new_balance = max(round(new_total - paid, 2), 0)
+    db.execute('UPDATE students SET total_rent=%s, balance=%s, updated_at=%s WHERE id=%s',
+               (new_total, new_balance, datetime.utcnow().isoformat(), student_id))
+    db.commit()
+    return jsonify({'ok': True, 'name': student['name'], 'total_rent': new_total, 'balance': new_balance})
 
 
 # --------------------------------------------------------------------------
@@ -1374,7 +1487,7 @@ def payments_submit():
 def admin_payments():
     db = get_db()
     today_str = today_ist().isoformat()
-    rows = db.execute('SELECT * FROM payment_submissions ORDER BY id DESC LIMIT 200').fetchall()
+    rows = db.execute('SELECT * FROM payment_submissions WHERE COALESCE(dismissed, 0) = 0 ORDER BY id DESC LIMIT 200').fetchall()
     submissions = [dict(r) for r in rows]
     for s in submissions:
         s['is_today'] = (s['submitted_at'] or '').startswith(today_str)
@@ -1435,6 +1548,43 @@ def confirm_payment(payment_id):
 
     db.commit()
     flash(f"Payment of ₹{payment['amount']:,.0f} from {payment['name']} confirmed.", 'success')
+    return redirect(url_for('admin_payments'))
+
+
+@app.route('/admin/payments/<int:payment_id>/delete', methods=['POST'])
+@login_required
+def delete_payment_notification(payment_id):
+    """Deletes a payment notification from Today's Payments.
+    PENDING  -> removed entirely (the student's money/balance was never touched, so nothing else changes).
+    CONFIRMED -> only hidden from this list; the payment stays applied to the student and in the reports."""
+    if not validate_csrf(request.form.get('csrf_token')):
+        flash('Security check failed. Please try again.', 'error')
+        return redirect(url_for('admin_payments'))
+    db = get_db()
+    payment = db.execute('SELECT id, name, status FROM payment_submissions WHERE id=%s', (payment_id,)).fetchone()
+    if not payment:
+        flash('That notification no longer exists.', 'error')
+        return redirect(url_for('admin_payments'))
+    if payment['status'] == 'PENDING':
+        db.execute('DELETE FROM payment_submissions WHERE id=%s', (payment_id,))
+    else:
+        db.execute('UPDATE payment_submissions SET dismissed=1 WHERE id=%s', (payment_id,))
+    db.commit()
+    flash(f"Notification from {payment['name']} deleted.", 'success')
+    return redirect(url_for('admin_payments'))
+
+
+@app.route('/admin/payments/clear-confirmed', methods=['POST'])
+@login_required
+def clear_confirmed_notifications():
+    """Hides every CONFIRMED notification from the list (records are kept)."""
+    if not validate_csrf(request.form.get('csrf_token')):
+        flash('Security check failed. Please try again.', 'error')
+        return redirect(url_for('admin_payments'))
+    db = get_db()
+    db.execute("UPDATE payment_submissions SET dismissed=1 WHERE status='CONFIRMED'")
+    db.commit()
+    flash('Confirmed notifications cleared.', 'success')
     return redirect(url_for('admin_payments'))
 
 

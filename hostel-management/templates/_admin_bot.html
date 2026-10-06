@@ -1,0 +1,55 @@
+<!-- ADMIN BOT: floating chat helper (Check Vacancy / Make Empty / Per-day Rent) -->
+<style>
+  .bot-fab { position: fixed; right: 1rem; bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); z-index: 46;
+    width: 3.5rem; height: 3.5rem; border-radius: 9999px; display: flex; align-items: center; justify-content: center;
+    font-size: 1.4rem; color: #fff; background: linear-gradient(135deg, #1E3A8A, #2563EB); box-shadow: 0 6px 18px rgba(30,58,138,.4); }
+  @media (max-width: 640px) { .bot-fab { bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px)); } }
+  .bot-panel { position: fixed; right: 1rem; bottom: calc(5rem + env(safe-area-inset-bottom, 0px)); z-index: 60;
+    width: min(26rem, calc(100vw - 2rem)); height: min(34rem, calc(100vh - 7rem)); display: none; flex-direction: column;
+    background: #fff; border: 1px solid #DBEAFE; border-radius: 1.1rem; box-shadow: 0 20px 50px rgba(15,23,42,.28); overflow: hidden; }
+  .bot-panel.open { display: flex; }
+  @media (max-width: 640px) { .bot-panel { right: .5rem; left: .5rem; width: auto; bottom: calc(.5rem + env(safe-area-inset-bottom, 0px)); height: calc(100vh - 1.5rem); height: calc(100dvh - 1.5rem); } }
+  .bot-head { background: linear-gradient(135deg, #1E3A8A, #2563EB); color: #fff; padding: .75rem 1rem; display: flex; align-items: center; gap: .6rem; }
+  .bot-head h3 { font-weight: 700; flex: 1; }
+  .bot-head button { color: #dbeafe; width: 2rem; height: 2rem; }
+  .bot-body { flex: 1; overflow-y: auto; padding: .9rem; background: #F8FAFC; display: flex; flex-direction: column; gap: .55rem; }
+  .bot-msg { max-width: 92%; padding: .55rem .8rem; border-radius: .9rem; font-size: .9rem; line-height: 1.35; overflow-wrap: anywhere; }
+  .bot-msg.bot { background: #fff; border: 1px solid #E2E8F0; align-self: flex-start; border-bottom-left-radius: .25rem; }
+  .bot-msg.me { background: #1E3A8A; color: #fff; align-self: flex-end; border-bottom-right-radius: .25rem; }
+  .bot-chips { display: flex; flex-wrap: wrap; gap: .4rem; align-self: flex-start; max-width: 100%; }
+  .bot-chip { background: #fff; border: 1.5px solid #BFDBFE; color: #1E3A8A; font-weight: 600; font-size: .85rem;
+    padding: .5rem .8rem; border-radius: .8rem; min-height: 40px; text-align: left; }
+  .bot-chip:hover { background: #EFF6FF; }
+  .bot-chip.danger { border-color: #FECACA; color: #B91C1C; }
+  .bot-chip.primary { background: #1E3A8A; color: #fff; border-color: #1E3A8A; }
+  .bot-chips.used .bot-chip { opacity: .45; pointer-events: none; }
+  .bot-foot { border-top: 1px solid #E2E8F0; padding: .6rem; display: flex; gap: .5rem; background: #fff; }
+  .bot-foot input { flex: 1; font-size: 16px; border: 1.5px solid #CBD5E1; border-radius: .7rem; padding: .5rem .7rem; min-width: 0; }
+  .bot-foot input:disabled { background: #F1F5F9; }
+  .bot-foot button { background: #1E3A8A; color: #fff; border-radius: .7rem; padding: 0 .9rem; font-weight: 600; }
+  .bot-foot button:disabled { opacity: .5; }
+  .bot-table { width: 100%; border-collapse: collapse; font-size: .8rem; margin-top: .3rem; }
+  .bot-table th, .bot-table td { padding: .25rem .35rem; border-bottom: 1px solid #E2E8F0; text-align: left; }
+  .bot-table th { color: #475569; font-weight: 600; }
+  .bot-table td.n, .bot-table th.n { text-align: center; }
+  .bot-pill { display: inline-block; font-weight: 700; padding: 0 .4rem; border-radius: 9999px; font-size: .75rem; }
+  .bot-pill.free { background: #DCFCE7; color: #166534; } .bot-pill.full { background: #FEE2E2; color: #991B1B; } .bot-pill.na { background: #F1F5F9; color: #64748B; }
+</style>
+
+<button type="button" id="botFab" class="bot-fab" aria-label="Open admin assistant"><i class="fa-solid fa-robot"></i></button>
+
+<div id="botPanel" class="bot-panel" role="dialog" aria-label="Admin assistant" data-csrf="{{ csrf_token() }}">
+  <div class="bot-head">
+    <i class="fa-solid fa-robot text-lg"></i>
+    <h3>Hostel Bot</h3>
+    <button type="button" id="botRestart" title="Start over" aria-label="Start over"><i class="fa-solid fa-rotate-left"></i></button>
+    <button type="button" id="botClose" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div id="botBody" class="bot-body"></div>
+  <form id="botForm" class="bot-foot" autocomplete="off">
+    <input id="botInput" type="text" inputmode="text" placeholder="Pick an option above…" disabled>
+    <button type="submit" id="botSend" disabled><i class="fa-solid fa-paper-plane"></i></button>
+  </form>
+</div>
+
+<script src="{{ url_for('static', filename='js/admin_bot.js') }}"></script>

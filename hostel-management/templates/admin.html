@@ -123,9 +123,6 @@
       <button type="button" onclick="openModal('pdfModal')" class="btn-outline tap text-sm px-3 sm:px-4 py-2.5 flex items-center justify-center gap-2">
         <i class="fa-solid fa-file-pdf text-danger"></i> Generate PDF
       </button>
-      <a href="{{ url_for('check_vacancy') }}" class="btn-outline tap text-sm px-3 sm:px-4 py-2.5 flex items-center justify-center gap-2">
-        <i class="fa-solid fa-bed text-primary"></i> Check Vacancy
-      </a>
       <button type="button" onclick="openModal('loadModal')" class="btn-outline tap text-sm px-3 sm:px-4 py-2.5 flex items-center justify-center gap-2 col-span-2 sm:col-span-1">
         <i class="fa-solid fa-database text-danger"></i> Load Register Data
       </button>
@@ -359,6 +356,8 @@
 </div>
 
 {% endblock %}
+
+{% include '_admin_bot.html' %}
 
 {% block extra_scripts %}
 <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
