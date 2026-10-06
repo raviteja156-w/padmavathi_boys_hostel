@@ -89,7 +89,7 @@
   </section>
 
   <!-- QUICK ACTION CARDS: DUE LIST / TODAY'S PAYMENTS -->
-  <section class="grid grid-cols-2 gap-3 sm:gap-4 mb-6 sm:mb-8">
+  <section class="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
     <a href="{{ url_for('due_list') }}" class="stat-card relative block hover:shadow-md transition tap">
       {% if due_count %}
       <span class="absolute top-2 right-2 text-[11px] font-bold px-2 py-0.5 rounded-full bg-danger text-white">{{ due_count }}</span>
@@ -105,6 +105,14 @@
       <i class="fa-solid fa-hourglass-half text-amber-500 text-xl sm:text-2xl mb-2 icon-bounce"></i>
       <div class="text-base sm:text-xl font-bold text-slate-800">Today's Payments</div>
       <div class="text-xs text-slate-500">Submissions awaiting confirmation</div>
+    </a>
+    <a href="{{ url_for('paid_unconfirmed') }}" class="stat-card relative block hover:shadow-md transition tap col-span-2 sm:col-span-1">
+      {% if unconfirmed_paid_count %}
+      <span class="absolute top-2 right-2 text-[11px] font-bold px-2 py-0.5 rounded-full bg-indigo-600 text-white">{{ unconfirmed_paid_count }}</span>
+      {% endif %}
+      <i class="fa-solid fa-user-check text-indigo-500 text-xl sm:text-2xl mb-2 icon-bounce"></i>
+      <div class="text-base sm:text-xl font-bold text-slate-800">Paid (Unconfirmed)</div>
+      <div class="text-xs text-slate-500">Marked paid without admin confirmation</div>
     </a>
   </section>
 

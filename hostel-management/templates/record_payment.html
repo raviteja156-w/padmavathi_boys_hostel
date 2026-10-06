@@ -1,0 +1,295 @@
+{% extends 'base.html' %}
+{% block title %}Record Payment — Hostel Management System{% endblock %}
+{% block content %}
+{% set ro = true if record_payment else false %}
+{% set lock = 'bg-slate-100 text-slate-600 pointer-events-none' if ro else '' %}
+
+<div class="max-w-xl mx-auto animate-slide-up">
+  <div class="text-center mb-6">
+    <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 text-primary text-2xl mb-3">
+      <i class="fa-solid fa-user-plus"></i>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-slate-800">Add Student</h1>
+    <p class="text-slate-500 text-sm mt-1">Fill in the details below to place a student into their room.</p>
+  </div>
+
+  <div id="flashArea"></div>
+
+  <form method="POST" action="{{ url_for('payments_submit') if ro else url_for('add_student') }}" enctype="multipart/form-data" class="card p-5 sm:p-7 space-y-5" id="studentForm" data-busy="{{ 'Submitting...' if ro else 'Saving...' }}" novalidate>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="grid sm:grid-cols-2 gap-5">
+      <div>
+        <label class="form-label"><i class="fa-solid fa-hotel mr-1.5 text-primary"></i>Hostel</label>
+        <select name="hostel" id="hostelSelect" required class="form-input {{ lock }}" {{ 'disabled' if ro }}>
+          <option value="" disabled {{ 'selected' if not form.get('hostel') }}>Select Hostel</option>
+          {% for h in HOSTELS %}
+          <option value="{{ h }}" {{ 'selected' if form.get('hostel') == h }}>{{ h }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="form-label"><i class="fa-solid fa-door-closed mr-1.5 text-primary"></i>Room Number</label>
+        <select name="room_number" id="roomSelect" required class="form-input {{ lock }}" {{ 'disabled' if ro }}>
+          <option value="" disabled {{ 'selected' if not form.get('room_number') }}>Select Room</option>
+          {% for r in ROOMS %}
+          <option value="{{ r }}" {{ 'selected' if form.get('room_number')|string == r|string }}>Room {{ r }}</option>
+          {% endfor %}
+          <option id="hallOption" value="{{ HALL_ROOM_NUMBER }}" {{ 'selected' if form.get('room_number')|string == HALL_ROOM_NUMBER|string }}>Hall (New Hostel only, 9 Sharing)</option>
+        </select>
+      </div>
+    </div>
+
+    <div>
+      <label class="form-label"><i class="fa-solid fa-users-rectangle mr-1.5 text-primary"></i>Sharing</label>
+      <select name="sharing" required class="form-input {{ lock }}" {{ 'disabled' if ro }}>
+        <option value="" disabled {{ 'selected' if not form.get('sharing') }}>Select Sharing</option>
+        {% for s in SHARINGS %}
+        <option value="{{ s }}" {{ 'selected' if form.get('sharing')|string == s|string }}>{{ s }} Sharing</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="form-label"><i class="fa-solid fa-user mr-1.5 text-primary"></i>Student Name</label>
+      <input type="text" name="name" required minlength="2" maxlength="80" placeholder="Full name"
+             value="{{ form.get('name', '') }}" class="form-input {{ lock }}" {{ 'readonly' if ro }}>
+    </div>
+
+    <div>
+      <label class="form-label"><i class="fa-solid fa-phone mr-1.5 text-primary"></i>Contact Number</label>
+      <input type="tel" name="contact" id="contact" required pattern="[6-9][0-9]{9}" maxlength="10"
+             placeholder="10-digit mobile number" value="{{ form.get('contact', '') }}" class="form-input {{ lock }}"
+             inputmode="numeric" {{ 'readonly' if ro }}>
+      <p class="text-xs text-slate-400 mt-1">Indian mobile number, e.g. 9876543210</p>
+    </div>
+
+    <div class="grid sm:grid-cols-2 gap-5">
+      <div>
+        <label class="form-label"><i class="fa-solid fa-indian-rupee-sign mr-1.5 text-primary"></i>Total Rent</label>
+        <input type="number" name="total_rent" id="total_rent" required min="0" step="any"
+               placeholder="0" value="{{ form.get('total_rent', '') }}" class="form-input {{ lock }}" {{ 'readonly' if ro }}>
+      </div>
+      <div>
+        <label class="form-label"><i class="fa-solid fa-money-bill-wave mr-1.5 text-primary"></i>Amount Paid</label>
+        <input type="number" name="amount_paid" id="amount_paid" required min="0" step="any" {% if ro %}data-official-paid="{{ official_paid or 0 }}"{% endif %}
+               placeholder="0" value="{{ form.get('amount_paid', '') }}" class="form-input">
+      </div>
+    </div>
+
+    <div class="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3.5 flex items-center justify-between">
+      <span class="text-sm font-medium text-slate-600"><i class="fa-solid fa-scale-balanced mr-1.5 text-primary"></i>Balance</span>
+      <span id="balanceDisplay" class="text-xl font-bold text-primary">₹0</span>
+    </div>
+
+    <div>
+      <label class="form-label"><i class="fa-solid fa-calendar-plus mr-1.5 text-primary"></i>Date of Join</label>
+      {% set dj = form.get('date_of_join') if 'date_of_join' in form else today_iso() %}
+      <input type="date" name="date_of_join" value="{{ dj or '' }}" class="form-input {{ lock }}" {{ 'readonly' if ro }}>
+      <p class="text-xs text-slate-400 mt-1">Rent is due on this day of every month, and the student appears in the Due List from that day until paid.</p>
+    </div>
+
+    <div class="border-t border-slate-100 pt-5 space-y-5">
+      <h2 class="text-sm font-bold text-slate-700 uppercase tracking-wide">
+        <i class="fa-solid fa-receipt mr-1.5 text-primary"></i>Payment Details
+      </h2>
+
+      <div class="grid sm:grid-cols-2 gap-5">
+        <div>
+          <label class="form-label"><i class="fa-solid fa-calendar-check mr-1.5 text-primary"></i>Payment Date</label>
+          <input type="date" name="payment_date" value="{{ form.get('payment_date', '') }}" class="form-input">
+        </div>
+        <div>
+          <label class="form-label"><i class="fa-solid fa-wallet mr-1.5 text-primary"></i>Payment Mode</label>
+          <select name="payment_mode" id="payment_mode" class="form-input">
+            <option value="">— Not paid yet —</option>
+            {% for m in PAYMENT_MODES %}
+            <option value="{{ m }}" {{ 'selected' if form.get('payment_mode') == m }}>{{ m }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div id="onlineBox" class="hidden">
+        <label class="form-label"><i class="fa-solid fa-file-image mr-1.5 text-primary"></i>Online Payment Receipt</label>
+        <div class="flex items-center gap-4">
+          <div id="receiptPreviewWrap" class="hidden w-20 h-20 rounded-xl overflow-hidden border-2 border-primary/20 shrink-0">
+            <img id="receiptPreview" class="w-full h-full object-cover" alt="Receipt preview">
+          </div>
+          <label for="receipt" class="upload-box flex-1">
+            <i class="fa-solid fa-cloud-arrow-up text-2xl text-primary mb-1"></i>
+            <span class="text-sm text-slate-500" id="receiptLabel">Tap to upload receipt screenshot</span>
+          </label>
+          <input type="file" id="receipt" name="receipt" accept=".jpg,.jpeg,.png,image/jpeg,image/png" class="hidden">
+        </div>
+        <p class="text-xs text-slate-400 mt-1">JPG or PNG, max 8MB.</p>
+      </div>
+
+      <div id="cashBox" class="hidden">
+        <label class="form-label"><i class="fa-solid fa-money-bill-1 mr-1.5 text-primary"></i>Cash Amount Received</label>
+        <input type="number" name="cash_amount" min="0" step="any" placeholder="How much was paid in cash?"
+               value="{{ form.get('cash_amount', '') }}" class="form-input">
+      </div>
+
+      <div>
+        <label class="form-label"><i class="fa-solid fa-user-check mr-1.5 text-primary"></i>Paid To</label>
+        <input type="text" name="paid_to" maxlength="100" placeholder="Name of the person who received the payment"
+               value="{{ form.get('paid_to', '') }}" class="form-input">
+      </div>
+    </div>
+
+    <div>
+      <label class="form-label"><i class="fa-solid fa-camera mr-1.5 text-primary"></i>Student Photo (JPG only)</label>
+      <div class="flex items-center gap-4">
+        <div id="photoPreviewWrap" class="{{ '' if (ro and student_photo) else 'hidden' }} w-20 h-20 rounded-xl overflow-hidden border-2 border-primary/20 shrink-0">
+          <img id="photoPreview" class="w-full h-full object-cover" alt="Preview" {% if ro and student_photo %}src="{{ student_photo }}"{% endif %}>
+        </div>
+        <label for="photo" class="upload-box flex-1 {{ 'opacity-60 pointer-events-none' if ro }}">
+          <i class="fa-solid fa-cloud-arrow-up text-2xl text-primary mb-1"></i>
+          <span class="text-sm text-slate-500" id="photoLabel">Tap to upload JPG photo</span>
+        </label>
+        <input type="file" id="photo" name="photo" accept=".jpg,.jpeg,image/jpeg" class="hidden" {{ 'disabled' if ro }}>
+      </div>
+      <p class="text-xs text-slate-400 mt-1">Only .jpg / .jpeg files, max 8MB. Image will be auto-compressed.</p>
+    </div>
+
+    <div>
+      <label class="form-label"><i class="fa-solid fa-tag mr-1.5 text-primary"></i>Note (optional)</label>
+      <input type="text" name="note" maxlength="300" placeholder="e.g. pays on the 5th every month"
+             value="{{ form.get('note', '') }}" class="form-input">
+    </div>
+
+    <div>
+      <label class="form-label"><i class="fa-solid fa-calendar-day mr-1.5 text-primary"></i>Monthly Due Date (optional)</label>
+      <input type="number" name="due_date" min="1" max="31" placeholder="Day of month, e.g. 5"
+             value="{{ form.get('due_date', '') }}" class="form-input {{ lock }}" {{ 'readonly' if ro }}>
+      <p class="text-xs text-slate-400 mt-1">Used for the admin Due List — e.g. 5 means rent is due on the 5th of every month.</p>
+    </div>
+
+    <button type="submit" class="btn-primary w-full text-base py-4 flex items-center justify-center gap-2">
+      {% if ro %}<i class="fa-solid fa-paper-plane"></i> SUBMIT PAYMENT{% else %}<i class="fa-solid fa-floppy-disk"></i> SAVE STUDENT{% endif %}
+    </button>
+  </form>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const totalRent = document.getElementById('total_rent');
+  const amountPaid = document.getElementById('amount_paid');
+  const balanceDisplay = document.getElementById('balanceDisplay');
+  const photoInput = document.getElementById('photo');
+  const photoPreview = document.getElementById('photoPreview');
+  const photoPreviewWrap = document.getElementById('photoPreviewWrap');
+  const photoLabel = document.getElementById('photoLabel');
+  const contact = document.getElementById('contact');
+
+  function updateBalance() {
+    let rent = parseFloat(totalRent.value) || 0;
+    let paid = parseFloat(amountPaid.value) || 0;
+    const official = parseFloat(amountPaid.getAttribute('data-official-paid')) || 0;
+    if (amountPaid.hasAttribute('data-official-paid')) {
+      // Record-payment mode: the field is the payment being made now, on top of what is already confirmed.
+      if (paid < 0) { paid = 0; amountPaid.value = 0; }
+      if (official + paid > rent) { paid = Math.max(rent - official, 0); amountPaid.value = paid; }
+      const due = rent - official - paid;
+      balanceDisplay.textContent = '₹' + due.toLocaleString('en-IN');
+      balanceDisplay.classList.toggle('text-danger', due > 0);
+      balanceDisplay.classList.toggle('text-success', due === 0);
+      return;
+    }
+    if (rent < 0) { rent = 0; totalRent.value = 0; }
+    if (paid < 0) { paid = 0; amountPaid.value = 0; }
+    if (paid > rent) { paid = rent; amountPaid.value = rent; }
+    const balance = rent - paid;
+    balanceDisplay.textContent = '₹' + balance.toLocaleString('en-IN');
+    balanceDisplay.classList.toggle('text-danger', balance > 0);
+    balanceDisplay.classList.toggle('text-success', balance === 0);
+    balanceDisplay.classList.toggle('text-primary', balance < 0 === false && balance !== 0 && balance !== 0);
+  }
+  totalRent.addEventListener('input', updateBalance);
+  amountPaid.addEventListener('input', updateBalance);
+  updateBalance();
+
+  contact.addEventListener('input', function () {
+    this.value = this.value.replace(/\D/g, '').slice(0, 10);
+  });
+
+  photoInput.addEventListener('change', function () {
+    const file = this.files[0];
+    if (!file) return;
+    const validExt = /\.(jpg|jpeg)$/i.test(file.name);
+    if (!validExt) {
+      showToast('Only JPG/JPEG files are allowed.', 'error');
+      this.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      photoPreview.src = e.target.result;
+      photoPreviewWrap.classList.remove('hidden');
+      photoLabel.textContent = file.name;
+    };
+    reader.readAsDataURL(file);
+  });
+
+
+  // ---- payment mode: show receipt upload for Online, cash amount for Cash ----
+  const modeSel = document.getElementById('payment_mode');
+  const onlineBox = document.getElementById('onlineBox');
+  const cashBox = document.getElementById('cashBox');
+  function syncPaymentBoxes() {
+    const m = modeSel.value;
+    const hasReceipt = onlineBox.getAttribute('data-has-receipt') === '1';
+    onlineBox.classList.toggle('hidden', !(m === 'Online' || m === 'Online + Cash' || hasReceipt));
+    cashBox.classList.toggle('hidden', !(m === 'Cash' || m === 'Online + Cash'));
+  }
+  modeSel.addEventListener('change', syncPaymentBoxes);
+  syncPaymentBoxes();
+
+  const receiptInput = document.getElementById('receipt');
+  const receiptPreview = document.getElementById('receiptPreview');
+  const receiptPreviewWrap = document.getElementById('receiptPreviewWrap');
+  const receiptLabel = document.getElementById('receiptLabel');
+  receiptInput.addEventListener('change', function () {
+    const file = this.files[0];
+    if (!file) return;
+    if (!/\.(jpg|jpeg|png)$/i.test(file.name)) {
+      showToast('Receipt must be a JPG or PNG image.', 'error');
+      this.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      receiptPreview.src = e.target.result;
+      receiptPreviewWrap.classList.remove('hidden');
+      receiptLabel.textContent = file.name;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  // The Hall exists only in the New Hostel: hide it while Old Hostel is selected.
+  const hostelSel = document.getElementById('hostelSelect');
+  const roomSel = document.getElementById('roomSelect');
+  const hallOpt = document.getElementById('hallOption');
+  function syncHall() {
+    const oldHostel = hostelSel.value === 'Old Hostel';
+    hallOpt.hidden = oldHostel;
+    hallOpt.disabled = oldHostel;
+    if (oldHostel && roomSel.value === hallOpt.value) roomSel.value = '';
+  }
+  hostelSel.addEventListener('change', syncHall);
+  syncHall();
+
+  const form = document.getElementById('studentForm');
+  form.addEventListener('submit', function (e) {
+    const btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> ' + (form.getAttribute('data-busy') || 'Saving...');
+  });
+});
+</script>
+{% endblock %}

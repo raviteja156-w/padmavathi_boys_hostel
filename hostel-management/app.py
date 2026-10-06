@@ -279,6 +279,17 @@ def init_db():
     # Admin can hide a confirmed payment from the "Today's Payments" list; the record itself is kept
     # (it still feeds the PDF "payments recorded this month" section).
     cur.execute("ALTER TABLE payment_submissions ADD COLUMN IF NOT EXISTS dismissed INTEGER NOT NULL DEFAULT 0")
+    # Admin can remove an entry from the "Paid - Not Confirmed" page. This separate table only remembers
+    # that the notice was dismissed; no student or payment record is changed or deleted.
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS unconfirmed_dismissals (
+            student_id INTEGER NOT NULL,
+            month_start TEXT NOT NULL,
+            amount_paid REAL NOT NULL,
+            dismissed_at TEXT NOT NULL,
+            PRIMARY KEY (student_id, month_start)
+        )
+    ''')
 
     # The billing cycle the students' payment fields currently belong to. Starts as the month
     # before launch, so the very first request on/after LAUNCH_DATE archives + resets them.
@@ -505,6 +516,28 @@ def get_stats(db):
     }
 
 
+def get_dashboard_stats(db):
+    """Dashboard cards only. Same as get_stats, except Total Paid / Balance Due count ONLY payments the
+    admin has confirmed this month (payment_submissions.status = 'CONFIRMED'). Anything merely marked
+    as paid on a student record, or still pending, is ignored. Excel/PDF keep using get_stats."""
+    stats = get_stats(db)
+    month_start = today_ist().replace(day=1).isoformat()
+    row = db.execute('''
+        SELECT COALESCE(SUM(COALESCE(c.confirmed, 0)), 0) AS total_paid,
+               COALESCE(SUM(GREATEST(COALESCE(s.total_rent, 0) - COALESCE(c.confirmed, 0), 0)), 0) AS total_balance
+        FROM students s
+        LEFT JOIN (
+            SELECT student_id, SUM(amount) AS confirmed
+            FROM payment_submissions
+            WHERE status = 'CONFIRMED' AND confirmed_at >= %s
+            GROUP BY student_id
+        ) c ON c.student_id = s.id
+    ''', (month_start,)).fetchone()
+    stats['total_paid'] = row['total_paid'] or 0
+    stats['total_balance'] = row['total_balance'] or 0
+    return stats
+
+
 def get_rooms_structure(db, hostel=None):
     """Returns dict: {hostel: {room_number: [students]}} preserving numeric room order."""
     query = 'SELECT * FROM students'
@@ -604,7 +637,7 @@ def student_prefill_form(student, extra=None):
 def render_record_payment(student, extra=None):
     """The existing Add Student page, pre-filled with the student's (locked) details."""
     return render_template(
-        'add_student.html',
+        'record_payment.html',
         form=student_prefill_form(student, extra),
         record_payment=True,
         official_paid=_num(student.get('amount_paid')),
@@ -839,6 +872,7 @@ def _monthly_rollover_hook():
 @app.route('/add-student', methods=['GET', 'POST'], endpoint='add_student')
 def add_student():
     db = get_db()
+    is_admin = bool(session.get('admin_logged_in'))
 
     # "RECORD PAYMENT" opens this same page with the identified student's details pre-filled.
     # It only works for a student identified by mobile number on the payments page.
@@ -848,6 +882,13 @@ def add_student():
             flash('Please enter your mobile number first.', 'error')
             return redirect(url_for('payments_lookup'))
         return render_record_payment(student)
+
+    # Everyone except the admin sees the welcome page; adding students is admin-only.
+    if not is_admin:
+        if request.method == 'POST':
+            flash('Only the admin can add students. Please log in as admin.', 'error')
+            return redirect(url_for('admin_login', next=url_for('add_student')))
+        return redirect(url_for('payments_lookup'))
 
     if request.method == 'POST':
         if not validate_csrf(request.form.get('csrf_token')):
@@ -860,9 +901,6 @@ def add_student():
         name = request.form.get('name', '').strip()
         contact = request.form.get('contact', '').strip()
         total_rent = request.form.get('total_rent', '').strip()
-        amount_paid = request.form.get('amount_paid', '').strip()
-        note = request.form.get('note', '').strip()[:300]
-        due_date = request.form.get('due_date', '').strip()
 
         errors = []
 
@@ -885,17 +923,6 @@ def add_student():
         if not name or len(name) < 2:
             errors.append('Please enter a valid student name.')
 
-        if due_date == '':
-            due_date = None
-        else:
-            try:
-                due_date = int(due_date)
-                if due_date < 1 or due_date > 31:
-                    raise ValueError()
-            except (ValueError, TypeError):
-                errors.append('Due date must be a day of the month between 1 and 31.')
-                due_date = None
-
         mobile_ok, clean_contact = validate_mobile(contact)
         if not mobile_ok:
             errors.append('Please enter a valid 10-digit Indian mobile number.')
@@ -907,23 +934,7 @@ def add_student():
         except (ValueError, TypeError):
             errors.append('Total rent must be a valid non-negative number.')
             total_rent = None
-        try:
-            amount_paid = float(amount_paid)
-            if amount_paid < 0:
-                raise ValueError()
-        except (ValueError, TypeError):
-            errors.append('Amount paid must be a valid non-negative number.')
-            amount_paid = None
-
-        if total_rent is not None and amount_paid is not None and amount_paid > total_rent:
-            errors.append('Amount paid cannot be greater than total rent.')
-
-        pay = parse_payment_fields(request.form, amount_paid, errors)
-
-        photo_file = request.files.get('photo')
-        photo_filename = None
-        receipt_file = request.files.get('receipt')
-        receipt_filename = None
+        date_of_join = _form_date(request.form.get('date_of_join'), 'Date of join', errors)
 
         if not errors and room_number and sharing:
             ok, msg = check_capacity(db, hostel, room_number, sharing)
@@ -935,16 +946,8 @@ def add_student():
                 flash(e, 'error')
             return render_template('add_student.html', form=request.form)
 
-        try:
-            if photo_file and photo_file.filename:
-                photo_filename = save_photo(photo_file)
-            if receipt_file and receipt_file.filename:
-                receipt_filename = save_receipt(receipt_file)
-        except ValueError as e:
-            flash(str(e), 'error')
-            return render_template('add_student.html', form=request.form)
-
-        balance = round(total_rent - amount_paid, 2)
+        # Registration only: no payment is recorded here (that happens through Record Payment).
+        total_rent = round(total_rent, 2)
         now = datetime.utcnow().isoformat()
 
         db.execute('''
@@ -952,9 +955,8 @@ def add_student():
             (hostel, room_number, sharing, name, contact, total_rent, amount_paid, balance, photo_filename, note, due_date,
              date_of_join, payment_date, payment_mode, cash_amount, paid_to, receipt_filename, created_at, updated_at)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        ''', (hostel, room_number, sharing, name, clean_contact, total_rent, amount_paid, balance, photo_filename, note, due_date,
-              pay['date_of_join'], pay['payment_date'], pay['payment_mode'], pay['cash_amount'], pay['paid_to'],
-              receipt_filename, now, now))
+        ''', (hostel, room_number, sharing, name, clean_contact, total_rent, 0, total_rent, None, '', None,
+              date_of_join, None, None, None, None, None, now, now))
         db.commit()
 
         flash(f'{name} was saved successfully to {hostel} - Room {room_number}!', 'success')
@@ -1006,6 +1008,80 @@ def admin_logout():
 
 
 # --------------------------------------------------------------------------
+# PAID WITHOUT ADMIN CONFIRMATION
+# A student counts here when their recorded "amount paid" this month is more than the payments the
+# admin has actually confirmed for them (e.g. the amount was typed in on Add/Edit Student or loaded
+# from a register, instead of coming through a student submission that the admin confirmed).
+# --------------------------------------------------------------------------
+
+def get_unconfirmed_paid(db):
+    month_start = today_ist().replace(day=1).isoformat()
+    rows = db.execute('''
+        SELECT s.*, COALESCE(c.confirmed_total, 0) AS confirmed_total
+        FROM students s
+        LEFT JOIN (
+            SELECT student_id, SUM(amount) AS confirmed_total
+            FROM payment_submissions
+            WHERE status = 'CONFIRMED' AND confirmed_at >= %s
+            GROUP BY student_id
+        ) c ON c.student_id = s.id
+        WHERE s.amount_paid > 0
+        ORDER BY s.hostel, s.room_number, LOWER(s.name)
+    ''', (month_start,)).fetchall()
+    dismissed = {
+        r['student_id']: r['amount_paid']
+        for r in db.execute('SELECT student_id, amount_paid FROM unconfirmed_dismissals WHERE month_start=%s', (month_start,)).fetchall()
+    }
+    result = []
+    for row in rows:
+        d = dict(row)
+        # A dismissed notice stays hidden unless the student's marked-paid amount changes afterwards.
+        if d['id'] in dismissed and abs((d['amount_paid'] or 0) - dismissed[d['id']]) < 0.005:
+            continue
+        d['unconfirmed_amount'] = round((d['amount_paid'] or 0) - (d['confirmed_total'] or 0), 2)
+        if d['unconfirmed_amount'] > 0.005:
+            result.append(d)
+    return result
+
+
+@app.route('/admin/paid-unconfirmed')
+@login_required
+def paid_unconfirmed():
+    db = get_db()
+    students = get_unconfirmed_paid(db)
+    totals = {
+        'count': len(students),
+        'paid': sum(s['amount_paid'] or 0 for s in students),
+        'unconfirmed': sum(s['unconfirmed_amount'] for s in students),
+    }
+    return render_template('unconfirmed_paid.html', students=students, totals=totals)
+
+
+@app.route('/admin/paid-unconfirmed/<int:student_id>/dismiss', methods=['POST'])
+@login_required
+def dismiss_unconfirmed(student_id):
+    """Removes one notice from the Paid-Not-Confirmed page only. The student, payments, PDF and Excel data are untouched."""
+    if not validate_csrf(request.form.get('csrf_token')):
+        flash('Security check failed. Please try again.', 'error')
+        return redirect(url_for('paid_unconfirmed'))
+    db = get_db()
+    row = db.execute('SELECT name, amount_paid FROM students WHERE id=%s', (student_id,)).fetchone()
+    if not row:
+        flash('That notification no longer exists.', 'error')
+        return redirect(url_for('paid_unconfirmed'))
+    month_start = today_ist().replace(day=1).isoformat()
+    db.execute('''
+        INSERT INTO unconfirmed_dismissals (student_id, month_start, amount_paid, dismissed_at)
+        VALUES (%s, %s, %s, %s)
+        ON CONFLICT (student_id, month_start)
+        DO UPDATE SET amount_paid = EXCLUDED.amount_paid, dismissed_at = EXCLUDED.dismissed_at
+    ''', (student_id, month_start, row['amount_paid'] or 0, datetime.utcnow().isoformat()))
+    db.commit()
+    flash(f"Notification for {row['name']} removed.", 'success')
+    return redirect(url_for('paid_unconfirmed'))
+
+
+# --------------------------------------------------------------------------
 # ADMIN DASHBOARD
 # --------------------------------------------------------------------------
 
@@ -1013,12 +1089,13 @@ def admin_logout():
 @login_required
 def admin_dashboard():
     db = get_db()
-    stats = get_stats(db)
+    stats = get_dashboard_stats(db)
     rooms_structure = get_rooms_structure(db)
     all_students = db.execute('SELECT * FROM students ORDER BY LOWER(name)').fetchall()
     all_students = [row_to_student(r) for r in all_students]
 
     due_count = len(get_due_students(db))
+    unconfirmed_paid_count = len(get_unconfirmed_paid(db))
     pending_row = db.execute("SELECT COUNT(*) AS c FROM payment_submissions WHERE status='PENDING'").fetchone()
 
     return render_template(
@@ -1030,6 +1107,7 @@ def admin_dashboard():
         all_students=all_students,
         due_count=due_count,
         pending_payments_count=pending_row['c'] or 0,
+        unconfirmed_paid_count=unconfirmed_paid_count,
     )
 
 
@@ -1612,11 +1690,6 @@ def edit_student(student_id):
         name = request.form.get('name', '').strip()
         contact = request.form.get('contact', '').strip()
         total_rent = request.form.get('total_rent', '').strip()
-        amount_paid = request.form.get('amount_paid', '').strip()
-        note = request.form.get('note', '').strip()[:300]
-        due_date = request.form.get('due_date', '').strip()
-        remove_photo = request.form.get('remove_photo') == '1'
-        remove_receipt = request.form.get('remove_receipt') == '1'
 
         errors = []
         if hostel not in HOSTELS:
@@ -1638,17 +1711,6 @@ def edit_student(student_id):
         if not name or len(name) < 2:
             errors.append('Please enter a valid student name.')
 
-        if due_date == '':
-            due_date = None
-        else:
-            try:
-                due_date = int(due_date)
-                if due_date < 1 or due_date > 31:
-                    raise ValueError()
-            except (ValueError, TypeError):
-                errors.append('Due date must be a day of the month between 1 and 31.')
-                due_date = None
-
         mobile_ok, clean_contact = validate_mobile(contact)
         if not mobile_ok:
             errors.append('Please enter a valid 10-digit Indian mobile number.')
@@ -1660,29 +1722,18 @@ def edit_student(student_id):
         except (ValueError, TypeError):
             errors.append('Total rent must be a valid non-negative number.')
             total_rent = None
-        try:
-            amount_paid = float(amount_paid)
-            if amount_paid < 0:
-                raise ValueError()
-        except (ValueError, TypeError):
-            errors.append('Amount paid must be a valid non-negative number.')
-            amount_paid = None
+        # The stored amount paid is never edited here; it is only used to keep rent >= paid.
+        amount_paid = _num(student.get('amount_paid'))
+        if total_rent is not None and amount_paid > total_rent:
+            errors.append('Total rent cannot be less than the amount already paid.')
 
-        if total_rent is not None and amount_paid is not None and amount_paid > total_rent:
-            errors.append('Amount paid cannot be greater than total rent.')
-
-        pay = parse_payment_fields(request.form, amount_paid, errors)
+        date_of_join = _form_date(request.form.get('date_of_join'), 'Date of join', errors)
 
         if not errors and room_number and sharing:
             room_changed = (hostel != student['hostel'] or room_number != student['room_number'])
             ok, msg = check_capacity(db, hostel, room_number, sharing, exclude_id=student_id)
             if not ok:
                 errors.append(msg)
-
-        photo_file = request.files.get('photo')
-        new_photo_filename = student['photo_filename']
-        receipt_file = request.files.get('receipt')
-        new_receipt_filename = student.get('receipt_filename')
 
         if errors:
             for e in errors:
@@ -1691,37 +1742,16 @@ def edit_student(student_id):
             merged.update(request.form)
             return render_template('edit_student.html', student=merged)
 
-        try:
-            if photo_file and photo_file.filename:
-                saved = save_photo(photo_file)
-                if saved:
-                    delete_photo(student['photo_filename'])
-                    new_photo_filename = saved
-            elif remove_photo:
-                delete_photo(student['photo_filename'])
-                new_photo_filename = None
-            # Receipts are never deleted from storage (payment history may still point to them).
-            if receipt_file and receipt_file.filename:
-                saved_receipt = save_receipt(receipt_file)
-                if saved_receipt:
-                    new_receipt_filename = saved_receipt
-            elif remove_receipt:
-                new_receipt_filename = None
-        except ValueError as e:
-            flash(str(e), 'error')
-            return render_template('edit_student.html', student=student)
-
         balance = round(total_rent - amount_paid, 2)
         now = datetime.utcnow().isoformat()
 
+        # Only these columns are written. Payment fields, photo, receipt, note and due date stay untouched.
         db.execute('''
             UPDATE students
-            SET hostel=%s, room_number=%s, sharing=%s, name=%s, contact=%s, total_rent=%s, amount_paid=%s, balance=%s, photo_filename=%s, note=%s, due_date=%s,
-                date_of_join=%s, payment_date=%s, payment_mode=%s, cash_amount=%s, paid_to=%s, receipt_filename=%s, updated_at=%s
+            SET hostel=%s, room_number=%s, sharing=%s, name=%s, contact=%s, total_rent=%s, balance=%s,
+                date_of_join=%s, updated_at=%s
             WHERE id=%s
-        ''', (hostel, room_number, sharing, name, clean_contact, total_rent, amount_paid, balance, new_photo_filename, note, due_date,
-              pay['date_of_join'], pay['payment_date'], pay['payment_mode'], pay['cash_amount'], pay['paid_to'],
-              new_receipt_filename, now, student_id))
+        ''', (hostel, room_number, sharing, name, clean_contact, total_rent, balance, date_of_join, now, student_id))
         db.commit()
 
         flash(f'{name} was updated successfully.', 'success')

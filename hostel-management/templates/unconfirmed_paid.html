@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+{% block title %}Paid (Unconfirmed) — Padmavathi Boys hostel{% endblock %}
+{% block content %}
+
+<div class="max-w-3xl mx-auto animate-slide-up">
+
+  <div class="flex items-center gap-3 mb-5">
+    <a href="{{ url_for('admin_dashboard') }}" class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-primary transition shrink-0">
+      <i class="fa-solid fa-arrow-left"></i>
+    </a>
+    <div>
+      <h1 class="text-2xl font-bold text-slate-800">Paid — Not Confirmed</h1>
+      <p class="text-slate-500 text-sm">Students marked as paid this month without an admin-confirmed payment.</p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-3 gap-2 sm:gap-3 mb-5">
+    <div class="stat-card">
+      <div class="text-xl font-bold text-slate-800">{{ totals.count }}</div>
+      <div class="text-xs text-slate-500">Students</div>
+    </div>
+    <div class="stat-card">
+      <div class="text-lg sm:text-xl font-bold text-slate-800">₹{{ '{:,.0f}'.format(totals.paid) }}</div>
+      <div class="text-xs text-slate-500">Marked paid</div>
+    </div>
+    <div class="stat-card">
+      <div class="text-lg sm:text-xl font-bold text-indigo-600">₹{{ '{:,.0f}'.format(totals.unconfirmed) }}</div>
+      <div class="text-xs text-slate-500">Unconfirmed</div>
+    </div>
+  </div>
+
+  {% if not students %}
+  <div class="card p-8 text-center">
+    <i class="fa-solid fa-circle-check text-success text-3xl mb-3"></i>
+    <p class="text-slate-500">Everyone marked as paid has been confirmed by the admin.</p>
+  </div>
+  {% else %}
+  <div class="space-y-3">
+    {% for s in students %}
+    <div class="card p-4 sm:p-5 border-l-4 border-indigo-400" id="student-{{ s.id }}">
+      <div class="flex justify-between items-start gap-3">
+        <div class="min-w-0">
+          <h3 class="font-bold text-slate-800 truncate">{{ s.name }}</h3>
+          <p class="text-xs text-slate-500 mt-0.5">
+            <i class="fa-solid {{ 'fa-house' if s.hostel == 'Old Hostel' else 'fa-city' }} mr-1"></i>{{ s.hostel }} &bull; {{ room_label(s.room_number) }}
+          </p>
+          <p class="text-xs text-slate-400 mt-0.5"><i class="fa-solid fa-phone text-[10px] mr-1"></i>{{ s.contact }}</p>
+        </div>
+        <div class="text-right shrink-0">
+          <p class="text-xl font-bold text-indigo-600">₹{{ '{:,.0f}'.format(s.unconfirmed_amount) }}</p>
+          <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">UNCONFIRMED</span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-3 gap-2 mt-3 text-center">
+        <div class="bg-slate-50 rounded-lg py-2"><span class="block text-[10px] text-slate-400">Total rent</span><span class="text-sm font-semibold text-slate-700">₹{{ '{:,.0f}'.format(s.total_rent or 0) }}</span></div>
+        <div class="bg-slate-50 rounded-lg py-2"><span class="block text-[10px] text-slate-400">Marked paid</span><span class="text-sm font-semibold text-slate-700">₹{{ '{:,.0f}'.format(s.amount_paid or 0) }}</span></div>
+        <div class="bg-slate-50 rounded-lg py-2"><span class="block text-[10px] text-slate-400">Confirmed</span><span class="text-sm font-semibold text-success">₹{{ '{:,.0f}'.format(s.confirmed_total or 0) }}</span></div>
+      </div>
+
+      <p class="text-xs text-slate-400 mt-2">
+        {% if s.payment_mode %}<span class="font-semibold text-slate-500">{{ s.payment_mode }}</span>{% else %}Mode not set{% endif %}
+        {% if s.payment_date %} &bull; Paid on {{ s.payment_date|pretty_date }}{% endif %}
+        {% if s.paid_to %} &bull; To: {{ s.paid_to }}{% endif %}
+      </p>
+
+      <div class="flex gap-2 mt-3">
+        {% if s.receipt_filename %}
+        <button type="button" class="btn-outline flex-1 text-sm py-2.5"
+                onclick="openPhotoModal('{{ photo_url(s.receipt_filename) }}', '{{ s.name|e }} — receipt')">
+          <i class="fa-solid fa-image"></i> VIEW RECEIPT
+        </button>
+        {% endif %}
+        <a href="{{ url_for('edit_student', student_id=s.id) }}" class="btn-primary flex-1 text-sm py-2.5 flex items-center justify-center gap-2">
+          <i class="fa-solid fa-pen"></i> EDIT
+        </a>
+        <form method="POST" action="{{ url_for('dismiss_unconfirmed', student_id=s.id) }}" class="shrink-0"
+              onsubmit="return confirm('Are you sure you want to remove this notification?');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="h-full px-4 py-2.5 rounded-xl border border-red-200 bg-white text-danger text-sm font-semibold hover:bg-red-50 transition flex items-center justify-center gap-2" title="Remove this notification">
+            <i class="fa-solid fa-trash"></i> DELETE
+          </button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+</div>
+
+<!-- RECEIPT MODAL -->
+<div id="photoModal" class="modal-overlay hidden">
+  <div class="modal-box modal-box-photo animate-pop">
+    <button type="button" onclick="closeModal('photoModal')" class="modal-close"><i class="fa-solid fa-xmark"></i></button>
+    <img id="photoModalImg" src="" alt="" class="w-full h-auto rounded-xl">
+    <p id="photoModalName" class="text-center font-semibold text-slate-700 mt-3"></p>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+{% endblock %}
