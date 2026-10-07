@@ -269,6 +269,13 @@
         });
     </script>
 
+    {# User help bot: every user-side page, never on admin pages (/admin..., /adminlogin, and the admin-only
+       Add Student form served at / and /add-student; those two URLs are a student page only for ?record_payment=1) #}
+    {% if not request.path.startswith('/admin')
+          and (request.endpoint not in ('index', 'add_student') or request.args.get('record_payment') == '1') %}
+        {% include '_user_bot.html' %}
+    {% endif %}
+
     {% block extra_scripts %}{% endblock %}
 
 </body>

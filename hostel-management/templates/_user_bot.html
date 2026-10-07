@@ -1,0 +1,100 @@
+<!-- USER HELP BOT: floating assistant on every user-side page (included from base.html, never on /admin pages) -->
+<style>
+  .ub-fab { position: fixed; right: 1rem; bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); z-index: 46;
+    width: 3.5rem; height: 3.5rem; border-radius: 9999px; display: flex; align-items: center; justify-content: center;
+    font-size: 1.4rem; color: #fff; background: linear-gradient(135deg, #1E3A8A, #2563EB); box-shadow: 0 6px 18px rgba(30,58,138,.4); }
+  .ub-panel { position: fixed; right: 1rem; bottom: calc(5rem + env(safe-area-inset-bottom, 0px)); z-index: 60;
+    width: min(24rem, calc(100vw - 2rem)); height: min(32rem, calc(100vh - 7rem)); display: none; flex-direction: column;
+    background: #fff; border: 1px solid #DBEAFE; border-radius: 1.1rem; box-shadow: 0 20px 50px rgba(15,23,42,.28); overflow: hidden; }
+  .ub-panel.open { display: flex; }
+  @media (max-width: 640px) { .ub-panel { right: .5rem; left: .5rem; width: auto; bottom: calc(.5rem + env(safe-area-inset-bottom, 0px)); height: calc(100vh - 1.5rem); height: calc(100dvh - 1.5rem); } }
+  .ub-head { background: linear-gradient(135deg, #1E3A8A, #2563EB); color: #fff; padding: .75rem 1rem; display: flex; align-items: center; gap: .6rem; }
+  .ub-head h3 { font-weight: 700; flex: 1; }
+  .ub-head button { color: #dbeafe; width: 2rem; height: 2rem; }
+  .ub-body { flex: 1; overflow-y: auto; padding: .9rem; background: #F8FAFC; display: flex; flex-direction: column; gap: .55rem; }
+  .ub-msg { max-width: 92%; padding: .55rem .8rem; border-radius: .9rem; font-size: .9rem; line-height: 1.4; overflow-wrap: anywhere; }
+  .ub-msg.bot { background: #fff; border: 1px solid #E2E8F0; align-self: flex-start; border-bottom-left-radius: .25rem; }
+  .ub-msg.me { background: #1E3A8A; color: #fff; align-self: flex-end; border-bottom-right-radius: .25rem; }
+  .ub-chips { display: flex; flex-wrap: wrap; gap: .4rem; align-self: flex-start; }
+  .ub-chip { background: #fff; border: 1.5px solid #BFDBFE; color: #1E3A8A; font-weight: 600; font-size: .8rem; padding: .4rem .7rem; border-radius: .8rem; text-align: left; }
+  .ub-chip:hover { background: #EFF6FF; }
+  .ub-foot { border-top: 1px solid #E2E8F0; padding: .6rem; display: flex; gap: .5rem; background: #fff; }
+  .ub-foot input { flex: 1; font-size: 16px; border: 1.5px solid #CBD5E1; border-radius: .7rem; padding: .5rem .7rem; min-width: 0; }
+  .ub-foot button { background: #1E3A8A; color: #fff; border-radius: .7rem; padding: 0 .9rem; font-weight: 600; }
+  .ub-foot button:disabled { opacity: .5; }
+</style>
+
+<button type="button" id="ubFab" class="ub-fab" aria-label="Open help assistant"><i class="fa-solid fa-comment-dots"></i></button>
+
+<div id="ubPanel" class="ub-panel" role="dialog" aria-label="Help assistant" data-csrf="{{ csrf_token() }}">
+  <div class="ub-head">
+    <i class="fa-solid fa-robot text-lg"></i>
+    <h3>Hostel Help</h3>
+    <button type="button" id="ubClose" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div id="ubBody" class="ub-body"></div>
+  <form id="ubForm" class="ub-foot" autocomplete="off">
+    <input id="ubInput" type="text" maxlength="300" placeholder="Ask how to use this app…">
+    <button type="submit" id="ubSend" aria-label="Send"><i class="fa-solid fa-paper-plane"></i></button>
+  </form>
+</div>
+
+<script>
+(function () {
+  var fab = document.getElementById('ubFab'), panel = document.getElementById('ubPanel');
+  var body = document.getElementById('ubBody'), form = document.getElementById('ubForm');
+  var input = document.getElementById('ubInput'), send = document.getElementById('ubSend');
+  if (!fab || !panel) return;
+  var greeted = false, busy = false;
+
+  function esc(t) { return String(t).replace(/[&<>"']/g, function (c) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]; }); }
+  function add(cls, html) { var d = document.createElement('div'); d.className = 'ub-msg ' + cls; d.innerHTML = html; body.appendChild(d); body.scrollTop = body.scrollHeight; return d; }
+  function chips(list) {
+    var w = document.createElement('div'); w.className = 'ub-chips';
+    list.forEach(function (q) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'ub-chip'; b.textContent = q;
+      b.addEventListener('click', function () { w.remove(); ask(q); });
+      w.appendChild(b);
+    });
+    body.appendChild(w); body.scrollTop = body.scrollHeight;
+  }
+
+  async function ask(text) {
+    if (busy || !text) return;
+    busy = true; send.disabled = true;
+    add('me', esc(text));
+    var wait = add('bot', '…');
+    try {
+      var r = await fetch('/api/assistant/user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': panel.dataset.csrf },
+        body: JSON.stringify({ message: text })
+      });
+      var d = await r.json();
+      wait.innerHTML = d.ok ? d.html : esc(d.error || 'Something went wrong. Please try again.');
+    } catch (e) {
+      wait.textContent = 'Could not reach the server. Please try again.';
+    }
+    busy = false; send.disabled = false; body.scrollTop = body.scrollHeight;
+  }
+
+  function open() {
+    panel.classList.add('open'); fab.style.display = 'none';
+    if (!greeted) {
+      greeted = true;
+      add('bot', '<b>Hi!</b> 👋 I can explain how to use this app. What would you like to know?');
+      chips(['How do I check my rent?', 'How do I make a payment?', 'How do I record a payment?', 'How do I check my room details?']);
+    }
+    setTimeout(function () { input.focus(); }, 50);
+  }
+  function close() { panel.classList.remove('open'); fab.style.display = ''; }
+  fab.addEventListener('click', open);
+  document.getElementById('ubClose').addEventListener('click', close);
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var v = input.value.trim(); if (!v) return;
+    input.value = ''; ask(v);
+  });
+})();
+</script>
+

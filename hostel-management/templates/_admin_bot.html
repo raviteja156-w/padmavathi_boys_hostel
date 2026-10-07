@@ -1,4 +1,4 @@
-<!-- ADMIN BOT: floating chat helper (Check Vacancy / Make Empty / Per-day Rent) -->
+<!-- ADMIN BOT: floating chat helper (Check Vacancy / Make Empty / Per-day Rent / AI Assistant with voice) -->
 <style>
   .bot-fab { position: fixed; right: 1rem; bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); z-index: 46;
     width: 3.5rem; height: 3.5rem; border-radius: 9999px; display: flex; align-items: center; justify-content: center;
@@ -33,6 +33,11 @@
   .bot-table th { color: #475569; font-weight: 600; }
   .bot-table td.n, .bot-table th.n { text-align: center; }
   .bot-pill { display: inline-block; font-weight: 700; padding: 0 .4rem; border-radius: 9999px; font-size: .75rem; }
+  .bot-head button.on { color: #fff; background: rgba(255,255,255,.2); border-radius: .5rem; }
+  .bot-head .bot-lang { width: auto; padding: 0 .45rem; font-weight: 700; font-size: .75rem; border: 1px solid rgba(219,234,254,.5); border-radius: .5rem; height: 1.7rem; }
+  .bot-foot .bot-mic { background: #fff; color: #1E3A8A; border: 1.5px solid #BFDBFE; padding: 0 .75rem; }
+  .bot-foot .bot-mic.rec { background: #DC2626; color: #fff; border-color: #DC2626; animation: botPulse 1s infinite; }
+  @keyframes botPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(220,38,38,.5); } 50% { box-shadow: 0 0 0 6px rgba(220,38,38,0); } }
   .bot-pill.free { background: #DCFCE7; color: #166534; } .bot-pill.full { background: #FEE2E2; color: #991B1B; } .bot-pill.na { background: #F1F5F9; color: #64748B; }
 </style>
 
@@ -42,12 +47,15 @@
   <div class="bot-head">
     <i class="fa-solid fa-robot text-lg"></i>
     <h3>Hostel Bot</h3>
+    <button type="button" id="botLang" class="bot-lang" title="Speaking language: English">EN</button>
+    <button type="button" id="botSpeak" title="Read replies aloud" aria-label="Read replies aloud" aria-pressed="false"><i class="fa-solid fa-volume-xmark"></i></button>
     <button type="button" id="botRestart" title="Start over" aria-label="Start over"><i class="fa-solid fa-rotate-left"></i></button>
     <button type="button" id="botClose" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
   </div>
   <div id="botBody" class="bot-body"></div>
   <form id="botForm" class="bot-foot" autocomplete="off">
     <input id="botInput" type="text" inputmode="text" placeholder="Pick an option above…" disabled>
+    <button type="button" id="botMic" class="bot-mic" title="Speak a command" aria-label="Speak a command" disabled><i class="fa-solid fa-microphone"></i></button>
     <button type="submit" id="botSend" disabled><i class="fa-solid fa-paper-plane"></i></button>
   </form>
 </div>

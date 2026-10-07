@@ -1117,7 +1117,20 @@ def admin_dashboard():
 # The old /admin/vacancy page was removed; the bot's "Check Vacancy" replaces it.
 # --------------------------------------------------------------------------
 
-RENT_MONTH_DAYS = 30  # monthly rent is divided by 30 to get the per-day rent
+RENT_MONTH_DAYS = 30  # only used as a fallback when a room's sharing is unknown
+
+# Daily rent by sharing type: 1, 2 and 3 sharing = Rs.300/day; every other sharing type = Rs.250/day.
+DAILY_RENT_PREMIUM = 300
+DAILY_RENT_STANDARD = 250
+DAILY_RENT_PREMIUM_SHARINGS = (1, 2, 3)
+
+
+def daily_rent_for_sharing(sharing):
+    try:
+        sharing = int(sharing)
+    except (TypeError, ValueError):
+        return None
+    return DAILY_RENT_PREMIUM if sharing in DAILY_RENT_PREMIUM_SHARINGS else DAILY_RENT_STANDARD
 
 
 def admin_api_required(f):
@@ -1156,9 +1169,12 @@ def _bot_parse_hostel_room(hostel, room_raw):
     return hostel, room_number, None
 
 
-def prorated_rent(monthly_rent, days):
-    """monthly rent / 30 = per-day rent; per-day rent x number of days."""
-    per_day = (monthly_rent or 0) / RENT_MONTH_DAYS
+def prorated_rent(monthly_rent, days, sharing=None):
+    """per-day rent x number of days. The per-day rent comes from the sharing type
+    (Rs.300 for 1/2/3 sharing, Rs.250 otherwise). Without a sharing, the old monthly / 30 rule is used."""
+    per_day = daily_rent_for_sharing(sharing)
+    if per_day is None:
+        per_day = (monthly_rent or 0) / RENT_MONTH_DAYS
     return per_day, round(per_day * days, 2)
 
 
@@ -1272,12 +1288,13 @@ def bot_rent_calc():
     except (TypeError, ValueError):
         return jsonify({'ok': False, 'error': 'Invalid member.'}), 400
     db = get_db()
-    student = db.execute('SELECT id, name, total_rent, amount_paid FROM students WHERE id=%s', (student_id,)).fetchone()
+    student = db.execute('SELECT id, name, sharing, total_rent, amount_paid FROM students WHERE id=%s', (student_id,)).fetchone()
     if not student:
         return jsonify({'ok': False, 'error': 'Member not found.'}), 404
     monthly = student['total_rent'] or 0
-    per_day, total = prorated_rent(monthly, days)
+    per_day, total = prorated_rent(monthly, days, student['sharing'])
     return jsonify({'ok': True, 'student_id': student['id'], 'name': student['name'], 'days': days,
+                    'sharing': student['sharing'],
                     'monthly_rent': monthly, 'per_day': round(per_day, 2), 'total': total,
                     'amount_paid': student['amount_paid'] or 0,
                     'new_balance': max(round(total - (student['amount_paid'] or 0), 2), 0),
@@ -1309,13 +1326,32 @@ def bot_rent_update():
     if abs(monthly - expected_monthly) > 0.005:
         return jsonify({'ok': False, 'error': "This member's rent has changed since you calculated. Please calculate again."}), 409
 
-    _, new_total = prorated_rent(monthly, days)
+    _, new_total = prorated_rent(monthly, days, student['sharing'])
     paid = student['amount_paid'] or 0
     new_balance = max(round(new_total - paid, 2), 0)
     db.execute('UPDATE students SET total_rent=%s, balance=%s, updated_at=%s WHERE id=%s',
                (new_total, new_balance, datetime.utcnow().isoformat(), student_id))
     db.commit()
     return jsonify({'ok': True, 'name': student['name'], 'total_rent': new_total, 'balance': new_balance})
+
+
+# --------------------------------------------------------------------------
+# AI ASSISTANTS (user-side help bot + admin assistant) - logic lives in assistant.py
+# --------------------------------------------------------------------------
+
+import assistant
+
+assistant.register(app, {
+    'get_db': get_db,
+    'validate_csrf': validate_csrf,
+    'admin_api_required': admin_api_required,
+    'check_capacity': check_capacity,
+    'room_occupancy': room_occupancy,
+    'rooms_for_hostel': rooms_for_hostel,
+    'get_dashboard_stats': get_dashboard_stats,
+    'daily_rate': daily_rent_for_sharing,
+    'HOSTELS': HOSTELS,
+})
 
 
 # --------------------------------------------------------------------------
