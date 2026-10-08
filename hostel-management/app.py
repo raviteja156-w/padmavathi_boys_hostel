@@ -297,6 +297,24 @@ def init_db():
         INSERT INTO app_settings (key, value) VALUES ('billing_cycle', %s)
         ON CONFLICT (key) DO NOTHING
     ''', (previous_month_label(LAUNCH_DATE),))
+
+    # PAUSE BED: a separate, temporary record per paused student. Nothing in students / payments is
+    # changed by a pause. Dates are ISO text; end_date is the first day the bed is back in use.
+    # Deleting a student also removes only that student's pause row (ON DELETE CASCADE).
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS paused_beds (
+            id SERIAL PRIMARY KEY,
+            student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+            start_date TEXT NOT NULL,
+            days INTEGER NOT NULL CHECK(days BETWEEN 1 AND 365),
+            end_date TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            created_by TEXT
+        )
+    ''')
+    cur.execute('CREATE INDEX IF NOT EXISTS idx_paused_student ON paused_beds(student_id)')
+    # Lets a student dismiss the green "Payment Confirmed" notification on their dashboard.
+    cur.execute("ALTER TABLE payment_submissions ADD COLUMN IF NOT EXISTS student_seen INTEGER NOT NULL DEFAULT 0")
     conn.commit()
     cur.close()
     conn.close()
@@ -1336,6 +1354,176 @@ def bot_rent_update():
 
 
 # --------------------------------------------------------------------------
+# PAUSE BED (admin)
+# --------------------------------------------------------------------------
+
+PAUSE_MAX_DAYS = 365
+
+
+def _fmt_date(d):
+    return d.strftime('%d %b %Y')
+
+
+def pause_progress(start_date, days, today=None):
+    """Everything about a pause is derived from its start date and length, so it expires by itself.
+    The pause covers `days` days from start_date; end is the first day the bed is back in use."""
+    today = today or today_ist()
+    try:
+        start = date.fromisoformat(start_date)
+    except (TypeError, ValueError):
+        start = today
+    days = int(days or 0)
+    end = start + timedelta(days=days)
+    elapsed = min(max((today - start).days, 0), days)
+    remaining = max(days - elapsed, 0)
+    active = remaining > 0
+    return {
+        'start': start, 'end': end, 'start_label': _fmt_date(start), 'end_label': _fmt_date(end),
+        'days': days, 'elapsed': elapsed, 'remaining': remaining, 'is_active': active,
+        'status': 'Active Pause' if active else 'Expired',
+        'percent': int(round(elapsed * 100 / days)) if days else 100,
+    }
+
+
+def get_pauses(db):
+    """All pause records joined with the student's current details (active first, then expired)."""
+    rows = db.execute('''
+        SELECT p.id AS pause_id, p.start_date, p.days, p.created_at,
+               s.id AS student_id, s.name, s.contact, s.hostel, s.room_number, s.sharing
+        FROM paused_beds p
+        JOIN students s ON s.id = p.student_id
+        ORDER BY p.id DESC
+    ''').fetchall()
+    out = []
+    for r in rows:
+        d = dict(r)
+        d.update(pause_progress(d['start_date'], d['days']))
+        d['room_text'] = room_label(d['room_number'])
+        out.append(d)
+    out.sort(key=lambda x: (not x['is_active'], x['remaining'] if x['is_active'] else 0, -x['pause_id']))
+    return out
+
+
+@app.context_processor
+def inject_admin_nav():
+    """Small counters for the admin sidebar badges. Only runs on admin pages for a logged-in admin."""
+    if not (session.get('admin_logged_in') and request.path.startswith('/admin')):
+        return {}
+    counts = {'pending': 0, 'pauses': 0}
+    try:
+        db = get_db()
+        counts['pending'] = db.execute("SELECT COUNT(*) AS c FROM payment_submissions WHERE status='PENDING'").fetchone()['c'] or 0
+        counts['pauses'] = db.execute('SELECT COUNT(*) AS c FROM paused_beds WHERE end_date > %s',
+                                      (today_ist().isoformat(),)).fetchone()['c'] or 0
+    except Exception:
+        try:
+            get_db().conn.rollback()
+        except Exception:
+            pass
+    return {'admin_nav': counts}
+
+
+@app.route('/admin/pause-bed')
+@login_required
+def pause_bed():
+    db = get_db()
+    pauses = get_pauses(db)
+    active = [p for p in pauses if p['is_active']]
+    expired = [p for p in pauses if not p['is_active']]
+    paused_ids = {p['student_id'] for p in active}
+    structure = get_rooms_structure(db)
+    wizard = {}
+    for hostel in HOSTELS:
+        wizard[hostel] = [{
+            'room': rn,
+            'label': room_label(rn),
+            'students': [{'id': st['id'], 'name': st['name'], 'contact': st['contact'], 'sharing': st['sharing'],
+                          'paused': st['id'] in paused_ids} for st in studs],
+        } for rn, studs in structure[hostel].items()]
+    return render_template(
+        'pause_bed.html',
+        active=active, expired=expired, wizard=wizard,
+        expiring_soon=len([p for p in active if p['remaining'] <= 2]),
+        max_days=PAUSE_MAX_DAYS, today_label=_fmt_date(today_ist()), today_iso=today_ist().isoformat(),
+    )
+
+
+@app.route('/admin/pause-bed/create', methods=['POST'])
+@login_required
+def pause_bed_create():
+    if not validate_csrf(request.form.get('csrf_token')):
+        flash('Security check failed. Please try again.', 'error')
+        return redirect(url_for('pause_bed'))
+
+    ids = []
+    for v in request.form.getlist('student_ids'):
+        try:
+            i = int(v)
+        except (TypeError, ValueError):
+            continue
+        if i not in ids:
+            ids.append(i)
+    try:
+        days = int((request.form.get('days') or '').strip())
+    except ValueError:
+        days = 0
+
+    if not ids:
+        flash('Please select at least one student to pause.', 'error')
+        return redirect(url_for('pause_bed'))
+    if not 1 <= days <= PAUSE_MAX_DAYS:
+        flash(f'Please enter the number of days (1 to {PAUSE_MAX_DAYS}).', 'error')
+        return redirect(url_for('pause_bed'))
+    ids = ids[:50]
+
+    db = get_db()
+    marks = ','.join(['%s'] * len(ids))
+    students = {r['id']: dict(r) for r in db.execute(f'SELECT id, name FROM students WHERE id IN ({marks})', ids).fetchall()}
+    existing = db.execute(f'SELECT student_id, start_date, days FROM paused_beds WHERE student_id IN ({marks})', ids).fetchall()
+    already = {e['student_id'] for e in existing if pause_progress(e['start_date'], e['days'])['is_active']}
+
+    start = today_ist()
+    end = start + timedelta(days=days)
+    admin_name = session.get('admin_username') or ADMIN_USERNAME
+    created, skipped = [], []
+    for sid in ids:
+        st = students.get(sid)
+        if not st:
+            continue
+        if sid in already:
+            skipped.append(st['name'])
+            continue
+        db.execute('''
+            INSERT INTO paused_beds (student_id, start_date, days, end_date, created_at, created_by)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        ''', (sid, start.isoformat(), days, end.isoformat(), datetime.utcnow().isoformat(), admin_name))
+        created.append(st['name'])
+    db.commit()
+
+    if created:
+        flash(f"Bed paused for {', '.join(created)} — {days} day{'s' if days != 1 else ''} (until {_fmt_date(end)}).", 'success')
+    if skipped:
+        flash(f"Already paused (not changed): {', '.join(skipped)}.", 'error')
+    if not created and not skipped:
+        flash('No matching students were found.', 'error')
+    return redirect(url_for('pause_bed'))
+
+
+@app.route('/admin/pause-bed/<int:pause_id>/delete', methods=['POST'])
+@login_required
+def pause_bed_delete(pause_id):
+    if not validate_csrf(request.form.get('csrf_token')):
+        flash('Security check failed. Please try again.', 'error')
+        return redirect(url_for('pause_bed'))
+    db = get_db()
+    # Only the pause record is removed. The student and their payments are never touched here.
+    db.execute('DELETE FROM paused_beds WHERE id=%s', (pause_id,))
+    db.commit()
+    flash('Paused-bed record deleted.', 'success')
+    return redirect(url_for('pause_bed'))
+
+
+# --------------------------------------------------------------------------
 # AI ASSISTANTS (user-side help bot + admin assistant) - logic lives in assistant.py
 # --------------------------------------------------------------------------
 
@@ -1351,6 +1539,9 @@ assistant.register(app, {
     'get_dashboard_stats': get_dashboard_stats,
     'daily_rate': daily_rent_for_sharing,
     'HOSTELS': HOSTELS,
+    'current_payment_student': current_payment_student,
+    'student_due_amount': student_due_amount,
+    'room_label': room_label,
 })
 
 
@@ -1507,6 +1698,18 @@ def payments_dashboard():
         SELECT * FROM payment_submissions WHERE student_id=%s ORDER BY id DESC LIMIT 5
     ''', (student_id,)).fetchall()
 
+    # Notifications are read from the existing payment data and are scoped to THIS student only.
+    since = (datetime.utcnow() - timedelta(days=14)).isoformat()
+    confirmed_notes = db.execute('''
+        SELECT id, amount, confirmed_at FROM payment_submissions
+        WHERE student_id=%s AND status='CONFIRMED' AND COALESCE(student_seen, 0) = 0 AND confirmed_at >= %s
+        ORDER BY id DESC LIMIT 3
+    ''', (student_id, since)).fetchall()
+    pending_row = db.execute('''
+        SELECT COUNT(*) AS c, COALESCE(SUM(amount), 0) AS amt FROM payment_submissions
+        WHERE student_id=%s AND status='PENDING'
+    ''', (student_id,)).fetchone()
+
     return render_template(
         'payments_dashboard.html',
         student=student,
@@ -1514,7 +1717,26 @@ def payments_dashboard():
         pay_info=pay_info,
         for_month=next_month_label(),
         recent=[dict(r) for r in recent],
+        confirmed_notes=[dict(r) for r in confirmed_notes],
+        pending_count=pending_row['c'] or 0,
+        pending_amount=pending_row['amt'] or 0,
+        pay_success=session.pop('pay_success', None),
     )
+
+
+@app.route('/payments/notifications/<int:payment_id>/dismiss', methods=['POST'])
+def payments_dismiss_notification(payment_id):
+    student_id = session.get('payment_student_id')
+    if not student_id:
+        return redirect(url_for('payments_lookup'))
+    if not validate_csrf(request.form.get('csrf_token')):
+        flash('Security check failed. Please try again.', 'error')
+        return redirect(url_for('payments_dashboard'))
+    db = get_db()
+    # Only this student's own notification can be dismissed; the payment itself is unchanged.
+    db.execute('UPDATE payment_submissions SET student_seen=1 WHERE id=%s AND student_id=%s', (payment_id, student_id))
+    db.commit()
+    return redirect(url_for('payments_dashboard'))
 
 
 @app.route('/payments/submit', methods=['GET', 'POST'])
@@ -1588,6 +1810,13 @@ def payments_submit():
           pay['payment_mode'], pay['cash_amount'], pay['paid_to'], pay['payment_date']))
     db.commit()
 
+    # Shown once, as the "Payment Submitted" card on the dashboard (it is NOT a confirmation).
+    session['pay_success'] = {
+        'name': student['name'],
+        'amount': amount_val,
+        'mode': pay['payment_mode'],
+        'date': pay['payment_date'] or today_ist().isoformat(),
+    }
     flash('Payment recorded! It is now PENDING CONFIRMATION by the hostel admin.', 'success')
     return redirect(url_for('payments_dashboard'))
 

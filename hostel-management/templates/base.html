@@ -94,22 +94,32 @@
 
 <body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col animate-fade-in">
 
+    {# Admin pages (everything under /admin except the login page) get a sidebar. Student pages never do. #}
+    {% set is_admin_area = session.get('admin_logged_in') and request.path.startswith('/admin') and request.endpoint != 'admin_login' %}
+
     <!-- Navigation -->
-    <nav class="bg-primary shadow-lg sticky top-0 z-40">
+    <nav class="app-nav shadow-lg sticky top-0 z-40">
 
         <div class="max-w-7xl mx-auto px-4">
 
             <div class="flex justify-between items-center h-16">
 
                 <!-- Logo -->
-                <a
-                    href="{{ url_for('index') }}"
-                    class="flex items-center gap-2 text-white font-bold text-lg tracking-tight"
-                >
-                    <i class="fa-solid fa-building-shield text-xl"></i>
+                <div class="flex items-center gap-2 min-w-0">
+                    {% if is_admin_area %}
+                    <button type="button" id="sidebarToggle" class="sidebar-toggle items-center justify-center w-10 h-10 -ml-2 rounded-xl text-white text-xl hover:bg-white/10" aria-label="Open admin menu" aria-controls="adminSidebar" aria-expanded="false">
+                        <i class="fa-solid fa-bars-staggered"></i>
+                    </button>
+                    {% endif %}
+                    <a
+                        href="{{ url_for('index') }}"
+                        class="flex items-center gap-2 text-white font-extrabold text-base sm:text-lg tracking-tight min-w-0"
+                    >
+                        <span class="brand-mark shrink-0"><i class="fa-solid fa-building-shield"></i></span>
 
-                    <span>Padmavathi Boys hostel</span>
-                </a>
+                        <span class="truncate">Padmavathi Boys Hostel</span>
+                    </a>
+                </div>
 
                 <!-- Desktop Navigation -->
                 <div class="hidden md:flex items-center gap-1">
@@ -233,16 +243,70 @@
     {% endwith %}
 
     <!-- Main Content -->
-    <main class="flex-1 w-full max-w-7xl mx-auto px-4 py-6 sm:py-8">
+    <div class="{{ 'admin-shell' if is_admin_area else 'flex-1 flex flex-col w-full' }}">
+
+        {% if is_admin_area %}
+        {% set nav = admin_nav or {} %}
+        <aside id="adminSidebar" class="admin-sidebar" aria-label="Admin navigation">
+
+            <!-- AI Assistant: the most prominent item in the sidebar -->
+            <a href="{{ url_for('admin_dashboard', ai=1) }}" id="sbAiBtn" class="sb-ai ai-glow" aria-label="Open the AI Assistant">
+                <div class="flex items-center gap-2.5">
+                    <span class="ai-orb float-y" style="width:2.5rem;height:2.5rem;font-size:1.25rem;border-radius:.85rem">🤖</span>
+                    <div class="min-w-0">
+                        <div class="font-extrabold leading-tight">AI Assistant <span class="badge-new">NEW</span></div>
+                        <div class="text-[11px] text-indigo-100 font-semibold">Ask AI</div>
+                    </div>
+                    <i class="fa-solid fa-wand-magic-sparkles ml-auto text-indigo-100"></i>
+                </div>
+                <p class="text-xs text-indigo-50 mt-2 leading-snug">Use AI Assistant to make your work easier.</p>
+            </a>
+
+            <div class="sb-title">Manage</div>
+            <a href="{{ url_for('admin_dashboard') }}" class="sb-link {{ 'active' if request.endpoint == 'admin_dashboard' }}">
+                <i class="fa-solid fa-gauge fa-fw"></i> Dashboard
+            </a>
+            <a href="{{ url_for('admin_payments') }}" class="sb-link {{ 'active' if request.endpoint == 'admin_payments' }}">
+                <i class="fa-solid fa-hourglass-half fa-fw"></i> Today's Payments
+                {% if nav.get('pending') %}<span class="sb-count">{{ nav.pending }}</span>{% endif %}
+            </a>
+            <a href="{{ url_for('due_list') }}" class="sb-link {{ 'active' if request.endpoint == 'due_list' }}">
+                <i class="fa-solid fa-calendar-days fa-fw"></i> Due List
+            </a>
+            <a href="{{ url_for('paid_unconfirmed') }}" class="sb-link {{ 'active' if request.endpoint == 'paid_unconfirmed' }}">
+                <i class="fa-solid fa-user-check fa-fw"></i> Paid (Unconfirmed)
+            </a>
+            <a href="{{ url_for('pause_bed') }}" class="sb-link {{ 'active' if request.endpoint == 'pause_bed' }}">
+                <i class="fa-solid fa-bed-pulse fa-fw"></i> Pause Bed
+                {% if nav.get('pauses') %}<span class="sb-count" style="background:#7C3AED">{{ nav.pauses }}</span>{% endif %}
+            </a>
+
+            <div class="sb-title">Settings</div>
+            <a href="{{ url_for('payment_settings') }}" class="sb-link {{ 'active' if request.endpoint == 'payment_settings' }}">
+                <i class="fa-solid fa-qrcode fa-fw"></i> Payment Settings
+            </a>
+            <a href="{{ url_for('add_student') }}" class="sb-link">
+                <i class="fa-solid fa-user-plus fa-fw"></i> Add Student
+            </a>
+            <a href="{{ url_for('admin_logout') }}" class="sb-link" style="color:#B91C1C">
+                <i class="fa-solid fa-right-from-bracket fa-fw" style="color:#B91C1C"></i> Logout
+            </a>
+        </aside>
+        <div id="sbBackdrop" class="sb-backdrop"></div>
+        {% endif %}
+
+    <main class="{{ 'admin-main' if is_admin_area else 'flex-1 w-full max-w-7xl mx-auto px-4 py-6 sm:py-8' }}">
 
         {% block content %}{% endblock %}
 
     </main>
 
+    </div>
+
     <!-- Footer -->
     <footer class="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-400">
 
-        Padmavathi Boys hostel &copy; {{ 2024 }}
+        Padmavathi Boys Hostel &copy; {{ 2024 }}
 
     </footer>
 
@@ -274,6 +338,20 @@
     {% if not request.path.startswith('/admin')
           and (request.endpoint not in ('index', 'add_student') or request.args.get('record_payment') == '1') %}
         {% include '_user_bot.html' %}
+    {% endif %}
+
+    {% if is_admin_area %}
+    <script>
+        (function () {
+            var sb = document.getElementById('adminSidebar'), bd = document.getElementById('sbBackdrop'), tg = document.getElementById('sidebarToggle');
+            if (!sb || !tg) return;
+            function setOpen(o) { sb.classList.toggle('open', o); bd.classList.toggle('open', o); tg.setAttribute('aria-expanded', o ? 'true' : 'false'); }
+            tg.addEventListener('click', function () { setOpen(!sb.classList.contains('open')); });
+            bd.addEventListener('click', function () { setOpen(false); });
+            document.addEventListener('keydown', function (e) { if (e.key === 'Escape') setOpen(false); });
+            sb.addEventListener('click', function (e) { if (e.target.closest('a')) setOpen(false); });
+        })();
+    </script>
     {% endif %}
 
     {% block extra_scripts %}{% endblock %}

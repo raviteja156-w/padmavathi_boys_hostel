@@ -309,7 +309,57 @@ def _score_kb(entries, message):
     return best, best_score
 
 
-def user_reply(message):
+_HOW_WORDS = ('how', 'where', 'steps', 'step', 'procedure', 'process', 'ఎలా', 'ఎక్కడ')
+
+
+def _personal_answer(message, p, lang):
+    """Answers about the signed-in student's OWN balance / payment status / room, using only the
+    figures their own dashboard already shows. `p` is built by the route from that one student's record."""
+    toks = tokenize(message)
+    raw = message.lower()
+    joined = ' '.join(toks)
+    if 'how much' not in joined and (any(t in _HOW_WORDS for t in toks) or any(w in raw for w in _HOW_WORDS if has_telugu(w))):
+        return None  # a "how do I ..." question gets the step-by-step answer instead
+    mine = any(t in ('my', 'mine') for t in toks) or 'నా' in raw or 'how much' in joined or 'am i' in joined
+    if not mine:
+        return None
+    due, total, paid = p['due'], p['total_rent'], p['paid']
+    if any(w in joined for w in ('balance', 'due', 'dues', 'owe', 'outstanding', 'pending amount')) or any(w in raw for w in ('బాకీ', 'బ్యాలెన్స్')) \
+            or ('how much' in joined and any(w in joined for w in ('pay', 'owe', 'rent'))):
+        pend = ''
+        if p.get('pending_count'):
+            pend = tr(lang, f" A payment of {rupee(p['pending_amount'])} is waiting for the admin to confirm.",
+                      f" {rupee(p['pending_amount'])} చెల్లింపు అడ్మిన్ నిర్ధారణ కోసం వేచి ఉంది.")
+        if due > 0:
+            t = tr(lang, f"Your current balance is <b>{rupee(due)}</b> (total rent {rupee(total)}, paid {rupee(paid)}).{pend}",
+                   f"మీ ప్రస్తుత బాకీ <b>{rupee(due)}</b> (మొత్తం అద్దె {rupee(total)}, చెల్లించినది {rupee(paid)}).{pend}")
+        else:
+            t = tr(lang, f"You have no balance due right now (total rent {rupee(total)}, paid {rupee(paid)}).{pend}",
+                   f"ప్రస్తుతం మీకు బాకీ ఏమీ లేదు (మొత్తం అద్దె {rupee(total)}, చెల్లించినది {rupee(paid)}).{pend}")
+        return _user_ok(t, lang)
+    if any(w in joined for w in ('status', 'confirmed', 'confirm', 'approved', 'payment')) or 'నిర్ధారణ' in raw:
+        last = (p.get('last') or [None])[0]
+        if not last:
+            t = tr(lang, "I don't see any payment submitted from your number yet.", 'మీ నంబర్ నుండి ఇంకా ఎలాంటి చెల్లింపు నమోదు కాలేదు.')
+        elif last['status'] == 'CONFIRMED':
+            t = tr(lang, f"Your latest payment of {rupee(last['amount'])} ({last['date']}) is <b>CONFIRMED</b> by the admin.",
+                   f"మీ తాజా చెల్లింపు {rupee(last['amount'])} ({last['date']}) అడ్మిన్ ద్వారా <b>నిర్ధారించబడింది</b>.")
+        else:
+            t = tr(lang, f"Your latest payment of {rupee(last['amount'])} ({last['date']}) is <b>PENDING</b>. It will show as confirmed once the admin checks it.",
+                   f"మీ తాజా చెల్లింపు {rupee(last['amount'])} ({last['date']}) <b>పెండింగ్</b>లో ఉంది. అడ్మిన్ తనిఖీ చేసిన తర్వాత నిర్ధారణ అవుతుంది.")
+        return _user_ok(t, lang)
+    if any(w in joined for w in ('room', 'hostel')) or 'గది' in raw:
+        t = tr(lang, f"You are in <b>{escape(p['hostel'])} • {escape(p['room'])}</b> ({p['sharing']} sharing).",
+               f"మీరు <b>{escape(p['hostel'])} • {escape(p['room'])}</b> లో ఉన్నారు ({p['sharing']} షేరింగ్).")
+        return _user_ok(t, lang)
+    return None
+
+
+def _user_ok(html_text, lang):
+    return {'ok': True, 'html': html_text, 'speak': unescape(re.sub('<[^>]+>', '', html_text)), 'lang': lang}
+
+
+def user_reply(message, personal=None):
     message = (message or '').strip()[:300]
     lang = 'te' if has_telugu(message) else 'en'
     if not message:
@@ -321,6 +371,12 @@ def user_reply(message):
     if _USER_RESTRICTED.search(message):
         t = RESTRICTED_USER_TE if lang == 'te' else RESTRICTED_USER
         return {'ok': True, 'html': escape(t), 'speak': t, 'lang': lang}
+
+    # 1b) the signed-in student's own balance / status / room (never anyone else's)
+    if personal:
+        ans = _personal_answer(message, personal, lang)
+        if ans:
+            return ans
 
     # 2) knowledge-base match
     entry, score = _score_kb(USER_KB, message)
@@ -524,6 +580,9 @@ ADMIN_KB = [
     {'kw': ['per day rent', 'per-day rent', 'daily rent', 'rent per day', 'day rent', 'daily rate', 'per day', 'రోజు అద్దె', 'రోజుకు'],
      'en': ['__DAILY_RATES__', 'To use it: menu <b>3) Calculate Per-Day Rent</b>, pick the hostel, room and student, enter the number of days. You can then save it as that student\'s total rent.'],
      'te': ['__DAILY_RATES__', 'వాడటానికి: మెనూ <b>3) Calculate Per-Day Rent</b>, హాస్టల్, రూమ్, విద్యార్థిని ఎంచుకుని రోజుల సంఖ్య ఇవ్వండి. తర్వాత దాన్ని ఆ విద్యార్థి మొత్తం అద్దెగా సేవ్ చేయవచ్చు.']},
+    {'kw': ['pause bed', 'pause a bed', 'paused bed', 'pause student', 'pause a student', 'పాజ్', 'బెడ్ పాజ్'],
+     'en': ['<b>Pause Bed</b> temporarily marks beds as paused without changing the student, rent, sharing or payments:', 'Open <b>Pause Bed</b> in the sidebar (or the dashboard card).', 'Tap <b>Pause Bed</b>, choose the Hostel, then the Room (or Hall), tick one or more students, and enter the number of days.', 'Check the summary and tap <b>Confirm Pause</b>. The pause starts today and ends automatically; no manual un-pause is needed.', 'Use <b>Delete</b> on a paused card to remove only that pause record (the student is never deleted).'],
+     'te': ['<b>Pause Bed</b> విద్యార్థి, అద్దె, షేరింగ్, చెల్లింపులను మార్చకుండా బెడ్‌లను తాత్కాలికంగా పాజ్ చేస్తుంది:', 'సైడ్‌బార్‌లో (లేదా డ్యాష్‌బోర్డ్ కార్డ్‌లో) <b>Pause Bed</b> తెరవండి.', '<b>Pause Bed</b> నొక్కి హాస్టల్, తర్వాత రూమ్ (లేదా హాల్) ఎంచుకుని ఒకరు లేదా ఎక్కువ మంది విద్యార్థులను టిక్ చేసి రోజుల సంఖ్య ఇవ్వండి.', 'సారాంశం చూసి <b>Confirm Pause</b> నొక్కండి. పాజ్ ఈరోజు మొదలై ఆటోమేటిక్‌గా ముగుస్తుంది; మాన్యువల్‌గా అన్‌పాజ్ చేయాల్సిన అవసరం లేదు.', 'పాజ్ చేసిన కార్డ్‌లో <b>Delete</b> నొక్కితే ఆ పాజ్ రికార్డ్ మాత్రమే తొలగిపోతుంది (విద్యార్థి ఎప్పటికీ తొలగించబడరు).']},
     {'kw': ['voice', 'speak', 'microphone', 'mic', 'read aloud', 'text to speech', 'listen', 'telugu', 'language', 'వాయిస్', 'మాట్లాడ', 'తెలుగు'],
      'en': ['Voice: tap the <b>mic</b> button, pick <b>EN</b> or <b>తె</b> for the language you will speak, and say your command. It is typed into the chat and processed like a normal message. Tap the <b>speaker</b> button to have replies read aloud.', 'Voice needs a browser with speech support (Chrome or Edge work best). Telugu speech needs a Telugu voice installed on the device.'],
      'te': ['వాయిస్: <b>mic</b> బటన్ నొక్కి, మీరు మాట్లాడే భాషగా <b>EN</b> లేదా <b>తె</b> ఎంచుకుని మీ కమాండ్ చెప్పండి. అది చాట్‌లో టైప్ అయి సాధారణ సందేశంలా ప్రాసెస్ అవుతుంది. సమాధానాలు వినడానికి <b>speaker</b> బటన్ నొక్కండి.', 'వాయిస్‌కు స్పీచ్ సపోర్ట్ ఉన్న బ్రౌజర్ కావాలి (Chrome లేదా Edge మంచివి). తెలుగు మాట్లాడటానికి/వినడానికి పరికరంలో తెలుగు వాయిస్ ఉండాలి.']},
@@ -908,7 +967,26 @@ def register(app, ctx):
         if _rate_limited('u:' + (request.headers.get('X-Forwarded-For', request.remote_addr) or '?').split(',')[0].strip()):
             return jsonify({'ok': False, 'error': 'Too many questions. Please wait a minute and try again.'}), 429
         body = request.get_json(silent=True) or {}
-        return jsonify(user_reply(str(body.get('message', ''))))
+        personal = None
+        try:
+            # Only when a student has signed in with their mobile number; only their OWN record is read.
+            if session.get('payment_student_id'):
+                db = ctx['get_db']()
+                st = ctx['current_payment_student'](db)
+                if st:
+                    subs = db.execute('SELECT amount, status, submitted_at FROM payment_submissions WHERE student_id=%s ORDER BY id DESC LIMIT 3',
+                                      (st['id'],)).fetchall()
+                    pend = [x for x in subs if x['status'] == 'PENDING']
+                    personal = {
+                        'hostel': st['hostel'], 'room': (ctx.get('room_label') or (lambda n: 'Hall' if n == 11 else f'Room {n}'))(st['room_number']), 'sharing': st['sharing'],
+                        'total_rent': st.get('total_rent') or 0, 'paid': st.get('amount_paid') or 0,
+                        'due': ctx['student_due_amount'](st),
+                        'pending_count': len(pend), 'pending_amount': sum(x['amount'] or 0 for x in pend),
+                        'last': [{'amount': x['amount'], 'status': x['status'], 'date': (x['submitted_at'] or '')[:10]} for x in subs],
+                    }
+        except Exception:
+            personal = None
+        return jsonify(user_reply(str(body.get('message', '')), personal))
 
     @app.route('/admin/api/assistant', methods=['POST'], endpoint='assistant_admin_api')
     @admin_api_required

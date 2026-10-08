@@ -47,6 +47,7 @@
   }
 
   function askText(placeholder, cb, inputmode) {
+    assistantMode = false; if (micBtn) micBtn.disabled = true;   // a menu flow is taking over the text box
     pendingText = cb;
     input.disabled = false; send.disabled = false;
     input.placeholder = placeholder;
@@ -59,7 +60,7 @@
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const v = input.value.trim();
-    if (assistantMode) { if (!v) return; input.value = ''; meSay(v); return askAssistant({ message: v }); }
+    if (assistantMode && !pendingText) { if (!v) return; input.value = ''; meSay(v); return askAssistant({ message: v }); }
     if (!v || !pendingText) return;
     const cb = pendingText;
     lockText();
@@ -326,6 +327,14 @@
   function open() { panel.classList.add('open'); fab.style.display = 'none'; if (!greeted) { greeted = true; start(); } }
   function close() { panel.classList.remove('open'); fab.style.display = ''; }
   fab.addEventListener('click', open);
+  // Used by the dashboard's AI card and the sidebar's "AI Assistant" entry.
+  window.openAdminBot = function (mode) { open(); if (mode === 'assistant' && !assistantMode) enterAssistant(); };
+  if (/[?&]ai=1(&|$)/.test(location.search)) {
+    window.addEventListener('load', function () {
+      window.openAdminBot('assistant');
+      try { history.replaceState(null, '', location.pathname); } catch (e) { /* ignore */ }
+    });
+  }
   document.getElementById('botClose').addEventListener('click', close);
   document.getElementById('botRestart').addEventListener('click', start);
 })();

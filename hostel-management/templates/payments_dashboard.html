@@ -1,120 +1,493 @@
 {% extends 'base.html' %}
-{% block title %}My Payments — Padmavathi Boys hostel{% endblock %}
+{% block title %}My Payments — Padmavathi Boys Hostel{% endblock %}
 {% block content %}
 
-<div class="max-w-md mx-auto animate-slide-up">
+{% set first_name = student.name.split(' ')[0] %}
+{% set pending_total = pending_amount or 0 %}
 
-  {% set ns = namespace(done=false) %}
-  {% for category, message in get_flashed_messages(with_categories=true) %}
-    {% if category == 'success' and 'Payment recorded' in message %}{% set ns.done = true %}{% endif %}
-  {% endfor %}
-  {% if ns.done %}
-  <div id="submitSuccess" class="mb-4 bg-green-50 border border-green-200 rounded-2xl px-4 py-4 text-center shadow-sm">
-    <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-100 text-green-600 text-2xl mb-2">
-      <i class="fa-solid fa-circle-check"></i>
+<div class="max-w-2xl mx-auto space-y-4 sm:space-y-5">
+
+  <!-- 1) BRANDING -->
+  <section class="brand-banner rise" aria-label="Padmavathi Boys Hostel">
+    <div class="flex items-center gap-3">
+      <span class="ai-orb float-y shrink-0"><i class="fa-solid fa-building-shield"></i></span>
+      <div class="min-w-0">
+        <h1 class="brand-title break-words">🏠 Padmavathi Boys Hostel</h1>
+        <p class="text-blue-100 text-xs sm:text-sm mt-0.5">Official hostel application &bull; Payments &amp; updates</p>
+      </div>
     </div>
-    <p class="text-lg font-bold text-green-700">Payment Submitted Successfully!</p>
-    <p class="text-sm text-green-700/80 mt-1">Your payment is now <b>PENDING</b>. It will be updated once the hostel admin confirms it.</p>
-  </div>
-  {% endif %}
 
-  <!-- Stays visible under the navbar while the student reads the payment information -->
-  <div class="sticky top-16 z-30 -mx-1 mb-4 bg-amber-50 border border-amber-200 text-amber-800 text-xs sm:text-sm font-semibold rounded-xl px-3 py-2 text-center shadow-sm">
-    <i class="fa-solid fa-money-bill-1 mr-1"></i>If paying by cash, please continue to RECORD PAYMENT.
-  </div>
+    <div class="mt-3.5 flex flex-wrap items-center gap-2">
+      <span class="text-base sm:text-lg font-extrabold mr-1">Hi, {{ first_name }} 👋</span>
+      <span class="chip chip-glass">
+        <i class="fa-solid {{ 'fa-house' if student.hostel == 'Old Hostel' else 'fa-city' }}"></i>
+        {{ student.hostel }} &bull; {{ room_label(student.room_number) }}
+      </span>
+      <span class="chip chip-glass">
+        <i class="fa-solid fa-users"></i>{{ student.sharing }} sharing
+      </span>
+    </div>
+  </section>
 
-  <div class="text-center mb-6">
-    <h1 class="text-2xl sm:text-3xl font-bold text-slate-800">Hi, {{ student.name.split(' ')[0] }}</h1>
-    <p class="text-slate-500 text-sm mt-1">
-      <i class="fa-solid {{ 'fa-house' if student.hostel == 'Old Hostel' else 'fa-city' }} mr-1"></i>
-      {{ student.hostel }} &bull; {{ room_label(student.room_number) }}
-    </p>
-  </div>
+  <!-- 2) NOTIFICATIONS (always at the top, right under the branding) -->
+  <section aria-label="Notifications" aria-live="polite">
 
-  <div class="card p-5 sm:p-7 text-center space-y-4">
+    {% if pay_success %}
+    <div id="submitSuccess" class="success-card mb-3">
+      <div class="tick-wrap">
+        <svg viewBox="0 0 72 72" aria-hidden="true">
+          <circle class="tick-circle" cx="36" cy="36" r="30"></circle>
+          <path class="tick-check" d="M22 37 L32 47 L51 26"></path>
+        </svg>
+      </div>
+
+      <h2 class="text-xl sm:text-2xl font-extrabold text-green-800">
+        ✅ Payment Submitted Successfully
+      </h2>
+
+      <p class="text-sm text-green-800/80 mt-1">
+        Your payment has been submitted successfully.
+      </p>
+
+      <div class="receipt-grid">
+        <div>
+          <div class="k">Student</div>
+          <div class="v">{{ pay_success.name }}</div>
+        </div>
+
+        <div>
+          <div class="k">Amount</div>
+          <div class="v">₹{{ '{:,.0f}'.format(pay_success.amount or 0) }}</div>
+        </div>
+
+        <div>
+          <div class="k">Payment mode</div>
+          <div class="v">{{ pay_success.mode or '—' }}</div>
+        </div>
+
+        <div>
+          <div class="k">Date</div>
+          <div class="v">
+            {% set d = pay_success.date or '' %}
+            {{ d[8:10] ~ '-' ~ d[5:7] ~ '-' ~ d[0:4] if d|length == 10 else d }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Submitted -> Admin reviews -> Admin confirms -->
+      <div class="steps" aria-label="Payment progress">
+        <div class="step done">
+          <div class="dot"><i class="fa-solid fa-check"></i></div>
+          Submitted
+        </div>
+
+        <div class="step now">
+          <div class="dot"><i class="fa-solid fa-hourglass-half"></i></div>
+          Admin reviews
+        </div>
+
+        <div class="step">
+          <div class="dot"><i class="fa-solid fa-shield-check"></i></div>
+          Confirmed
+        </div>
+      </div>
+
+      <p class="text-xs text-green-800/70 mt-3">
+        The hostel admin will review it. Once the admin approves it, a green confirmation notice will appear here.
+      </p>
+    </div>
+    {% endif %}
+
+    {# Green: the admin confirmed one of THIS student's payments #}
+    {% for n in confirmed_notes %}
+    <div class="notif notif-success">
+      <span class="notif-icon pulse-soft">
+        <i class="fa-solid fa-circle-check"></i>
+      </span>
+
+      <div class="notif-body pr-6">
+        <div class="notif-title">🟢 Payment Confirmed</div>
+        <p class="notif-text">
+          Your payment of <b>₹{{ '{:,.0f}'.format(n.amount or 0) }}</b> has been confirmed by the admin.
+        </p>
+      </div>
+
+      <form method="POST" action="{{ url_for('payments_dismiss_notification', payment_id=n.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button
+          type="submit"
+          class="notif-x"
+          aria-label="Dismiss this notification"
+          title="Dismiss"
+        >
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </form>
+    </div>
+    {% endfor %}
+
+    {# Balance: read from the student's own record (total rent - paid). Nothing for the student to type. #}
+    {% if due_amount > 0 %}
+    <div class="notif notif-danger">
+      <span class="notif-icon">
+        <i class="fa-solid fa-bell ring-bell"></i>
+      </span>
+
+      <div class="notif-body">
+        <div class="notif-title">🔔 Payment Due</div>
+        <p class="notif-text">Your current balance is</p>
+        <div class="notif-amount">₹{{ '{:,.0f}'.format(due_amount) }}</div>
+      </div>
+    </div>
+
+    {% elif not confirmed_notes and not pending_count and not pay_success %}
+    <div class="notif notif-info">
+      <span class="notif-icon">
+        <i class="fa-solid fa-thumbs-up"></i>
+      </span>
+
+      <div class="notif-body">
+        <div class="notif-title">You're all caught up</div>
+        <p class="notif-text">You have no balance due right now.</p>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if pending_count %}
+    <div class="notif notif-warn">
+      <span class="notif-icon">
+        <i class="fa-solid fa-hourglass-half pulse-soft"></i>
+      </span>
+
+      <div class="notif-body">
+        <div class="notif-title">Payment Pending Review</div>
+        <p class="notif-text">
+          {{ pending_count }} payment{{ '' if pending_count == 1 else 's' }}
+          (₹{{ '{:,.0f}'.format(pending_total) }}) submitted
+          &mdash; waiting for the hostel admin to confirm.
+        </p>
+      </div>
+    </div>
+    {% endif %}
+
+  </section>
+
+  <!-- 3) AI ASSISTANT -->
+  <section class="ai-card ai-glow rise rise-2" aria-label="AI Assistant">
+    <span class="ai-orb float-y shrink-0">🤖</span>
+
+    <div class="flex-1 min-w-0" style="min-width:12rem">
+      <div class="font-extrabold text-base sm:text-lg leading-tight">
+        🤖 Need Help? Ask AI <span class="badge-new">NEW</span>
+      </div>
+
+      <p class="text-sm text-indigo-100 mt-0.5">
+        Use our AI Assistant to make your hostel work easier.
+      </p>
+    </div>
+
+    <button
+      type="button"
+      id="askAiBtn"
+      class="ai-btn w-full sm:w-auto"
+    >
+      <i class="fa-solid fa-wand-magic-sparkles"></i> Ask AI
+    </button>
+
+    <div class="w-full flex flex-wrap gap-2" style="position:relative;z-index:1">
+      <button type="button" class="chip chip-glass ai-q" data-q="What is my balance?">
+        💰 My balance
+      </button>
+
+      <button type="button" class="chip chip-glass ai-q" data-q="Is my payment confirmed?">
+        ✅ Payment status
+      </button>
+
+      <button type="button" class="chip chip-glass ai-q" data-q="How do I record a payment?">
+        🧾 Record a payment
+      </button>
+    </div>
+  </section>
+
+  <!-- 4) SNAPSHOT CARDS -->
+  <section class="grid grid-cols-2 gap-3 rise rise-3" aria-label="Payment summary">
+
+    {% if due_amount > 0 %}
+    <div
+      class="metric col-span-2"
+      style="border-color:#FCA5A5;background:linear-gradient(135deg,#fff,#FFF1F2)"
+    >
+    {% else %}
+    <div
+      class="metric col-span-2"
+      style="border-color:#86EFAC;background:linear-gradient(135deg,#fff,#F0FDF4)"
+    >
+    {% endif %}
+
+      <div class="flex items-center gap-3">
+        <span class="ico {{ 'ico-red' if due_amount > 0 else 'ico-green' }}">
+          <i class="fa-solid {{ 'fa-indian-rupee-sign' if due_amount > 0 else 'fa-circle-check' }}"></i>
+        </span>
+
+        <div class="min-w-0 flex-1">
+          <div class="metric-label">Amount Due</div>
+
+          <div
+            class="metric-value {{ 'text-red-600' if due_amount > 0 else 'text-green-600' }}"
+            style="font-size:2rem"
+          >
+            ₹{{ '{:,.0f}'.format(due_amount) }}
+          </div>
+        </div>
+
+        <span class="status-badge {{ 'sb-red' if due_amount > 0 else 'sb-green' }}">
+          {{ 'DUE' if due_amount > 0 else 'CLEAR' }}
+        </span>
+      </div>
+
+      <p class="metric-sub mt-2">For: {{ for_month }}</p>
+    </div>
+
+    <div class="metric">
+      <span class="ico ico-blue mb-1.5">
+        <i class="fa-solid fa-hand-holding-dollar"></i>
+      </span>
+
+      <div class="metric-label">Total rent</div>
+
+      <div class="metric-value">
+        ₹{{ '{:,.0f}'.format(student.total_rent or 0) }}
+      </div>
+    </div>
+
+    <div class="metric">
+      <span class="ico ico-green mb-1.5">
+        <i class="fa-solid fa-sack-dollar"></i>
+      </span>
+
+      <div class="metric-label">Paid</div>
+
+      <div class="metric-value">
+        ₹{{ '{:,.0f}'.format(student.amount_paid or 0) }}
+      </div>
+    </div>
+
+    <div class="metric col-span-2">
+      <div class="flex items-center gap-3">
+        <span class="ico ico-indigo">
+          <i class="fa-solid {{ 'fa-house' if student.hostel == 'Old Hostel' else 'fa-city' }}"></i>
+        </span>
+
+        <div class="min-w-0 flex-1">
+          <div class="metric-label">Your hostel &amp; room</div>
+
+          <div class="font-extrabold text-slate-800 break-words">
+            {{ student.hostel }} &bull; {{ room_label(student.room_number) }}
+          </div>
+        </div>
+
+        <span class="status-badge sb-blue">
+          {{ student.sharing }} sharing
+        </span>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- 5) PAY (existing static QR system, unchanged) -->
+  <section class="card p-4 sm:p-6 text-center space-y-4 rise rise-4">
+
+    <div class="bg-amber-50 border border-amber-200 text-amber-800 text-xs sm:text-sm font-semibold rounded-xl px-3 py-2">
+      <i class="fa-solid fa-money-bill-1 mr-1"></i>
+      If paying by cash, please continue to RECORD PAYMENT.
+    </div>
+
     <div>
-      <p class="text-sm text-slate-500 uppercase tracking-wide font-semibold">Monthly Hostel Payment</p>
-      <p class="text-xs text-slate-400 mt-0.5">For: {{ for_month }}</p>
-    </div>
+      <p class="text-sm text-slate-500 uppercase tracking-wide font-semibold">
+        Monthly Hostel Payment
+      </p>
 
-    <div class="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3.5 inline-flex items-center gap-2 mx-auto">
-      <span class="text-sm font-medium text-slate-600">Amount Due</span>
-      <span class="text-2xl font-bold {{ 'text-primary' if due_amount > 0 else 'text-success' }}">₹{{ '{:,.0f}'.format(due_amount) }}</span>
+      <p class="text-xs text-slate-400 mt-0.5">
+        For: {{ for_month }}
+      </p>
     </div>
-    <p class="text-xs text-slate-400">Total rent ₹{{ '{:,.0f}'.format(student.total_rent or 0) }} &bull; Paid ₹{{ '{:,.0f}'.format(student.amount_paid or 0) }}</p>
 
     <div class="border border-slate-200 rounded-2xl p-4 space-y-4 text-center">
-      <p class="text-sm font-bold text-slate-800">Use this information for online payment.</p>
+
+      <p class="text-sm font-bold text-slate-800">
+        Use this information for online payment.
+      </p>
 
       {% if pay_info.qr_url %}
-      <div class="w-56 h-56 mx-auto rounded-xl overflow-hidden border-2 border-primary/20 bg-white">
-        <img src="{{ pay_info.qr_url }}" alt="{{ student.hostel }} Payment QR Code" class="w-full h-full object-contain">
+      <div class="w-56 max-w-full aspect-square mx-auto rounded-xl overflow-hidden border-2 border-primary/20 bg-white">
+        <img
+          src="{{ pay_info.qr_url }}"
+          alt="{{ student.hostel }} Payment QR Code"
+          class="w-full h-full object-contain"
+        >
       </div>
       {% else %}
       <p class="text-sm text-amber-600 bg-amber-50 rounded-lg px-4 py-3">
-        <i class="fa-solid fa-triangle-exclamation mr-1"></i>QR code not set up yet — please contact the hostel admin.
+        <i class="fa-solid fa-triangle-exclamation mr-1"></i>
+        QR code not set up yet — please contact the hostel admin.
       </p>
       {% endif %}
 
       {% if pay_info.phone or pay_info.name %}
       <div class="bg-slate-50 rounded-xl px-4 py-3 text-sm text-left space-y-2">
+
         {% if pay_info.phone %}
         <div class="flex items-center justify-between gap-3">
           <div class="min-w-0">
-            <p class="text-xs text-slate-400 uppercase tracking-wide font-semibold">Payment Number</p>
-            <p class="font-bold text-slate-800 tracking-wide">{{ pay_info.phone }}</p>
+            <p class="text-xs text-slate-400 uppercase tracking-wide font-semibold">
+              Payment Number
+            </p>
+
+            <p class="font-bold text-slate-800 tracking-wide break-all">
+              {{ pay_info.phone }}
+            </p>
           </div>
-          <button type="button" class="copy-btn text-xs font-bold px-3 py-2 rounded-lg bg-primary/10 text-primary shrink-0" data-copy="{{ pay_info.phone }}">
+
+          <button
+            type="button"
+            class="copy-btn text-xs font-bold px-3 py-2 min-h-[40px] rounded-lg bg-primary/10 text-primary shrink-0"
+            data-copy="{{ pay_info.phone }}"
+          >
             <i class="fa-regular fa-copy mr-1"></i>COPY
           </button>
         </div>
         {% endif %}
+
         {% if pay_info.name %}
         <div>
-          <p class="text-xs text-slate-400 uppercase tracking-wide font-semibold">Payment Name</p>
-          <p class="font-semibold text-slate-800">{{ pay_info.name }}</p>
+          <p class="text-xs text-slate-400 uppercase tracking-wide font-semibold">
+            Payment Name
+          </p>
+
+          <p class="font-semibold text-slate-800 break-words">
+            {{ pay_info.name }}
+          </p>
         </div>
         {% endif %}
+
       </div>
       {% endif %}
+
     </div>
 
-    <a href="{{ url_for('add_student', record_payment=1) }}" class="btn-primary w-full text-base py-4 flex items-center justify-center gap-2">
+    <a
+      href="{{ url_for('add_student', record_payment=1) }}"
+      class="btn-primary w-full text-base py-4 min-h-[52px] flex items-center justify-center gap-2"
+    >
       <i class="fa-solid fa-pen-to-square"></i> RECORD PAYMENT
     </a>
-    <p class="text-xs text-slate-400">Paid online or in cash? Tap RECORD PAYMENT. Your payment stays pending until the hostel admin confirms it.</p>
-  </div>
 
-  {% if recent %}
-  <div class="mt-6">
-    <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-2">Your Recent Submissions</h2>
+    <p class="text-xs text-slate-400">
+      Paid online or in cash? Tap RECORD PAYMENT. Your payment stays pending until the hostel admin confirms it.
+    </p>
+
+  </section>
+
+  <!-- 6) RECENT SUBMISSIONS -->
+  <section>
+
+    <h2 class="text-sm font-extrabold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-2">
+      <i class="fa-solid fa-clock-rotate-left text-slate-400"></i>
+      Your Recent Submissions
+    </h2>
+
+    {% if recent %}
     <div class="space-y-2">
+
       {% for r in recent %}
-      <div class="card p-3.5 flex items-center justify-between">
-        <div class="min-w-0">
-          <p class="text-sm font-semibold text-slate-800">₹{{ '{:,.0f}'.format(r.amount) }} <span class="text-xs font-normal text-slate-400">— {{ r.for_month }}</span></p>
-          <p class="text-xs text-slate-400">{{ r.submitted_at[:10] if r.submitted_at else '' }}</p>
+      <div class="card p-3.5 flex items-center gap-3">
+
+        <span class="ico {{ 'ico-green' if r.status == 'CONFIRMED' else 'ico-amber' }}">
+          <i class="fa-solid {{ 'fa-check' if r.status == 'CONFIRMED' else 'fa-hourglass-half' }}"></i>
+        </span>
+
+        <div class="min-w-0 flex-1">
+
+          <p class="text-sm font-bold text-slate-800">
+            ₹{{ '{:,.0f}'.format(r.amount) }}
+            <span class="text-xs font-normal text-slate-400">
+              — {{ r.for_month }}
+            </span>
+          </p>
+
+          <p class="text-xs text-slate-400">
+            {{ r.submitted_at[:10] if r.submitted_at else '' }}
+          </p>
+
         </div>
+
         {% if r.status == 'CONFIRMED' %}
-        <span class="text-[11px] font-bold px-2.5 py-1 rounded-full bg-success/10 text-success shrink-0">
-          <i class="fa-solid fa-check mr-1"></i>CONFIRMED
+        <span class="status-badge sb-green shrink-0">
+          <i class="fa-solid fa-check"></i>CONFIRMED
         </span>
         {% else %}
-        <span class="text-[11px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 shrink-0">
-          <i class="fa-solid fa-hourglass-half mr-1"></i>PENDING
+        <span class="status-badge sb-amber shrink-0">
+          <i class="fa-solid fa-hourglass-half"></i>PENDING
         </span>
         {% endif %}
+
       </div>
       {% endfor %}
-    </div>
-  </div>
-  {% endif %}
 
-  <div class="text-center mt-6">
-    <a href="{{ url_for('payments_lookup') }}" class="text-xs text-slate-400 hover:text-primary">
+    </div>
+
+    {% else %}
+    <div class="card empty-state">
+
+      <div class="ico-big">
+        <i class="fa-solid fa-receipt"></i>
+      </div>
+
+      <p class="font-bold text-slate-600">
+        No payments submitted yet
+      </p>
+
+      <p class="text-sm mt-1">
+        After you pay, tap RECORD PAYMENT and it will appear here.
+      </p>
+
+    </div>
+    {% endif %}
+
+  </section>
+
+  <div class="text-center pt-1 pb-2">
+    <a
+      href="{{ url_for('payments_lookup') }}"
+      class="text-xs text-slate-400 hover:text-primary"
+    >
       Not you? Switch mobile number
     </a>
   </div>
 
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var go = function (q) {
+    if (window.openUserBot) window.openUserBot(q);
+  };
+
+  var b = document.getElementById('askAiBtn');
+
+  if (b) {
+    b.addEventListener('click', function () {
+      go();
+    });
+  }
+
+  document.querySelectorAll('.ai-q').forEach(function (c) {
+    c.addEventListener('click', function () {
+      go(c.dataset.q);
+    });
+  });
+});
+</script>
 {% endblock %}

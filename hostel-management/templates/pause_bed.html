@@ -1,0 +1,257 @@
+{% extends 'base.html' %}
+{% block title %}Pause Bed — Padmavathi Boys Hostel{% endblock %}
+{% block content %}
+
+<div class="rise">
+
+  <!-- Banner -->
+  <section class="admin-hero mb-5">
+    <div class="flex flex-col sm:flex-row sm:items-center gap-4">
+      <div class="flex items-center gap-3 min-w-0 flex-1">
+        <span class="ai-orb float-y" style="background:rgba(255,255,255,.16)"><i class="fa-solid fa-bed-pulse"></i></span>
+        <div class="min-w-0">
+          <h1 class="text-xl sm:text-3xl font-extrabold leading-tight">Pause Bed</h1>
+          <p class="text-blue-100 text-xs sm:text-sm mt-0.5">Temporarily pause beds for students who are away. Student details, rent and payments are never changed.</p>
+        </div>
+      </div>
+      <button type="button" id="openPauseWizard" class="inline-flex items-center justify-center gap-2 px-5 py-3 min-h-[48px] rounded-2xl font-extrabold text-amber-950 shadow-lg transition hover:-translate-y-0.5"
+              style="background:linear-gradient(135deg,#FDE047,#F59E0B)">
+        <i class="fa-solid fa-circle-pause"></i> Pause Bed
+      </button>
+    </div>
+  </section>
+
+  <!-- Summary tiles -->
+  <section class="grid grid-cols-3 gap-3 mb-6">
+    <div class="tile tone-amber">
+      <span class="ico ico-amber mb-1.5"><i class="fa-solid fa-pause"></i></span>
+      <div class="tile-value">{{ active|length }}</div>
+      <div class="tile-label">Active pauses</div>
+    </div>
+    <div class="tile tone-red">
+      <span class="ico ico-red mb-1.5"><i class="fa-solid fa-hourglass-end"></i></span>
+      <div class="tile-value">{{ expiring_soon }}</div>
+      <div class="tile-label">Ending in 2 days</div>
+    </div>
+    <div class="tile tone-indigo">
+      <span class="ico ico-slate mb-1.5"><i class="fa-solid fa-clock-rotate-left"></i></span>
+      <div class="tile-value">{{ expired|length }}</div>
+      <div class="tile-label">Expired</div>
+    </div>
+  </section>
+
+  <!-- Currently paused -->
+  <h2 class="text-sm font-extrabold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-2">
+    <i class="fa-solid fa-circle-pause text-amber-500"></i> Currently paused beds
+  </h2>
+
+  {% if active %}
+  <div class="pause-grid mb-8">
+    {% for p in active %}
+    {% include '_pause_card.html' %}
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card empty-state mb-8">
+    <div class="ico-big"><i class="fa-solid fa-bed"></i></div>
+    <p class="font-bold text-slate-600">No beds are paused right now</p>
+    <p class="text-sm mt-1">Tap <b>Pause Bed</b> to pause a student's bed for a few days.</p>
+  </div>
+  {% endif %}
+
+  <!-- Expired (kept until the admin deletes the record) -->
+  {% if expired %}
+  <details class="mb-8 group">
+    <summary class="cursor-pointer select-none text-sm font-extrabold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-2 min-h-[44px]">
+      <i class="fa-solid fa-clock-rotate-left text-slate-400"></i> Expired pauses ({{ expired|length }})
+      <i class="fa-solid fa-chevron-down text-xs ml-1 transition group-open:rotate-180"></i>
+    </summary>
+    <p class="text-xs text-slate-400 mb-3">These pauses ended automatically. Nothing needs to be un-paused; delete a record only to tidy this list.</p>
+    <div class="pause-grid">
+      {% for p in expired %}
+      {% include '_pause_card.html' %}
+      {% endfor %}
+    </div>
+  </details>
+  {% endif %}
+
+</div>
+
+<!-- ============ PAUSE WIZARD (bottom sheet on phones, dialog on larger screens) ============ -->
+<div id="wizOverlay" class="sheet-overlay" role="dialog" aria-modal="true" aria-labelledby="wizTitle">
+  <div class="sheet">
+    <div class="sheet-head">
+      <div class="flex items-center gap-2">
+        <h3 id="wizTitle" class="font-extrabold text-slate-800 text-lg flex-1 min-w-0">Pause Bed</h3>
+        <button type="button" id="wizClose" class="w-10 h-10 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <p id="wizSub" class="text-xs text-slate-500 mt-0.5"></p>
+      <div class="wiz-steps" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+    </div>
+    <div id="wizBody" class="sheet-body"></div>
+    <div class="sheet-foot">
+      <button type="button" id="wizBack" class="btn-outline px-4 py-3 min-h-[48px] flex-1">Back</button>
+      <button type="button" id="wizNext" class="btn-primary px-4 py-3 min-h-[48px] flex-[2]">Next</button>
+    </div>
+  </div>
+</div>
+
+<form id="wizForm" method="POST" action="{{ url_for('pause_bed_create') }}" class="hidden">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="days" id="wizDays">
+  <div id="wizIds"></div>
+</form>
+
+<!-- ============ DELETE CONFIRMATION ============ -->
+<div id="delOverlay" class="modal-overlay hidden" role="dialog" aria-modal="true">
+  <div class="modal-box text-center">
+    <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-red-50 text-red-500 text-2xl mb-3"><i class="fa-solid fa-trash-can"></i></div>
+    <h3 class="text-lg font-extrabold text-slate-800 mb-1">Delete paused-bed record?</h3>
+    <p class="text-sm text-slate-600 mb-1">Are you sure you want to delete this paused-bed record?</p>
+    <p class="text-xs text-slate-400 mb-5">Only the pause record is removed. The student and their payments are not touched.</p>
+    <form id="delForm" method="POST" action="" class="flex gap-3">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="button" id="delCancel" class="btn-outline flex-1 py-3 min-h-[48px]">Cancel</button>
+      <button type="submit" class="btn-danger flex-1 py-3 min-h-[48px]">Delete</button>
+    </form>
+  </div>
+</div>
+
+<script type="application/json" id="wizData">{{ {'hostels': wizard, 'today': today_iso, 'max': max_days} | tojson }}</script>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+  var DATA = JSON.parse(document.getElementById('wizData').textContent);
+  var overlay = document.getElementById('wizOverlay'), body = document.getElementById('wizBody');
+  var sub = document.getElementById('wizSub'), title = document.getElementById('wizTitle');
+  var back = document.getElementById('wizBack'), next = document.getElementById('wizNext');
+  var bars = document.querySelectorAll('.wiz-steps span');
+  var S = null, step = 1;
+
+  function esc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]; }); }
+  function fmt(iso) {
+    var d = new Date(iso + 'T00:00:00Z');
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
+  }
+  function endIso(days) { var d = new Date(DATA.today + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().slice(0, 10); }
+  function reset() { S = { hostel: null, room: null, sel: {}, days: '' }; step = 1; }
+  function selIds() { return Object.keys(S.sel); }
+  function roomObj() { return (DATA.hostels[S.hostel] || []).filter(function (r) { return r.room === S.room; })[0]; }
+
+  function open() { reset(); overlay.classList.add('open'); document.body.style.overflow = 'hidden'; render(); }
+  function close() { overlay.classList.remove('open'); document.body.style.overflow = ''; }
+
+  function render() {
+    bars.forEach(function (b, i) { b.classList.toggle('on', i < step); });
+    back.style.visibility = step === 1 ? 'hidden' : 'visible';
+    next.style.display = (step === 1 || step === 2) ? 'none' : '';
+    back.style.flex = step === 1 ? '0' : '';
+    var h = '';
+    if (step === 1) {
+      title.textContent = 'Select Hostel'; sub.textContent = 'Step 1 of 5';
+      h = '<div class="space-y-3">';
+      Object.keys(DATA.hostels).forEach(function (name) {
+        var n = DATA.hostels[name].reduce(function (a, r) { return a + r.students.length; }, 0);
+        h += '<button type="button" class="pick pick-host" data-hostel="' + esc(name) + '">' +
+          '<span class="ico ' + (name === 'Old Hostel' ? 'ico-amber' : 'ico-indigo') + '"><i class="fa-solid ' + (name === 'Old Hostel' ? 'fa-house' : 'fa-city') + '"></i></span>' +
+          '<span class="flex-1 min-w-0"><span class="block text-base">' + esc(name) + '</span><small>' + n + ' student' + (n === 1 ? '' : 's') + '</small></span>' +
+          '<i class="fa-solid fa-chevron-right text-slate-300"></i></button>';
+      });
+      h += '</div>';
+    } else if (step === 2) {
+      title.textContent = 'Select Room'; sub.textContent = S.hostel + ' · Step 2 of 5';
+      h = '<div class="pick-grid rooms">';
+      DATA.hostels[S.hostel].forEach(function (r) {
+        var n = r.students.length;
+        h += '<button type="button" class="pick" data-room="' + r.room + '"' + (n ? '' : ' disabled') + '>' +
+          '<i class="fa-solid ' + (r.room === 11 ? 'fa-people-roof' : 'fa-door-open') + ' text-slate-400 mb-1 block"></i>' + esc(r.label) +
+          '<small>' + (n ? n + ' student' + (n === 1 ? '' : 's') : 'Empty') + '</small></button>';
+      });
+      h += '</div>';
+    } else if (step === 3) {
+      var ro = roomObj();
+      title.textContent = 'Select Students'; sub.textContent = S.hostel + ' → ' + ro.label + ' · Step 3 of 5';
+      h = '<p class="text-xs text-slate-500 mb-3">Tick one or more students whose bed should be paused.</p>';
+      ro.students.forEach(function (st) {
+        var on = !!S.sel[st.id];
+        h += '<label class="stu-row' + (on ? ' sel' : '') + (st.paused ? ' dis' : '') + '">' +
+          '<input type="checkbox" value="' + st.id + '"' + (on ? ' checked' : '') + (st.paused ? ' disabled' : '') + '>' +
+          '<span class="flex-1 min-w-0"><span class="block font-bold text-slate-800 break-words">' + esc(st.name) + '</span>' +
+          '<span class="block text-xs text-slate-500">' + esc(st.contact) + ' · ' + st.sharing + ' sharing</span></span>' +
+          (st.paused ? '<span class="status-badge sb-amber">Already paused</span>' : '') + '</label>';
+      });
+      next.textContent = 'Next'; next.disabled = selIds().length === 0;
+    } else if (step === 4) {
+      title.textContent = 'How many days?'; sub.textContent = 'Step 4 of 5';
+      h = '<p class="text-center text-sm text-slate-600 mb-3">How many days do you want to pause?</p>' +
+        '<div class="flex items-center justify-center gap-3"><input id="daysInput" class="days-input" type="number" inputmode="numeric" min="1" max="' + DATA.max + '" value="' + esc(S.days) + '" placeholder="7"><span class="text-lg font-extrabold text-slate-500">Days</span></div>' +
+        '<div class="quick-days">' + [3, 7, 10, 15, 30].map(function (d) { return '<button type="button" data-d="' + d + '">' + d + ' days</button>'; }).join('') + '</div>';
+      next.textContent = 'Next'; next.disabled = !(parseInt(S.days, 10) >= 1);
+    } else {
+      var d = parseInt(S.days, 10), ro2 = roomObj();
+      var names = ro2.students.filter(function (s) { return S.sel[s.id]; }).map(function (s) { return s.name; });
+      title.textContent = 'Confirm Pause'; sub.textContent = 'Step 5 of 5';
+      h = '<div class="summary-card"><dl>' +
+        '<dt>Student' + (names.length > 1 ? 's' : '') + '</dt><dd>' + names.map(esc).join(', ') + '</dd>' +
+        '<dt>Hostel</dt><dd>' + esc(S.hostel) + '</dd>' +
+        '<dt>' + (S.room === 11 ? 'Place' : 'Room') + '</dt><dd>' + (S.room === 11 ? 'Hall' : S.room) + '</dd>' +
+        '<dt>Pause duration</dt><dd>' + d + ' day' + (d === 1 ? '' : 's') + '</dd>' +
+        '<dt>Start date</dt><dd>Today (' + fmt(DATA.today) + ')</dd>' +
+        '<dt>End date</dt><dd>' + fmt(endIso(d)) + '</dd></dl></div>' +
+        '<p class="text-xs text-slate-500 mt-3"><i class="fa-solid fa-shield-halved text-green-600 mr-1"></i>Rent, sharing, room and payment history stay exactly as they are. The pause ends automatically.</p>';
+      next.innerHTML = '<i class="fa-solid fa-circle-pause mr-1"></i> Confirm Pause'; next.disabled = false;
+    }
+    body.innerHTML = h;
+    body.scrollTop = 0;
+  }
+
+  body.addEventListener('click', function (e) {
+    var hb = e.target.closest('[data-hostel]');
+    if (hb) { S.hostel = hb.dataset.hostel; S.room = null; S.sel = {}; step = 2; return render(); }
+    var rb = e.target.closest('[data-room]');
+    if (rb && !rb.disabled) { S.room = parseInt(rb.dataset.room, 10); S.sel = {}; step = 3; return render(); }
+    var qd = e.target.closest('[data-d]');
+    if (qd) { S.days = qd.dataset.d; var di = document.getElementById('daysInput'); di.value = S.days; next.disabled = false; }
+  });
+  body.addEventListener('change', function (e) {
+    var cb = e.target.closest('input[type=checkbox]');
+    if (!cb) return;
+    if (cb.checked) S.sel[cb.value] = true; else delete S.sel[cb.value];
+    cb.closest('.stu-row').classList.toggle('sel', cb.checked);
+    next.disabled = selIds().length === 0;
+  });
+  body.addEventListener('input', function (e) {
+    if (e.target.id !== 'daysInput') return;
+    var v = parseInt(e.target.value, 10);
+    if (v > DATA.max) { v = DATA.max; e.target.value = v; }
+    S.days = isNaN(v) ? '' : String(v);
+    next.disabled = !(v >= 1);
+  });
+
+  back.addEventListener('click', function () { if (step > 1) { step -= 1; render(); } });
+  next.addEventListener('click', function () {
+    if (step < 5) { step += 1; return render(); }
+    var ids = document.getElementById('wizIds'); ids.innerHTML = '';
+    selIds().forEach(function (id) { var i = document.createElement('input'); i.type = 'hidden'; i.name = 'student_ids'; i.value = id; ids.appendChild(i); });
+    document.getElementById('wizDays').value = parseInt(S.days, 10);
+    next.disabled = true; next.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving…';
+    document.getElementById('wizForm').submit();
+  });
+  document.getElementById('openPauseWizard').addEventListener('click', open);
+  document.getElementById('wizClose').addEventListener('click', close);
+  overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+
+  // delete confirmation
+  var del = document.getElementById('delOverlay'), delForm = document.getElementById('delForm');
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-delete-url]');
+    if (b) { delForm.action = b.dataset.deleteUrl; del.classList.remove('hidden'); }
+  });
+  document.getElementById('delCancel').addEventListener('click', function () { del.classList.add('hidden'); });
+  del.addEventListener('click', function (e) { if (e.target === del) del.classList.add('hidden'); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { close(); del.classList.add('hidden'); } });
+})();
+</script>
+{% endblock %}

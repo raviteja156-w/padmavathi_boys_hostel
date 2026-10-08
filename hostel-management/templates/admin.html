@@ -23,96 +23,93 @@
 <div class="animate-slide-up admin-dash">
 
   <!-- HERO / WELCOME -->
-  <section class="text-center py-2 sm:py-8 mb-2">
-    <div class="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-primary/10 text-primary text-2xl sm:text-3xl mb-3 sm:mb-4">
-      <i class="fa-solid fa-building-shield"></i>
-    </div>
-    <h1 class="text-xl sm:text-4xl font-extrabold text-slate-800 tracking-tight mb-1 sm:mb-2">
-      Hostel Admin Dashboard
-    </h1>
-    <p class="text-slate-500 max-w-xl mx-auto text-xs sm:text-base">
-      Manage residents across Old &amp; New Hostel — rooms, sharing, rent and payments, all in one place.
-    </p>
-  </section>
-
-  <!-- FEATURE HIGHLIGHTS -->
-  <section class="hidden sm:grid sm:grid-cols-3 gap-4 mb-8">
-    <div class="feature-card">
-      <i class="fa-solid fa-bed text-primary text-2xl mb-3"></i>
-      <h3 class="font-semibold text-slate-800 mb-1">Room-wise Tracking</h3>
-      <p class="text-sm text-slate-500">Every student is placed instantly into the right hostel and room — 10 rooms per hostel, always in order.</p>
-    </div>
-    <div class="feature-card">
-      <i class="fa-solid fa-file-excel text-primary text-2xl mb-3"></i>
-      <h3 class="font-semibold text-slate-800 mb-1">Excel &amp; PDF Reports</h3>
-      <p class="text-sm text-slate-500">Export or import student data in Excel, and generate print-ready PDF reports per hostel.</p>
-    </div>
-    <div class="feature-card">
-      <i class="fa-solid fa-mobile-screen-button text-primary text-2xl mb-3"></i>
-      <h3 class="font-semibold text-slate-800 mb-1">Mobile Friendly</h3>
-      <p class="text-sm text-slate-500">Designed mobile-first so wardens can manage everything from a phone, tablet or desktop.</p>
+  <section class="admin-hero mb-4 sm:mb-5 rise">
+    <div class="flex flex-col sm:flex-row sm:items-center gap-4">
+      <div class="flex items-center gap-3 min-w-0 flex-1">
+        <span class="ai-orb shrink-0" style="background:rgba(255,255,255,.16)"><i class="fa-solid fa-building-shield"></i></span>
+        <div class="min-w-0">
+          <h1 class="text-xl sm:text-3xl font-extrabold tracking-tight leading-tight">Hostel Admin Dashboard</h1>
+          <p class="text-blue-100 text-xs sm:text-sm mt-0.5">Padmavathi Boys Hostel &bull; residents, rooms, rent and payments in one place.</p>
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <span class="chip chip-glass"><i class="fa-solid fa-house"></i> Old Hostel &bull; {{ stats.old_count }}</span>
+        <span class="chip chip-glass"><i class="fa-solid fa-city"></i> New Hostel &bull; {{ stats.new_count }}</span>
+        <span class="chip chip-glass"><i class="fa-solid fa-users"></i> {{ stats.total }} residents</span>
+      </div>
     </div>
   </section>
 
-  <!-- SUMMARY CARDS -->
-  <section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 mb-6 sm:mb-8">
-    <div class="stat-card">
-      <i class="fa-solid fa-users text-primary text-xl sm:text-2xl mb-2 icon-bounce"></i>
-      <div class="text-xl sm:text-2xl font-bold text-slate-800">{{ stats.total }}</div>
-      <div class="text-xs text-slate-500">Total Students</div>
+  <!-- AI ASSISTANT (the existing Admin Bot; this card just opens it) -->
+  <section class="ai-card ai-glow mb-4 sm:mb-6 rise rise-1" aria-label="AI Assistant">
+    <span class="ai-orb float-y shrink-0">🤖</span>
+    <div class="flex-1 min-w-0" style="min-width:12rem">
+      <div class="font-extrabold text-base sm:text-lg leading-tight">🤖 Work Smarter with AI <span class="badge-new">NEW</span></div>
+      <p class="text-sm text-indigo-100 mt-0.5">Ask the AI Assistant for help with hostel management, payments, students and reports.</p>
+      <p class="text-xs text-indigo-200 mt-1">Use AI Assistant to make your work easier. English &amp; Telugu, typed or spoken.</p>
     </div>
-    <div class="stat-card">
-      <i class="fa-solid fa-house text-amber-500 text-xl sm:text-2xl mb-2 icon-bounce"></i>
-      <div class="text-xl sm:text-2xl font-bold text-slate-800">{{ stats.old_count }}</div>
-      <div class="text-xs text-slate-500">Old Hostel</div>
+    <button type="button" id="adminAiBtn" class="ai-btn w-full sm:w-auto"><i class="fa-solid fa-wand-magic-sparkles"></i> Open AI Assistant</button>
+  </section>
+
+  <!-- SUMMARY CARDS (colour-coded; same figures as before) -->
+  <section class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4 mb-5 sm:mb-7">
+    <div class="tile tone-blue rise rise-1">
+      <span class="ico ico-blue mb-2"><i class="fa-solid fa-users"></i></span>
+      <div class="tile-value">{{ stats.total }}</div>
+      <div class="tile-label">Total Students</div>
     </div>
-    <div class="stat-card">
-      <i class="fa-solid fa-city text-indigo-500 text-xl sm:text-2xl mb-2 icon-bounce"></i>
-      <div class="text-xl sm:text-2xl font-bold text-slate-800">{{ stats.new_count }}</div>
-      <div class="text-xs text-slate-500">New Hostel</div>
+    <div class="tile tone-amber rise rise-1">
+      <span class="ico ico-amber mb-2"><i class="fa-solid fa-house"></i></span>
+      <div class="tile-value">{{ stats.old_count }}</div>
+      <div class="tile-label">Old Hostel</div>
     </div>
-    <div class="stat-card">
-      <i class="fa-solid fa-hand-holding-dollar text-primary text-xl sm:text-2xl mb-2 icon-bounce"></i>
-      <div class="text-lg sm:text-2xl font-bold text-slate-800">₹{{ '{:,.0f}'.format(stats.total_rent) }}</div>
-      <div class="text-xs text-slate-500">Total Rent to Receive</div>
+    <div class="tile tone-indigo rise rise-2">
+      <span class="ico ico-indigo mb-2"><i class="fa-solid fa-city"></i></span>
+      <div class="tile-value">{{ stats.new_count }}</div>
+      <div class="tile-label">New Hostel</div>
     </div>
-    <div class="stat-card">
-      <i class="fa-solid fa-sack-dollar text-success text-xl sm:text-2xl mb-2 icon-bounce"></i>
-      <div class="text-lg sm:text-2xl font-bold text-slate-800">₹{{ '{:,.0f}'.format(stats.total_paid) }}</div>
-      <div class="text-xs text-slate-500">Total Paid</div>
+    <div class="tile tone-teal rise rise-2">
+      <span class="ico ico-blue mb-2"><i class="fa-solid fa-hand-holding-dollar"></i></span>
+      <div class="tile-value">₹{{ '{:,.0f}'.format(stats.total_rent) }}</div>
+      <div class="tile-label">Total Rent to Receive</div>
     </div>
-    <div class="stat-card">
-      <i class="fa-solid fa-triangle-exclamation text-danger text-xl sm:text-2xl mb-2 icon-bounce"></i>
-      <div class="text-lg sm:text-2xl font-bold text-slate-800">₹{{ '{:,.0f}'.format(stats.total_balance) }}</div>
-      <div class="text-xs text-slate-500">Balance Due</div>
+    <div class="tile tone-green rise rise-3">
+      <span class="ico ico-green mb-2"><i class="fa-solid fa-sack-dollar"></i></span>
+      <div class="tile-value">₹{{ '{:,.0f}'.format(stats.total_paid) }}</div>
+      <div class="tile-label">Total Paid</div>
+    </div>
+    <div class="tile tone-red rise rise-3">
+      <span class="ico ico-red mb-2"><i class="fa-solid fa-triangle-exclamation"></i></span>
+      <div class="tile-value">₹{{ '{:,.0f}'.format(stats.total_balance) }}</div>
+      <div class="tile-label">Balance Due</div>
     </div>
   </section>
 
-  <!-- QUICK ACTION CARDS: DUE LIST / TODAY'S PAYMENTS -->
-  <section class="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
-    <a href="{{ url_for('due_list') }}" class="stat-card relative block hover:shadow-md transition tap">
-      {% if due_count %}
-      <span class="absolute top-2 right-2 text-[11px] font-bold px-2 py-0.5 rounded-full bg-danger text-white">{{ due_count }}</span>
-      {% endif %}
-      <i class="fa-solid fa-calendar-days text-danger text-xl sm:text-2xl mb-2 icon-bounce"></i>
-      <div class="text-base sm:text-xl font-bold text-slate-800">Due List</div>
+  <!-- QUICK ACTIONS -->
+  <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-5 sm:mb-7">
+    <a href="{{ url_for('due_list') }}" class="action-tile">
+      {% if due_count %}<span class="corner-count" style="background:#DC2626">{{ due_count }}</span>{% endif %}
+      <span class="ico ico-red mb-2"><i class="fa-solid fa-calendar-days"></i></span>
+      <div class="font-extrabold text-slate-800">Due List</div>
       <div class="text-xs text-slate-500">Students due for payment</div>
     </a>
-    <a href="{{ url_for('admin_payments') }}" class="stat-card relative block hover:shadow-md transition tap">
-      {% if pending_payments_count %}
-      <span class="absolute top-2 right-2 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-white">{{ pending_payments_count }}</span>
-      {% endif %}
-      <i class="fa-solid fa-hourglass-half text-amber-500 text-xl sm:text-2xl mb-2 icon-bounce"></i>
-      <div class="text-base sm:text-xl font-bold text-slate-800">Today's Payments</div>
+    <a href="{{ url_for('admin_payments') }}" class="action-tile">
+      {% if pending_payments_count %}<span class="corner-count" style="background:#F59E0B">{{ pending_payments_count }}</span>{% endif %}
+      <span class="ico ico-amber mb-2"><i class="fa-solid fa-hourglass-half"></i></span>
+      <div class="font-extrabold text-slate-800">Today's Payments</div>
       <div class="text-xs text-slate-500">Submissions awaiting confirmation</div>
     </a>
-    <a href="{{ url_for('paid_unconfirmed') }}" class="stat-card relative block hover:shadow-md transition tap col-span-2 sm:col-span-1">
-      {% if unconfirmed_paid_count %}
-      <span class="absolute top-2 right-2 text-[11px] font-bold px-2 py-0.5 rounded-full bg-indigo-600 text-white">{{ unconfirmed_paid_count }}</span>
-      {% endif %}
-      <i class="fa-solid fa-user-check text-indigo-500 text-xl sm:text-2xl mb-2 icon-bounce"></i>
-      <div class="text-base sm:text-xl font-bold text-slate-800">Paid (Unconfirmed)</div>
-      <div class="text-xs text-slate-500">Marked paid without admin confirmation</div>
+    <a href="{{ url_for('paid_unconfirmed') }}" class="action-tile">
+      {% if unconfirmed_paid_count %}<span class="corner-count" style="background:#4F46E5">{{ unconfirmed_paid_count }}</span>{% endif %}
+      <span class="ico ico-indigo mb-2"><i class="fa-solid fa-user-check"></i></span>
+      <div class="font-extrabold text-slate-800">Paid (Unconfirmed)</div>
+      <div class="text-xs text-slate-500">Marked paid without confirmation</div>
+    </a>
+    <a href="{{ url_for('pause_bed') }}" class="action-tile">
+      {% if admin_nav and admin_nav.pauses %}<span class="corner-count" style="background:#7C3AED">{{ admin_nav.pauses }}</span>{% endif %}
+      <span class="ico ico-purple mb-2"><i class="fa-solid fa-bed-pulse pulse-soft"></i></span>
+      <div class="font-extrabold text-slate-800">Pause Bed <span class="badge-new">NEW</span></div>
+      <div class="text-xs text-slate-500">Temporarily pause beds</div>
     </a>
   </section>
 
@@ -369,4 +366,13 @@
 
 {% block extra_scripts %}
 <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var openAi = function () { if (window.openAdminBot) window.openAdminBot('assistant'); };
+  var card = document.getElementById('adminAiBtn');
+  if (card) card.addEventListener('click', openAi);
+  var side = document.getElementById('sbAiBtn');       // sidebar entry: open the bot right here on the dashboard
+  if (side) side.addEventListener('click', function (e) { e.preventDefault(); openAi(); });
+});
+</script>
 {% endblock %}

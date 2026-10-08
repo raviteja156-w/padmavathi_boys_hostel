@@ -1,14 +1,18 @@
 <!-- USER HELP BOT: floating assistant on every user-side page (included from base.html, never on /admin pages) -->
 <style>
   .ub-fab { position: fixed; right: 1rem; bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); z-index: 46;
-    width: 3.5rem; height: 3.5rem; border-radius: 9999px; display: flex; align-items: center; justify-content: center;
-    font-size: 1.4rem; color: #fff; background: linear-gradient(135deg, #1E3A8A, #2563EB); box-shadow: 0 6px 18px rgba(30,58,138,.4); }
+    height: 3.5rem; padding: 0 1.1rem 0 .9rem; border-radius: 9999px; display: flex; align-items: center; justify-content: center; gap: .5rem;
+    font-size: 1.25rem; color: #fff; background: linear-gradient(135deg, #7C3AED, #4F46E5 60%, #2563EB); box-shadow: 0 6px 18px rgba(79,70,229,.45);
+    animation: ubGlow 2.8s ease-in-out infinite; }
+  .ub-fab span { font-size: .85rem; font-weight: 800; letter-spacing: .01em; }
+  @keyframes ubGlow { 0%,100% { box-shadow: 0 0 0 0 rgba(124,58,237,.5), 0 6px 18px rgba(79,70,229,.45); } 50% { box-shadow: 0 0 0 10px rgba(124,58,237,0), 0 8px 22px rgba(79,70,229,.55); } }
+  @media (prefers-reduced-motion: reduce) { .ub-fab { animation: none; } }
   .ub-panel { position: fixed; right: 1rem; bottom: calc(5rem + env(safe-area-inset-bottom, 0px)); z-index: 60;
     width: min(24rem, calc(100vw - 2rem)); height: min(32rem, calc(100vh - 7rem)); display: none; flex-direction: column;
     background: #fff; border: 1px solid #DBEAFE; border-radius: 1.1rem; box-shadow: 0 20px 50px rgba(15,23,42,.28); overflow: hidden; }
   .ub-panel.open { display: flex; }
   @media (max-width: 640px) { .ub-panel { right: .5rem; left: .5rem; width: auto; bottom: calc(.5rem + env(safe-area-inset-bottom, 0px)); height: calc(100vh - 1.5rem); height: calc(100dvh - 1.5rem); } }
-  .ub-head { background: linear-gradient(135deg, #1E3A8A, #2563EB); color: #fff; padding: .75rem 1rem; display: flex; align-items: center; gap: .6rem; }
+  .ub-head { background: linear-gradient(135deg, #6D28D9, #4F46E5 60%, #2563EB); color: #fff; padding: .75rem 1rem; display: flex; align-items: center; gap: .6rem; }
   .ub-head h3 { font-weight: 700; flex: 1; }
   .ub-head button { color: #dbeafe; width: 2rem; height: 2rem; }
   .ub-body { flex: 1; overflow-y: auto; padding: .9rem; background: #F8FAFC; display: flex; flex-direction: column; gap: .55rem; }
@@ -24,12 +28,12 @@
   .ub-foot button:disabled { opacity: .5; }
 </style>
 
-<button type="button" id="ubFab" class="ub-fab" aria-label="Open help assistant"><i class="fa-solid fa-comment-dots"></i></button>
+<button type="button" id="ubFab" class="ub-fab" aria-label="Open AI assistant"><i class="fa-solid fa-robot"></i><span>Ask AI</span></button>
 
 <div id="ubPanel" class="ub-panel" role="dialog" aria-label="Help assistant" data-csrf="{{ csrf_token() }}">
   <div class="ub-head">
     <i class="fa-solid fa-robot text-lg"></i>
-    <h3>Hostel Help</h3>
+    <h3>AI Assistant</h3>
     <button type="button" id="ubClose" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
   </div>
   <div id="ubBody" class="ub-body"></div>
@@ -88,7 +92,9 @@
     setTimeout(function () { input.focus(); }, 50);
   }
   function close() { panel.classList.remove('open'); fab.style.display = ''; }
-  fab.addEventListener('click', open);
+  fab.addEventListener('click', function () { open(); });
+  // Lets the dashboard's "Ask AI" card/buttons open this same assistant (optionally with a question).
+  window.openUserBot = function (q) { open(); if (q) setTimeout(function () { ask(q); }, 120); };
   document.getElementById('ubClose').addEventListener('click', close);
   form.addEventListener('submit', function (e) {
     e.preventDefault();
@@ -97,4 +103,3 @@
   });
 })();
 </script>
-
