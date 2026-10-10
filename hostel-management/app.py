@@ -291,6 +291,19 @@ def init_db():
         )
     ''')
 
+    # THIS MONTH PAYMENTS: lets the admin remove a payment from the swipe list after noting it in the
+    # manual register. Only remembers the removal (keyed by month + paid amount); no student or payment
+    # record is changed. If the student's paid amount changes later, the payment shows up again.
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS month_payment_dismissals (
+            student_id INTEGER NOT NULL,
+            month_start TEXT NOT NULL,
+            amount_paid REAL NOT NULL,
+            dismissed_at TEXT NOT NULL,
+            PRIMARY KEY (student_id, month_start)
+        )
+    ''')
+
     # The billing cycle the students' payment fields currently belong to. Starts as the month
     # before launch, so the very first request on/after LAUNCH_DATE archives + resets them.
     cur.execute('''
@@ -2121,41 +2134,115 @@ def export_excel():
                       mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 
-@app.route('/admin/load-register', methods=['POST'])
+# --------------------------------------------------------------------------
+# THIS MONTH PAYMENTS (swipe through one payment at a time, to note it in the manual register)
+# Every payment recorded this month (student submission confirmed by admin, Add/Edit Student, etc.)
+# lives in students.amount_paid, so it shows up here automatically. Removing one only hides it
+# here (see Deleted Payments); it can be restored any time.
+# --------------------------------------------------------------------------
+
+def _month_payment_dict(row):
+    d = dict(row)
+    return {
+        'id': d['id'],
+        'hostel': d['hostel'],
+        'room': room_label(d['room_number']),
+        'name': d['name'],
+        'contact': d['contact'],
+        'total_rent': d['total_rent'] or 0,
+        'amount_paid': d['amount_paid'] or 0,
+        'balance': d['balance'] or 0,
+        'paid_to': d.get('paid_to') or '',
+        'mode': d.get('payment_mode') or '',
+        'cash_amount': d.get('cash_amount') or 0,
+        'payment_date': pretty_date(d.get('payment_date')) or '',
+        'note': d.get('note') or '',
+    }
+
+
+def get_month_payments(db):
+    """Returns (active, deleted) lists of this month's payments."""
+    month_start = today_ist().replace(day=1).isoformat()
+    rows = db.execute('''
+        SELECT * FROM students WHERE amount_paid > 0
+        ORDER BY hostel, room_number, LOWER(name)
+    ''').fetchall()
+    dismissed = {
+        r['student_id']: r['amount_paid']
+        for r in db.execute('SELECT student_id, amount_paid FROM month_payment_dismissals WHERE month_start=%s',
+                            (month_start,)).fetchall()
+    }
+    active, deleted = [], []
+    for row in rows:
+        item = _month_payment_dict(row)
+        if row['id'] in dismissed and abs((row['amount_paid'] or 0) - dismissed[row['id']]) < 0.005:
+            deleted.append(item)
+        else:
+            active.append(item)
+    return active, deleted
+
+
+@app.route('/admin/month-payments')
 @login_required
-def load_register_data():
-    """One-time tool: deletes ALL students and loads the hostel register from seed_data.py."""
+def month_payments():
+    db = get_db()
+    active, deleted = get_month_payments(db)
+    view = 'deleted' if request.args.get('view') == 'deleted' else 'swipe'
+    try:
+        start_index = int(request.args.get('i', 0))
+    except ValueError:
+        start_index = 0
+    start_index = max(0, min(start_index, max(len(active) - 1, 0)))
+    totals = {
+        'count': len(active),
+        'total': sum(p['total_rent'] for p in active),
+        'paid': sum(p['amount_paid'] for p in active),
+        'balance': sum(p['balance'] for p in active),
+    }
+    return render_template('month_payments.html', payments=active, deleted=deleted, view=view,
+                           start_index=start_index, totals=totals)
+
+
+@app.route('/admin/month-payments/<int:student_id>/delete', methods=['POST'])
+@login_required
+def month_payment_delete(student_id):
     if not validate_csrf(request.form.get('csrf_token')):
         flash('Security check failed. Please try again.', 'error')
-        return redirect(url_for('admin_dashboard'))
-    if request.form.get('confirm', '').strip() != 'YES':
-        flash('Nothing was changed. Type YES (capital letters) to confirm.', 'error')
-        return redirect(url_for('admin_dashboard'))
-
-    from seed_data import build_rows
-    rows = build_rows()
+        return redirect(url_for('month_payments'))
     db = get_db()
+    row = db.execute('SELECT name, amount_paid FROM students WHERE id=%s', (student_id,)).fetchone()
+    if not row:
+        flash('That payment no longer exists.', 'error')
+        return redirect(url_for('month_payments'))
+    month_start = today_ist().replace(day=1).isoformat()
+    db.execute('''
+        INSERT INTO month_payment_dismissals (student_id, month_start, amount_paid, dismissed_at)
+        VALUES (%s, %s, %s, %s)
+        ON CONFLICT (student_id, month_start)
+        DO UPDATE SET amount_paid = EXCLUDED.amount_paid, dismissed_at = EXCLUDED.dismissed_at
+    ''', (student_id, month_start, row['amount_paid'] or 0, datetime.utcnow().isoformat()))
+    db.commit()
+    flash(f"{row['name']}'s payment moved to Deleted Payments.", 'success')
     try:
-        # make sure up-to-9 sharing is allowed (same rule init_db applies)
-        db.execute("ALTER TABLE students DROP CONSTRAINT IF EXISTS students_sharing_check")
-        db.execute("ALTER TABLE students ADD CONSTRAINT students_sharing_check CHECK (sharing BETWEEN 1 AND 9)")
-        db.execute('DELETE FROM students')
-        now = datetime.utcnow().isoformat()
-        for r in rows:
-            db.execute('''
-                INSERT INTO students
-                (hostel, room_number, sharing, name, contact, total_rent, amount_paid, balance,
-                 note, date_of_join, created_at, updated_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ''', tuple(r) + (now, now))
-        db.commit()
-    except Exception as exc:
-        db.conn.rollback()
-        flash(f'Could not load the register data: {exc}', 'error')
-        return redirect(url_for('admin_dashboard'))
+        idx = int(request.form.get('i', 0))
+    except ValueError:
+        idx = 0
+    return redirect(url_for('month_payments', i=idx))
 
-    flash(f'Done! Old students removed and {len(rows)} students loaded into their hostel, room and sharing.', 'success')
-    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/month-payments/<int:student_id>/restore', methods=['POST'])
+@login_required
+def month_payment_restore(student_id):
+    if not validate_csrf(request.form.get('csrf_token')):
+        flash('Security check failed. Please try again.', 'error')
+        return redirect(url_for('month_payments', view='deleted'))
+    db = get_db()
+    month_start = today_ist().replace(day=1).isoformat()
+    db.execute('DELETE FROM month_payment_dismissals WHERE student_id=%s AND month_start=%s',
+               (student_id, month_start))
+    db.commit()
+    flash('Payment restored to This Month Payments.', 'success')
+    return redirect(url_for('month_payments', view='deleted'))
 
 
 @app.route('/admin/import-excel', methods=['POST'])

@@ -270,6 +270,9 @@
                 <i class="fa-solid fa-hourglass-half fa-fw"></i> Today's Payments
                 {% if nav.get('pending') %}<span class="sb-count">{{ nav.pending }}</span>{% endif %}
             </a>
+            <a href="{{ url_for('month_payments') }}" class="sb-link {{ 'active' if request.endpoint == 'month_payments' }}">
+                <i class="fa-solid fa-wallet fa-fw"></i> This Month Payments
+            </a>
             <a href="{{ url_for('due_list') }}" class="sb-link {{ 'active' if request.endpoint == 'due_list' }}">
                 <i class="fa-solid fa-calendar-days fa-fw"></i> Due List
             </a>

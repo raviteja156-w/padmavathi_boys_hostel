@@ -1,0 +1,347 @@
+{% extends 'base.html' %}
+
+{% block title %}This Month Payments — Padmavathi Boys hostel{% endblock %}
+
+{% block content %}
+
+<style>
+
+  .mp-hero{background:linear-gradient(135deg,#0a1f44,#1E3A8A 60%,#2f5bd0);color:#fff;border-radius:22px;padding:18px;position:relative;overflow:hidden}
+
+  .mp-hero .bgi{position:absolute;font-size:70px;opacity:.08;right:-6px;top:-8px;animation:mpfloat 6s ease-in-out infinite}
+
+  @keyframes mpfloat{50%{transform:translateY(10px) rotate(8deg)}}
+
+  .mp-tabs{display:flex;gap:8px;margin:14px 0}
+
+  .mp-tabs a{flex:1;text-align:center;padding:10px 6px;border-radius:12px;font-weight:700;font-size:14px;border:1px solid #cbd5e1;background:#fff;color:#1E3A8A}
+
+  .mp-tabs a.on{background:#1E3A8A;color:#fff;border-color:#1E3A8A}
+
+  .mp-stage{touch-action:pan-y;user-select:none;overflow:hidden;padding:4px}
+
+  .mp-card{background:#fff;border-radius:22px;padding:18px;box-shadow:0 12px 28px rgba(10,31,68,.18);border-top:8px solid #1E3A8A;transition:transform .25s,opacity .25s}
+
+  .mp-card.old{border-top-color:#F59E0B}.mp-card.new{border-top-color:#3B82F6}
+
+  .mp-out-l{transform:translateX(-110%) rotate(-6deg);opacity:0}.mp-out-r{transform:translateX(110%) rotate(6deg);opacity:0}
+
+  .mp-in-r{animation:mpinr .3s}.mp-in-l{animation:mpinl .3s}
+
+  @keyframes mpinr{from{transform:translateX(100%);opacity:0}}@keyframes mpinl{from{transform:translateX(-100%);opacity:0}}
+
+  .mp-avatar{width:54px;height:54px;border-radius:50%;background:linear-gradient(135deg,#1E3A8A,#3B82F6);color:#fff;display:flex;align-items:center;justify-content:center;font-size:24px;animation:mpbob 2s ease-in-out infinite}
+
+  @keyframes mpbob{50%{transform:translateY(-5px)}}
+
+  .mp-row{display:flex;justify-content:space-between;gap:10px;align-items:center;background:#eef3fb;border-radius:12px;padding:10px 12px;margin-top:8px;font-size:14px}
+
+  .mp-row span:first-child{font-weight:700;color:#1E3A8A;white-space:nowrap}
+
+  .mp-row span:last-child{text-align:right;color:#0f172a}
+
+  .mp-money{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+
+  .mp-m{border-radius:14px;padding:10px 4px;text-align:center;color:#fff;font-size:11px}
+
+  .mp-m b{display:block;font-size:17px}
+
+  .mp-nav{display:flex;justify-content:space-between;align-items:center;margin-top:14px}
+
+  .mp-nav button{width:58px;height:58px;border-radius:50%;border:0;background:#1E3A8A;color:#fff;font-size:22px;box-shadow:0 6px 14px rgba(30,58,138,.4);cursor:pointer;transition:.15s}
+
+  .mp-nav button:active{transform:scale(.9)}
+
+  .mp-hint{text-align:center;color:#64748b;font-size:12px;margin-top:8px;animation:mppulse 2.4s infinite}
+
+  @keyframes mppulse{50%{opacity:.5}}
+
+  #mpToast{position:fixed;left:50%;top:76px;transform:translate(-50%,-160px);z-index:80;padding:12px 20px;border-radius:30px;color:#fff;font-weight:700;font-size:14px;box-shadow:0 8px 20px rgba(0,0,0,.3);transition:transform .4s cubic-bezier(.3,1.6,.5,1);text-align:center;max-width:92%}
+
+  #mpToast.show{transform:translate(-50%,0)}
+
+  #mpToast.start{background:#16A34A}#mpToast.end{background:#D97706}
+
+  @media (prefers-reduced-motion:reduce){*{animation:none!important}}
+
+</style>
+
+
+
+<div id="mpToast"></div>
+
+<div class="max-w-xl mx-auto animate-slide-up">
+
+
+
+  <div class="mp-hero">
+
+    <i class="fa-solid fa-sack-dollar bgi"></i>
+
+    <div class="flex items-center gap-3">
+
+      <a href="{{ url_for('admin_dashboard') }}" class="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center shrink-0"><i class="fa-solid fa-arrow-left"></i></a>
+
+      <div>
+
+        <h1 class="text-xl font-bold"><i class="fa-solid fa-wallet fa-bounce mr-1" style="--fa-animation-duration:2s"></i> This Month Payments</h1>
+
+        <p class="text-xs text-blue-100">Note each payment in your manual register, one by one.</p>
+
+      </div>
+
+    </div>
+
+    <div class="grid grid-cols-3 gap-2 mt-4 text-center">
+
+      <div class="bg-white/10 rounded-xl py-2"><div class="text-[10px] text-blue-100">Payments</div><div class="font-bold">{{ totals.count }}</div></div>
+
+      <div class="bg-white/10 rounded-xl py-2"><div class="text-[10px] text-blue-100">Collected</div><div class="font-bold">₹{{ '{:,.0f}'.format(totals.paid) }}</div></div>
+
+      <div class="bg-white/10 rounded-xl py-2"><div class="text-[10px] text-blue-100">Balance</div><div class="font-bold">₹{{ '{:,.0f}'.format(totals.balance) }}</div></div>
+
+    </div>
+
+  </div>
+
+
+
+  <div class="mp-tabs">
+
+    <a href="{{ url_for('month_payments') }}" class="{{ 'on' if view == 'swipe' }}"><i class="fa-solid fa-hand-pointer mr-1"></i> Payments ({{ payments|length }})</a>
+
+    <a href="{{ url_for('month_payments', view='deleted') }}" class="{{ 'on' if view == 'deleted' }}"><i class="fa-solid fa-trash-can mr-1"></i> Deleted ({{ deleted|length }})</a>
+
+  </div>
+
+
+
+  {% if view == 'swipe' %}
+
+    {% if not payments %}
+
+    <div class="card p-8 text-center">
+
+      <i class="fa-solid fa-inbox text-4xl text-primary mb-3 fa-beat" style="--fa-animation-duration:2.5s"></i>
+
+      <p class="font-bold text-slate-700">No payments to show</p>
+
+      <p class="text-sm text-slate-500">Payments recorded this month will appear here automatically.</p>
+
+    </div>
+
+    {% else %}
+
+    <div class="text-center text-sm font-bold text-primary mb-2" id="mpCounter"></div>
+
+    <div class="mp-stage" id="mpStage"></div>
+
+    <div class="mp-nav">
+
+      <button type="button" onclick="mpGo(-1)" aria-label="Previous"><i class="fa-solid fa-chevron-left"></i></button>
+
+      <span class="text-xs text-slate-500"><i class="fa-solid fa-arrows-left-right mr-1"></i>Swipe left / right</span>
+
+      <button type="button" onclick="mpGo(1)" aria-label="Next"><i class="fa-solid fa-chevron-right"></i></button>
+
+    </div>
+
+    <p class="mp-hint">Delete a payment once you've noted it — it moves to the Deleted tab.</p>
+
+    <form id="mpDelForm" method="POST" class="hidden" data-delete-base="{{ url_for('month_payments') }}/" onsubmit="return confirm('Move this payment to Deleted Payments?');">
+
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <input type="hidden" name="i" id="mpDelI" value="0">
+
+    </form>
+
+    {% endif %}
+
+  {% else %}
+
+    {% if not deleted %}
+
+    <div class="card p-8 text-center">
+
+      <i class="fa-solid fa-broom text-4xl text-primary mb-3"></i>
+
+      <p class="font-bold text-slate-700">No deleted payments</p>
+
+    </div>
+
+    {% else %}
+
+    <div class="space-y-3">
+
+      {% for p in deleted %}
+
+      <div class="card p-4 border-l-4 border-slate-400">
+
+        <div class="flex justify-between gap-3">
+
+          <div class="min-w-0">
+
+            <h3 class="font-bold text-slate-800 truncate">{{ p.name }}</h3>
+
+            <p class="text-xs text-slate-500">{{ p.hostel }} &bull; {{ p.room }} &bull; {{ p.contact }}</p>
+
+          </div>
+
+          <div class="text-right shrink-0">
+
+            <p class="font-bold text-success">₹{{ '{:,.0f}'.format(p.amount_paid) }}</p>
+
+            <p class="text-[11px] text-slate-400">{{ p.mode or 'Mode not set' }}{% if p.paid_to %} &bull; {{ p.paid_to }}{% endif %}</p>
+
+          </div>
+
+        </div>
+
+        <form method="POST" action="{{ url_for('month_payment_restore', student_id=p.id) }}" class="mt-3">
+
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <button type="submit" class="btn-outline w-full py-2 text-sm"><i class="fa-solid fa-rotate-left mr-1"></i> Restore</button>
+
+        </form>
+
+      </div>
+
+      {% endfor %}
+
+    </div>
+
+    {% endif %}
+
+  {% endif %}
+
+</div>
+
+{% endblock %}
+
+
+
+{% block extra_scripts %}
+
+{% if view == 'swipe' and payments %}
+
+<script type="application/json" id="mpPaymentsData">{{ {'payments': payments, 'start_index': start_index}|tojson }}</script>
+
+<script>
+
+(function () {
+
+  var initialData = JSON.parse(document.getElementById('mpPaymentsData').textContent);
+  var P = initialData.payments;
+  var i = Number(initialData.start_index) || 0;
+  var busy = false;
+  var base = document.getElementById('mpDelForm').dataset.deleteBase;
+
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+
+  function inr(n){return '₹'+Math.round(n).toLocaleString('en-IN')}
+
+  function toast(msg,cls){var t=document.getElementById('mpToast');t.textContent=msg;t.className=cls+' show';clearTimeout(t._h);t._h=setTimeout(function(){t.className=cls},2200)}
+
+  function card(p){
+
+    var old=p.hostel==='Old Hostel';
+
+    var mode=p.mode||'Not set';
+
+    var modeIcon=/cash/i.test(mode)&&!/online/i.test(mode)?'fa-money-bill-wave':(/online/i.test(mode)&&!/cash/i.test(mode)?'fa-mobile-screen-button':'fa-coins');
+
+    if(/\+/.test(mode)&&p.cash_amount)mode+=' (Cash '+inr(p.cash_amount)+')';
+
+    return '<div class="mp-card '+(old?'old':'new')+'" id="mpCard">'+
+
+      '<div class="flex items-center gap-3"><div class="mp-avatar"><i class="fa-solid fa-user-graduate"></i></div>'+
+
+      '<div class="min-w-0"><h2 class="text-lg font-bold text-slate-800 truncate">'+esc(p.name)+'</h2>'+
+
+      '<span class="text-[11px] font-bold px-2 py-0.5 rounded-full text-white" style="background:'+(old?'#D97706':'#2563EB')+'"><i class="fa-solid '+(old?'fa-house':'fa-city')+' mr-1"></i>'+esc(p.hostel)+'</span></div></div>'+
+
+      '<div class="mp-row"><span><i class="fa-solid fa-door-open mr-1"></i>Room No</span><span>'+esc(p.room)+'</span></div>'+
+
+      '<div class="mp-row"><span><i class="fa-solid fa-phone mr-1"></i>Contact</span><span>'+esc(p.contact)+'</span></div>'+
+
+      '<div class="mp-money"><div class="mp-m" style="background:linear-gradient(135deg,#1E3A8A,#0a1f44)"><i class="fa-solid fa-indian-rupee-sign"></i> Total Rent<b>'+inr(p.total_rent)+'</b></div>'+
+
+      '<div class="mp-m" style="background:linear-gradient(135deg,#15803d,#16A34A)"><i class="fa-solid fa-circle-check"></i> Amount Paid<b>'+inr(p.amount_paid)+'</b></div>'+
+
+      '<div class="mp-m" style="background:linear-gradient(135deg,'+(p.balance>0?'#b45309,#D97706':'#15803d,#16A34A')+')"><i class="fa-solid fa-hourglass-half"></i> Balance<b>'+inr(p.balance)+'</b></div></div>'+
+
+      '<div class="mp-row"><span><i class="fa-solid fa-hand-holding-dollar mr-1"></i>Paid To</span><span>'+(esc(p.paid_to)||'—')+'</span></div>'+
+
+      '<div class="mp-row"><span><i class="fa-solid '+modeIcon+' mr-1"></i>Online / Cash</span><span>'+esc(mode)+'</span></div>'+
+
+      (p.payment_date?'<div class="mp-row"><span><i class="fa-solid fa-calendar-check mr-1"></i>Paid On</span><span>'+esc(p.payment_date)+'</span></div>':'')+
+
+      '<div class="mp-row"><span><i class="fa-solid fa-note-sticky mr-1"></i>Notes</span><span>'+(esc(p.note)||'—')+'</span></div>'+
+
+      '<button type="button" onclick="mpDelete()" class="w-full mt-4 py-2.5 rounded-xl border border-red-200 text-danger font-semibold text-sm hover:bg-red-50"><i class="fa-solid fa-trash"></i> Delete (already noted)</button>'+
+
+      '</div>';
+
+  }
+
+  function render(dir){
+
+    var st=document.getElementById('mpStage');st.innerHTML=card(P[i]);
+
+    if(dir)document.getElementById('mpCard').classList.add(dir>0?'mp-in-r':'mp-in-l');
+
+    document.getElementById('mpCounter').textContent=(i+1)+' of '+P.length;
+
+  }
+
+  window.mpGo=function(d){
+
+    if(busy)return;var n=i+d;
+
+    if(n<0){toast('🚩 This is the FIRST payment — you are at the start','start');nudge(1);return}
+
+    if(n>=P.length){toast('🏁 This is the LAST payment — all done!','end');nudge(-1);return}
+
+    busy=true;document.getElementById('mpCard').classList.add(d>0?'mp-out-l':'mp-out-r');
+
+    setTimeout(function(){i=n;render(d);busy=false;
+
+      if(i===0)toast('🚩 Start of the list','start');else if(i===P.length-1)toast('🏁 This is the LAST payment','end')},230);
+
+  };
+
+  function nudge(s){var c=document.getElementById('mpCard');c.style.transform='translateX('+(s*28)+'px)';setTimeout(function(){c.style.transform=''},180)}
+
+  window.mpDelete=function(){
+
+    var f=document.getElementById('mpDelForm');f.action=base+P[i].id+'/delete';
+
+    document.getElementById('mpDelI').value=i;
+
+    if(f.onsubmit&&!f.onsubmit())return;f.submit();
+
+  };
+
+  var sx=null,sy=null,st=document.getElementById('mpStage');
+
+  st.addEventListener('touchstart',function(e){sx=e.touches[0].clientX;sy=e.touches[0].clientY},{passive:true});
+
+  st.addEventListener('touchend',function(e){if(sx===null)return;var dx=e.changedTouches[0].clientX-sx,dy=e.changedTouches[0].clientY-sy;
+
+    if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy))mpGo(dx<0?1:-1);sx=null});
+
+  document.addEventListener('keydown',function(e){if(e.key==='ArrowRight')mpGo(1);if(e.key==='ArrowLeft')mpGo(-1)});
+
+  render();
+
+  toast(i===0?'🚩 Start of the list':'📍 Payment '+(i+1)+' of '+P.length,'start');
+
+})();
+
+</script>
+
+{% endif %}
+
+{% endblock %}
