@@ -116,6 +116,17 @@
 
 
 
+  <div class="card p-4 mb-4 flex items-center justify-between gap-3">
+    <div class="min-w-0">
+      <div class="text-[11px] text-slate-400">Received in {{ income_this.label }} (by payment date)</div>
+      <div class="text-xl font-extrabold text-success">₹{{ '{:,.0f}'.format(income_this.total) }}</div>
+    </div>
+    <div class="flex gap-2 shrink-0">
+      <a href="{{ url_for('income', m='this') }}" class="btn-primary px-3 py-2 text-xs">This month</a>
+      <a href="{{ url_for('income', m='last') }}" class="btn-outline px-3 py-2 text-xs">Last month</a>
+    </div>
+  </div>
+
   {% if view == 'swipe' %}
 
     {% if not payments %}
@@ -147,6 +158,11 @@
     </div>
 
     <p class="mp-hint">Delete a payment once you've noted it — it moves to the Deleted tab.</p>
+
+    <form id="mpRemForm" method="POST" class="hidden">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="i" id="mpRemI" value="0">
+    </form>
 
     <form id="mpDelForm" method="POST" class="hidden" data-delete-base="{{ url_for('month_payments') }}/" onsubmit="return confirm('Move this payment to Deleted Payments?');">
 
@@ -204,6 +220,12 @@
 
           <button type="submit" class="btn-outline w-full py-2 text-sm"><i class="fa-solid fa-rotate-left mr-1"></i> Restore</button>
 
+        </form>
+        <a href="{{ url_for('income', student=p.id) }}" class="block text-center w-full mt-2 py-2 rounded-xl border border-blue-300 text-primary font-semibold text-sm"><i class="fa-solid fa-pen mr-1"></i> Edit payment / change month</a>
+        <form method="POST" action="{{ url_for('month_payment_remove', student_id=p.id) }}" class="mt-2" onsubmit="return confirm('Delete the payment of {{ p.name|e }}? Paid will become ₹0. This cannot be undone.');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="view" value="deleted">
+          <button type="submit" class="w-full py-2 rounded-xl bg-red-600 text-white font-semibold text-sm"><i class="fa-solid fa-eraser mr-1"></i> Delete this payment (Paid becomes ₹0)</button>
         </form>
 
       </div>
@@ -281,6 +303,8 @@
       '<div class="mp-row"><span><i class="fa-solid fa-note-sticky mr-1"></i>Notes</span><span>'+(esc(p.note)||'—')+'</span></div>'+
 
       '<button type="button" onclick="mpDelete()" class="w-full mt-4 py-2.5 rounded-xl border border-red-200 text-danger font-semibold text-sm hover:bg-red-50"><i class="fa-solid fa-trash"></i> Delete (already noted)</button>'+
+      '<a href="'+incBase+p.id+'" class="block text-center w-full mt-2 py-2.5 rounded-xl border border-blue-300 text-primary font-semibold text-sm hover:bg-blue-50"><i class="fa-solid fa-pen"></i> Edit payment / change month</a>'+
+      '<button type="button" onclick="mpRemove()" class="w-full mt-2 py-2.5 rounded-xl bg-red-600 text-white font-semibold text-sm hover:bg-red-700"><i class="fa-solid fa-eraser"></i> Delete this payment (Paid becomes ₹0)</button>'+
 
       '</div>';
 
@@ -313,6 +337,14 @@
   };
 
   function nudge(s){var c=document.getElementById('mpCard');c.style.transform='translateX('+(s*28)+'px)';setTimeout(function(){c.style.transform=''},180)}
+
+  var incBase="{{ url_for('income') }}?student=";
+  window.mpRemove=function(){
+    var p=P[i];
+    if(!confirm('Delete the payment of '+p.name+' ('+inr(p.amount_paid)+')? Paid will become ₹0. This cannot be undone.'))return;
+    var f=document.getElementById('mpRemForm');f.action=base+p.id+'/remove';
+    document.getElementById('mpRemI').value=i;f.submit();
+  };
 
   window.mpDelete=function(){
 

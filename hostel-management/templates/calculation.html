@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+{% block title %}{{ c.title }} calculation — Hostel Management System{% endblock %}
+{% block content %}
+{% set money = c.kind != 'count' %}
+<div class="max-w-3xl mx-auto animate-slide-up">
+
+  <div class="flex items-center gap-3 mb-5">
+    <a href="{{ url_for('admin_dashboard') }}" class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-primary transition shrink-0">
+      <i class="fa-solid fa-arrow-left"></i>
+    </a>
+    <div class="min-w-0">
+      <h1 class="text-2xl font-bold text-slate-800">{{ c.title }}</h1>
+      <p class="text-slate-500 text-sm">How this number is calculated</p>
+    </div>
+  </div>
+
+  <div class="card p-5 mb-4 text-center">
+    <div class="text-4xl font-extrabold text-primary">{% if money %}₹{{ '{:,.0f}'.format(c.grand) }}{% else %}{{ '{:,.0f}'.format(c.grand) }}{% endif %}</div>
+    <div class="text-xs mt-2 {{ 'text-success' if c.matches else 'text-danger font-bold' }}">
+      {% if c.matches %}<i class="fa-solid fa-circle-check mr-1"></i>Same as the dashboard card{% else %}Does not match the dashboard card ({{ '{:,.0f}'.format(c.expected) }}). Please tell the developer.{% endif %}
+    </div>
+  </div>
+
+  <div class="card p-4 mb-4 text-sm text-slate-600 leading-relaxed">
+    {% if c.card == 'rent' %}
+      Add up the <b>monthly rent of every student who is in the app now</b>. Deleted students are not included.
+    {% elif c.card == 'paid' %}
+      Add up the payments you pressed <b>Confirm</b> on during <b>{{ c.month_label }}</b>. A student only marked as paid on their record, or a payment still waiting for confirmation, is <b>not</b> counted.
+    {% elif c.card == 'due' %}
+      For every student: <b>monthly rent − payments confirmed in {{ c.month_label }}</b> (never below ₹0). Then add up what is left.
+    {% elif c.card == 'students' %}
+      Count every student who is in the app now (Old Hostel + New Hostel + Hall).
+    {% else %}
+      Count the students living in the {{ c.title.replace(' Students', '') }} now.
+    {% endif %}
+    <div class="mt-2 text-xs text-slate-400">Tap a student to see their payment photo (or the details they submitted).</div>
+  </div>
+
+  {% for g in c.groups %}
+  <div class="mb-5">
+    <div class="flex justify-between items-center px-1 mb-2">
+      <h2 class="font-extrabold text-slate-700">{{ g.title }}</h2>
+      <span class="font-extrabold text-primary">{% if money %}₹{% endif %}{{ '{:,.0f}'.format(g.value) }}</span>
+    </div>
+    {% for r in g.rooms %}
+    <div class="card p-3 mb-2">
+      <div class="flex justify-between items-center mb-1">
+        <span class="text-xs font-bold text-slate-500">{{ r.label }}</span>
+        <span class="text-xs font-bold text-slate-700">{% if money %}₹{% endif %}{{ '{:,.0f}'.format(r.value) }}</span>
+      </div>
+      {% for st in r.students %}
+      <a href="{{ url_for('student_payment_details', student_id=st.id) }}" class="flex justify-between items-center gap-3 py-1.5 border-t border-slate-100 first:border-0" style="text-decoration:none">
+        <span class="min-w-0 truncate text-sm text-slate-800">{{ st.name }}{% if st.detail %} <span class="text-[11px] text-slate-400">({{ st.detail }})</span>{% endif %}</span>
+        <span class="shrink-0 text-sm font-semibold text-slate-700">{% if money %}₹{{ '{:,.0f}'.format(st.value) }}{% else %}1{% endif %}</span>
+      </a>
+      {% endfor %}
+      {% if money %}
+      <div class="mt-2 pt-2 border-t border-dashed border-slate-200 text-[12px] text-slate-500 break-words">
+        {{ r.formula }} = <b class="text-slate-800">₹{{ '{:,.0f}'.format(r.value) }}</b>
+      </div>
+      {% else %}
+      <div class="mt-2 pt-2 border-t border-dashed border-slate-200 text-[12px] text-slate-500">{{ r.students|length }} student{{ '' if r.students|length == 1 else 's' }}</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+    <div class="rounded-xl bg-blue-50 px-4 py-3 text-[12px] text-slate-600 break-words">
+      <b>{{ g.title }}:</b> {{ g.formula }} = <b class="text-primary">{% if money %}₹{% endif %}{{ '{:,.0f}'.format(g.value) }}</b>
+    </div>
+  </div>
+  {% endfor %}
+
+  {% if not c.groups %}
+  <div class="card p-8 text-center text-slate-500">No students to show for this card.</div>
+  {% endif %}
+
+  <div class="rounded-2xl bg-primary text-white px-5 py-4 mb-5">
+    <div class="text-xs opacity-80">Final total</div>
+    <div class="text-sm break-words mt-1">{{ c.grand_formula }}</div>
+    <div class="text-2xl font-extrabold mt-1">= {% if money %}₹{% endif %}{{ '{:,.0f}'.format(c.grand) }}</div>
+  </div>
+
+  {% if c.zero_hidden %}
+  <p class="text-xs text-slate-400 mb-4">{{ c.zero_hidden }} student{{ '' if c.zero_hidden == 1 else 's' }} with ₹0 {{ 'confirmed payment' if c.card == 'paid' else 'due' }} not listed.</p>
+  {% endif %}
+
+  {% if c.card == 'rent' and c.extra.deleted_count %}
+  <div class="card p-4 mb-4 text-sm text-slate-600">
+    <b>Not included:</b> {{ c.extra.deleted_count }} deleted student{{ '' if c.extra.deleted_count == 1 else 's' }} (rent ₹{{ '{:,.0f}'.format(c.extra.deleted_rent) }}). See <a class="text-primary font-semibold" href="{{ url_for('deleted_students') }}">Deleted Students</a>.
+  </div>
+  {% endif %}
+
+  {% if c.card == 'paid' and c.not_counted %}
+  <div class="card p-4 mb-4 border-l-4 border-amber-400">
+    <p class="font-bold text-amber-700 text-sm">Marked as paid but NOT counted ({{ c.not_counted|length }})</p>
+    <p class="text-xs text-slate-500 mt-1">These students have an amount on their record that is more than the payments you confirmed in {{ c.month_label }}. Open Paid (Unconfirmed) to check them.</p>
+    <div class="mt-2">
+      {% for n in c.not_counted %}
+      <div class="flex justify-between gap-3 py-1.5 border-t border-slate-100 text-sm first:border-0">
+        <span class="min-w-0 truncate">{{ n.name }} <span class="text-[11px] text-slate-400">({{ n.place }})</span></span>
+        <span class="shrink-0 text-slate-600">record ₹{{ '{:,.0f}'.format(n.record) }} − confirmed ₹{{ '{:,.0f}'.format(n.confirmed) }} = <b>₹{{ '{:,.0f}'.format(n.diff) }}</b></span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

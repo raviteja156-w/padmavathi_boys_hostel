@@ -591,6 +591,67 @@ ADMIN_KB = [
      'te': ['నేను ఇంగ్లీష్ లేదా తెలుగులో సమాధానం ఇస్తాను. ప్రయత్నించండి:', '"ఎన్ని గదులు ఖాళీగా ఉన్నాయి?"', '"ఓల్డ్ హాస్టల్ రూమ్ 2 లో ఎవరు ఉన్నారు?"', '"మనోహర్ వివరాలు చూపించు"', '"మొత్తం బాకీ ఎంత?"', '"మనోహర్ ను ఓల్డ్ హాస్టల్ రూమ్ 2 నుండి రూమ్ 3 కి మార్చండి" (ఏదైనా మార్చే ముందు నిర్ధారణ అడుగుతాను)']},
 ]
 
+# ---- extra / corrected admin knowledge (replaces the older delete-student, due-list and help answers) ----
+_NEW_KB = [
+    {'kw': ['delete student', 'make empty', 'make it empty', 'free a bed', 'empty a bed', 'remove student', 'remove a student', 'విద్యార్థిని తొలగ', 'బెడ్ ఖాళీ'],
+     'en': ['Deleting a student <b>does not lose them</b>:', 'Delete from the student card, menu <b>2) Make Empty</b>, or tell me (e.g. "delete Ravi"). I always ask you to confirm first.', 'The student moves to <b>Deleted Students</b> in the sidebar with their rent and payment, and the bed becomes vacant.', 'Open <b>Deleted Students</b> and tap <b>Restore</b> to bring them back (the room must have a free bed).']},
+    {'kw': ['deleted students', 'deleted list', 'restore', 'restore student', 'bring back', 'undelete', 'recover student', 'get back student', 'తిరిగి చేర్చ', 'రీస్టోర్', 'తొలగించిన విద్యార్థ'],
+     'en': ['<b>Deleted Students</b> (sidebar) lists everyone you deleted, with the rent they had and what they paid.', 'Tap <b>Restore</b> to put a student back in their old room. If the room is full you must free a bed first.', 'If the month has changed since they were deleted, their old payment details are not brought back (Paid starts at ₹0).', 'The trash button removes a student from that list for good. You can also tell me: "restore Ajay".']},
+    {'kw': ['guest', 'guests', 'short stay', 'few days', 'day guest', 'stay for days', 'అతిథి', 'గెస్ట్'],
+     'en': ['<b>Guests</b> (sidebar) is for people who stay only a few days:', 'Open <b>Guests</b>, tap <b>Add a guest</b>, enter name, days and rate per day. The total is calculated.', 'You can record how much they paid now and receive the rest later, add extra days, check them out, or delete them.', 'Guests have their own totals and are not counted in the students\' Total Rent or Paid.']},
+    {'kw': ['delete payment', 'delete a payment', 'delete the payment', 'remove payment', 'remove a payment', 'wrong payment', 'payment wrong', 'paid zero', 'clear payment', 'reset payment', 'undo payment', 'చెల్లింపు తొలగ', 'చెల్లింపు డిలీట్'],
+     'en': ['To delete one student\'s payment: open <b>This Month Payments</b> and tap <b>Delete this payment (Paid becomes ₹0)</b> on their card. You are asked to confirm.', 'Their Paid goes to ₹0 and the balance becomes the full rent.', 'You can also tell me: "delete payment of Ravi". I show what will change and wait for your confirmation.', 'The old <b>Delete (already noted)</b> button only hides the payment from the list; the money stays counted.']},
+    {'kw': ['reset all', 'delete all payments', 'delete all payment', 'all payment details', 'everyone paid zero', 'clear all payments', 'reset payments', 'అన్ని చెల్లింపులు', 'అందరి చెల్లింపులు'],
+     'en': ['<b>Delete All Payment Details</b> (sidebar, red) sets every student\'s Paid back to ₹0 and removes all payment records and receipts students uploaded.', 'It shows how many students and how much money will be removed and asks you to type <b>DELETE</b>.', 'Students, rents, rooms, deleted students and guests are not touched. It cannot be undone.']},
+    {'kw': ['month end', 'new month', 'next month', 'first of the month', 'monthly reset', 'month reset', 'start new month', 'నెల చివర', 'కొత్త నెల'],
+     'en': ['Nothing is deleted automatically at month end.', 'From 12:00 AM on the 1st, every time you open the admin area it asks: <b>"Can I delete last month\'s payment details?"</b>', '<b>Yes</b> saves a copy to payment history and sets everyone\'s Paid to ₹0. <b>No</b> keeps everything and it asks again next time.', 'Until you say Yes, last month\'s paid amounts stay on the students, so answer it before recording new rent.']},
+    {'kw': ['this month payments', 'month payments', 'swipe', 'payments list', 'ఈ నెల చెల్లింపులు'],
+     'en': ['<b>This Month Payments</b> shows one card per student who has paid this month: rent, paid, balance, paid to, mode and date.', 'Swipe or use the arrows to move between students.', '<b>Delete (already noted)</b> hides a card (see the Deleted tab, you can restore it). <b>Delete this payment</b> really removes the payment (Paid becomes ₹0).']},
+    {'kw': ['due list', 'who has to pay', 'who owes', 'overdue', 'defaulter', 'due day', 'due date', 'coming up', 'upcoming', 'బాకీ జాబితా', 'డ్యూ లిస్ట్'],
+     'en': ['<b>Due List</b> follows each student\'s <b>joining day</b>: rent falls due on that day every month (31 becomes 30 in a 30-day month).', 'A student is listed from their due day until they pay it. In the 7 days before, they show under <b>Coming up</b>, with a Call button.', 'A payment counts for a due date only if it is paid on that day, up to 2 days before it, or after it. So a payment 8 days late belongs to the OLD due date, and the next due date still appears on its own day.', 'Example: joined 27 Oct, paid 5 Nov (late for 27 Oct). On 20 Nov he is under Coming up, on 27 Nov he is in the Due List.']},
+    {'kw': ['monthly income', 'this month income', 'last month income', 'income', 'how much collected', 'how much received', 'collection', 'ఆదాయం', 'వసూలు'],
+     'en': ['<b>All Payments & Income</b> (sidebar, or the buttons on This Month Payments) shows the money actually <b>received</b> in a month, with every payment listed so you can edit or delete it.', 'Choose <b>This Month</b> or <b>Last Month</b>. It includes payments of deleted students and splits Online and Cash.', 'You can also ask me: "How much did we collect this month?"']},
+    {'kw': ['calculation', 'how is total', 'total rent calculated', 'how total rent', 'how total paid', 'how balance due', 'dashboard card', 'tap card', 'click card', 'how the numbers', 'లెక్క', 'మొత్తం ఎలా'],
+     'en': ['Every card on the dashboard opens a <b>calculation sheet</b> when you tap it (Total Students, Old Hostel, New Hostel, Total Rent to Receive, Total Paid, Balance Due).', 'The sheet lists the students behind the number, room by room, with the addition written out: each room total, each building total and the final total.', '<b>Total Rent</b> = monthly rent of every student now in the app. <b>Total Paid</b> = payments you confirmed this month. <b>Balance Due</b> = rent minus confirmed payments, per student.', 'It also shows students marked as paid but not confirmed (they are not counted in Total Paid).']},
+    {'kw': ['edit payment', 'change payment', 'change the payment', 'move payment', 'counted in', 'last month payment', 'make it last month', 'this month payment', 'change month', 'edit a payment'],
+     'en': ['Open <b>All Payments & Income</b> (sidebar), or tap <b>Edit payment / change month</b> on a card in This Month Payments.', 'Tap the pencil on a payment to change its amount, date, how it was paid, who received it, and <b>which month it counts in</b>: normal (month of the date), This month, or Last month.', 'Choosing Last month only moves it into last month\'s income. The real payment date and the Due List do not change. You can also delete a payment there.']},
+    {'kw': ['record payment', 'add payment', 'receive payment', 'mark paid', 'cash payment', 'enter payment', 'చెల్లింపు నమోదు'],
+     'en': ['To record a payment you received yourself: open the student (dashboard or Due List) and tap <b>Edit / Record Payment</b>.', 'Enter amount paid, date, mode (Online / Cash / Online + Cash), who received it, and the receipt if you have one. Save.', 'When a student submits a payment from their own page it appears in <b>Today\'s Payments</b> and counts only after you press <b>Confirm</b>.']},
+    {'kw': ['how do students pay', 'student pay', 'students pay', 'student submit', 'upload receipt', 'proof', 'విద్యార్థులు ఎలా చెల్లి'],
+     'en': ['Students open the Payments page, enter their mobile number, see their own dues and the QR / number of their hostel, pay, and submit the amount with a receipt photo.', 'You see it in <b>Today\'s Payments</b>. Check <b>VIEW PROOF</b> and press <b>Confirm</b>; only then it is added to their Paid.']},
+    {'kw': ['change rent', 'edit rent', 'total rent', 'rent amount', 'part month rent', 'అద్దె మార్చ'],
+     'en': ['To change a student\'s rent: <b>Edit</b> the student and change Total Rent. For a few days only, use menu <b>3) Calculate Per-Day Rent</b>, which can save the part-month rent for you.']},
+    {'kw': ['what is this app', 'about this app', 'what can this app do', 'features', 'overview', 'అప్లికేషన్ గురించి'],
+     'en': ['This app manages the hostel: students and rooms (Old Hostel, New Hostel and the Hall), rent and payments, due list, paused beds, vacancies, guests and deleted students.', 'Sidebar: Dashboard, Today\'s Payments, This Month Payments, Due List, Paid (Unconfirmed), Deleted Students, Guests, Pause Bed, Delete All Payment Details, Payment Settings, Add Student.', 'Ask me about any of them, or tell me an action like "restore Ajay" or "delete payment of Ravi".']},
+    {'kw': ['what can you do', 'help', 'commands', 'how to use', 'examples', 'సహాయం', 'ఏమి చేయగలవు'],
+     'en': ['I can answer questions about the app and do actions for you. I always show what will change and <b>wait for your Yes</b>.', 'Questions: "Who is in room 2 Old Hostel?", "Show details of Manohar", "Total balance due", "How many vacant beds?", "How does the Due List work?"', 'Actions: "Shift Manohar from room 2 Old Hostel to room 3 Old Hostel", "Delete Ravi", "Restore Ajay", "Delete payment of Ravi", "Delete all payment details".']},
+]
+_NEW_KB_TE = {
+    'delete student': ['విద్యార్థిని తొలగించడం వల్ల వారు <b>పూర్తిగా పోరు</b>:', 'విద్యార్థి కార్డ్, మెనూ <b>2) Make Empty</b> లేదా నాకు చెప్పండి (ఉదా: "Ravi ని డిలీట్ చేయి"). నేను ముందు ఎప్పుడూ నిర్ధారణ అడుగుతాను.', 'విద్యార్థి సైడ్‌బార్‌లోని <b>Deleted Students</b> కి వెళ్తారు, బెడ్ ఖాళీ అవుతుంది.', '<b>Deleted Students</b> తెరిచి <b>Restore</b> నొక్కితే తిరిగి వస్తారు (గదిలో ఖాళీ బెడ్ ఉండాలి).'],
+    'deleted students': ['<b>Deleted Students</b> లో మీరు తొలగించిన వారందరూ వారి అద్దె, చెల్లింపుతో ఉంటారు.', '<b>Restore</b> నొక్కితే పాత గదిలో తిరిగి చేరుతారు. గది నిండి ఉంటే ముందు ఒక బెడ్ ఖాళీ చేయాలి.', 'నెల మారితే పాత చెల్లింపు వివరాలు తిరిగి రావు (Paid ₹0 నుండి మొదలవుతుంది).', 'నాకు కూడా చెప్పవచ్చు: "Ajay ని రీస్టోర్ చేయి".'],
+    'guest': ['<b>Guests</b> కొన్ని రోజులు మాత్రమే ఉండేవారి కోసం:', '<b>Guests</b> తెరిచి <b>Add a guest</b> నొక్కి పేరు, రోజులు, రోజు రేటు ఇవ్వండి. మొత్తం ఆటోమేటిక్‌గా వస్తుంది.', 'ఇప్పుడు చెల్లించినది నమోదు చేయవచ్చు, మిగిలినది తర్వాత తీసుకోవచ్చు, రోజులు పెంచవచ్చు, చెక్ అవుట్ లేదా డిలీట్ చేయవచ్చు.', 'గెస్ట్‌ల మొత్తాలు విద్యార్థుల మొత్తం అద్దె/చెల్లింపులో కలవవు.'],
+    'delete payment': ['ఒక విద్యార్థి చెల్లింపు తొలగించడానికి: <b>This Month Payments</b> లో వారి కార్డ్‌పై <b>Delete this payment</b> నొక్కండి. నిర్ధారణ అడుగుతుంది.', 'వారి Paid ₹0 అవుతుంది, బ్యాలెన్స్ పూర్తి అద్దె అవుతుంది.', 'నాకు కూడా చెప్పవచ్చు: "Ravi చెల్లింపు డిలీట్ చేయి". మార్పు చూపించి మీ నిర్ధారణ కోసం ఆగుతాను.', 'పాత <b>Delete (already noted)</b> బటన్ జాబితా నుండి మాత్రమే దాచుతుంది; డబ్బు లెక్కలోనే ఉంటుంది.'],
+    'reset all': ['<b>Delete All Payment Details</b> (సైడ్‌బార్, ఎరుపు) అందరి Paid ని ₹0 చేసి, విద్యార్థులు అప్‌లోడ్ చేసిన అన్ని చెల్లింపు రికార్డులు, రసీదులు తొలగిస్తుంది.', 'ఎంతమంది, ఎంత మొత్తం తొలగుతుందో చూపి <b>DELETE</b> అని టైప్ చేయమంటుంది.', 'విద్యార్థులు, అద్దెలు, గదులు, తొలగించిన విద్యార్థులు, గెస్ట్‌లు మారవు. తిరిగి తెచ్చుకోలేరు.'],
+    'month end': ['నెల చివర ఏదీ ఆటోమేటిక్‌గా తొలగదు.', '1వ తేదీ 12:00 AM నుండి అడ్మిన్ ఏరియా తెరిచిన ప్రతిసారీ అడుగుతుంది: <b>"గత నెల చెల్లింపు వివరాలు డిలీట్ చేయవచ్చా?"</b>', '<b>Yes</b> అంటే కాపీ హిస్టరీలో సేవ్ అవుతుంది, అందరి Paid ₹0 అవుతుంది. <b>No</b> అంటే ఏమీ మారదు, మళ్లీ అడుగుతుంది.', 'Yes అనే వరకు గత నెల చెల్లింపులు విద్యార్థులపైనే ఉంటాయి.'],
+    'this month payments': ['<b>This Month Payments</b> ఈ నెల చెల్లించిన ప్రతి విద్యార్థికి ఒక కార్డ్ చూపిస్తుంది.', 'స్వైప్ చేయండి లేదా బాణాలు వాడండి.', '<b>Delete (already noted)</b> కార్డ్‌ను దాచుతుంది (Deleted ట్యాబ్‌లో రీస్టోర్ చేయవచ్చు). <b>Delete this payment</b> చెల్లింపును నిజంగా తొలగిస్తుంది (Paid ₹0).'],
+    'due list': ['<b>Due List</b> ప్రతి విద్యార్థి <b>జాయిన్ అయిన రోజు</b> ప్రకారం నడుస్తుంది: ప్రతి నెలా ఆ రోజున అద్దె గడువు వస్తుంది (30 రోజుల నెలలో 31 అంటే 30).', 'గడువు రోజు నుండి చెల్లించే వరకు జాబితాలో ఉంటారు. ముందు 7 రోజులు <b>Coming up</b> లో Call బటన్‌తో కనిపిస్తారు.', 'చెల్లింపు గడువు రోజున, గడువుకు 2 రోజుల ముందు నుండి, లేదా తర్వాత కడితేనే ఆ గడువుకు లెక్క. 8 రోజులు ఆలస్యంగా కట్టిన డబ్బు పాత గడువుకే వెళ్తుంది; తర్వాతి గడువు తన రోజున మళ్లీ వస్తుంది.'],
+    'edit payment': ['<b>All Payments & Income</b> (సైడ్‌బార్) తెరవండి, లేదా This Month Payments లోని కార్డ్‌పై <b>Edit payment / change month</b> నొక్కండి.', 'చెల్లింపుపై పెన్సిల్ నొక్కి మొత్తం, తేదీ, చెల్లించిన విధానం, ఎవరు తీసుకున్నారు, మరియు <b>ఏ నెల ఆదాయంలో లెక్కించాలో</b> మార్చవచ్చు: సాధారణం, ఈ నెల, లేదా గత నెల.', 'గత నెల ఎంచుకుంటే గత నెల ఆదాయంలోకి మాత్రమే మారుతుంది. అసలు చెల్లింపు తేదీ, డ్యూ లిస్ట్ మారవు. అక్కడే చెల్లింపును డిలీట్ కూడా చేయవచ్చు.'],
+    'monthly income': ['<b>Monthly Income</b> (సైడ్‌బార్) ఒక నెలలో నిజంగా <b>అందిన</b> డబ్బును చెల్లింపు తేదీ ప్రకారం చూపిస్తుంది.', '<b>This Month</b> లేదా <b>Last Month</b> ఎంచుకోండి. తొలగించిన విద్యార్థుల చెల్లింపులు కూడా కలుస్తాయి; Online, Cash వేరుగా చూపిస్తుంది.', 'నన్ను కూడా అడగవచ్చు: "ఈ నెల ఎంత వసూలైంది?"'],
+    'record payment': ['మీరు స్వయంగా తీసుకున్న చెల్లింపు నమోదు చేయడానికి: విద్యార్థిని తెరిచి <b>Edit / Record Payment</b> నొక్కండి.', 'మొత్తం, తేదీ, విధానం (Online / Cash / Online + Cash), ఎవరు తీసుకున్నారు, రసీదు ఇచ్చి సేవ్ చేయండి.', 'విద్యార్థి స్వయంగా పంపిన చెల్లింపు <b>Today\'s Payments</b> లో కనిపిస్తుంది; <b>Confirm</b> నొక్కాకే లెక్కలోకి వస్తుంది.'],
+    'how do students pay': ['విద్యార్థులు Payments పేజీలో మొబైల్ నంబర్ ఇచ్చి, తమ బాకీ, తమ హాస్టల్ QR / నంబర్ చూసి చెల్లించి, రసీదు ఫోటోతో మొత్తం పంపుతారు.', 'అది <b>Today\'s Payments</b> లో కనిపిస్తుంది. <b>VIEW PROOF</b> చూసి <b>Confirm</b> నొక్కితేనే వారి Paid లో కలుస్తుంది.'],
+    'change rent': ['అద్దె మార్చడానికి: విద్యార్థిని <b>Edit</b> చేసి Total Rent మార్చండి. కొన్ని రోజులకే అయితే మెనూ <b>3) Calculate Per-Day Rent</b> వాడండి.'],
+    'what is this app': ['ఈ యాప్ హాస్టల్‌ను నిర్వహిస్తుంది: విద్యార్థులు, గదులు (ఓల్డ్, న్యూ హాస్టల్, హాల్), అద్దె, చెల్లింపులు, డ్యూ లిస్ట్, పాజ్ బెడ్, ఖాళీలు, గెస్ట్‌లు, తొలగించిన విద్యార్థులు.', 'ఏదైనా అడగండి, లేదా "Ajay ని రీస్టోర్ చేయి" లాంటి పని చెప్పండి.'],
+    'what can you do': ['నేను యాప్ గురించి సమాధానాలు ఇస్తాను, పనులు కూడా చేస్తాను. ఏం మారుతుందో చూపి <b>మీ Yes కోసం ఆగుతాను</b>.', 'ప్రశ్నలు: "ఓల్డ్ హాస్టల్ రూమ్ 2 లో ఎవరు ఉన్నారు?", "మొత్తం బాకీ", "ఎన్ని బెడ్‌లు ఖాళీ?"', 'పనులు: "Manohar ను రూమ్ 3 కి మార్చు", "Ravi ని డిలీట్ చేయి", "Ajay ని రీస్టోర్ చేయి", "Ravi చెల్లింపు డిలీట్ చేయి".'],
+}
+for _e in _NEW_KB:
+    for _k, _v in _NEW_KB_TE.items():
+        if _k in _e['kw']:
+            _e['te'] = _v
+            break
+_REPLACED = ('due list', 'make empty', 'what can you do')
+ADMIN_KB[:] = [e for e in ADMIN_KB if not any(k in e['kw'] for k in _REPLACED)] + _NEW_KB
+
+
 _ADMIN_SECRETS = re.compile(
     r'pass\s?word|passcode|credential|api[\s_-]?key|secret|token|(?<![a-z])\.?env\b|environment variable|database (url|password|credential)|'
     r'connection string|service role|పాస్\u200c?వర్డ్|పాస్\u200c?వర్డు|రహస్య')
@@ -795,6 +856,172 @@ def _handle_shift(db, ctx, lang, students, tokens, src, dst):
     return _shift_preview(db, ctx, lang, top[0], tuple(dst))
 
 
+# ---- more actions: delete student, restore, delete payment, delete ALL payments --------------
+# Every action works the same way: (1) validate, (2) show exactly what will change with a Yes / Cancel,
+# (3) only after Yes, re-validate and perform it. Nothing changes before the admin confirms.
+
+ACTION_KINDS = ('shift', 'delete_student', 'restore', 'clear_payment', 'reset_all')
+RESTORE_WORDS = ('restore', 'undelete', 'reinstate', 'recover', 'revive')
+RESTORE_PHRASES = ('bring back', 'get back', 'add back', 'put back', 'bring him back', 'bring her back')
+RESTORE_TE = ('రీస్టోర్', 'తిరిగి చేర్చ', 'తిరిగి తీసుకు', 'పునరుద్ధరి')
+PAY_WORDS = ('payment', 'payments', 'paid', 'పేమెంట్', 'చెల్లింపు', 'చెల్లింపులు')
+CLEAR_WORDS = ('delete', 'remove', 'clear', 'reset', 'erase', 'wipe', 'zero', 'cancel')
+CLEAR_TE = ('తొలగ', 'డిలీట్', 'క్లియర్', 'రీసెట్', 'సున్నా')
+ALL_WORDS = ('all', 'everyone', 'everybody', 'every', 'అందరి', 'అందరూ', 'అన్ని')
+QUESTION_START = ('how', 'what', 'where', 'why', 'when', 'which', 'can', 'could', 'will', 'would', 'does', 'do', 'is', 'are', 'should', 'ఎలా', 'ఏమి', 'ఎక్కడ', 'ఎందుకు')
+ACTION_STOP = set(RESTORE_WORDS + PAY_WORDS + CLEAR_WORDS + ALL_WORDS + DELETE_WORDS + (
+    'student', 'students', 'details', 'detail', 'please', 'of', 'for', 'to', 'from', 'the', 'back', 'bring', 'get', 'put', 'add',
+    'his', 'her', 'him', 'them', 'zero', 'status', 'set', 'make', 'it', 'that', 'this', 'one', 'now'))
+
+
+def _is_question(tokens, raw):
+    """True for questions ("how do I delete a payment?"); polite commands ("can you restore Ajay?") are NOT questions."""
+    t = list(tokens)
+    polite = t[:2] in (['can', 'you'], ['could', 'you'], ['would', 'you'], ['will', 'you'])
+    if polite:
+        t = t[2:]
+    if t and t[0] == 'please':
+        t = t[1:]
+    if not t:
+        return False
+    return 'how' in t or t[0] in QUESTION_START or (raw.strip().endswith('?') and not polite)
+
+
+def _action_matches(rows, tokens):
+    """Name match that ignores the action words themselves (so 'delete payment' never matches a name)."""
+    return match_students(rows, [t for t in tokens if t not in ACTION_STOP])
+
+
+def _choose_reply(lang, rows, then, extra=None):
+    token = secrets.token_hex(8)
+    pend = {'t': token, 'kind': 'choose', 'then': then, 'ids': [r['id'] for r in rows[:6]], 'exp': time.time() + PENDING_TTL}
+    if extra:
+        pend.update(extra)
+    session['ai_pending'] = pend
+    chips = [{'label': f"{r['name']} - {_loc(r['hostel'], r['room_number'], lang)} ({_short_contact(r.get('contact'))})",
+              'action': {'choose': r['id'], 'token': token}} for r in rows[:6]]
+    chips.append({'label': tr(lang, 'Cancel', 'రద్దు'), 'action': {'cancel': True}})
+    return _reply(lang, escape(tr(lang, 'More than one student matches. Which one do you mean?',
+                                  'ఒకటి కంటే ఎక్కువ మంది సరిపోతున్నారు. ఎవరిని ఉద్దేశించారు?')), chips=chips)
+
+
+def _confirm_reply(lang, kind, extra, en, te, yes_en, yes_te, danger=True):
+    token = secrets.token_hex(8)
+    pend = {'t': token, 'kind': kind, 'exp': time.time() + PENDING_TTL}
+    pend.update(extra)
+    session['ai_pending'] = pend
+    chips = [{'label': tr(lang, yes_en, yes_te), 'cls': 'danger' if danger else 'primary', 'action': {'confirm': token}},
+             {'label': tr(lang, 'Cancel', 'రద్దు'), 'action': {'cancel': True}}]
+    return _reply(lang, tr(lang, en, te) + tr(lang, '<br><span style="color:#64748B;font-size:.8rem">Nothing changes until you press Yes.</span>',
+                                              '<br><span style="color:#64748B;font-size:.8rem">మీరు Yes నొక్కే వరకు ఏమీ మారదు.</span>'), chips=chips)
+
+
+def _gone(lang):
+    return _reply(lang, escape(tr(lang, 'That student was not found any more. Nothing changed.', 'ఆ విద్యార్థి ఇకపై కనిపించడం లేదు. ఏమీ మారలేదు.')))
+
+
+# -- delete student
+def _delete_preview(db, ctx, lang, st):
+    where_en, where_te = _loc(st['hostel'], st['room_number']), _loc(st['hostel'], st['room_number'], 'te')
+    en = (f"Delete <b>{escape(st['name'])}</b> ({escape(where_en)})? They paid {rupee(st.get('amount_paid') or 0)} of {rupee(st.get('total_rent') or 0)}. "
+          f"They move to <b>Deleted Students</b> and you can restore them any time.")
+    te = (f"<b>{escape(st['name'])}</b> ({escape(where_te)}) ను డిలీట్ చేయాలా? చెల్లించినది {rupee(st.get('amount_paid') or 0)} / {rupee(st.get('total_rent') or 0)}. "
+          f"వారు <b>Deleted Students</b> కి వెళ్తారు, ఎప్పుడైనా రీస్టోర్ చేయవచ్చు.")
+    return _confirm_reply(lang, 'delete_student', {'sid': st['id']}, en, te, 'Yes, delete', 'అవును, డిలీట్')
+
+
+def _do_delete_student(db, ctx, lang, pending):
+    row = db.execute('SELECT * FROM students WHERE id=%s', (pending['sid'],)).fetchone()
+    if not row:
+        return _gone(lang)
+    st = dict(row)
+    ctx['do_delete_student'](db, st)
+    return _reply(lang, tr(lang,
+                           f"Done ✅ <b>{escape(st['name'])}</b> was deleted. You can bring them back from <b>Deleted Students</b>.",
+                           f"పూర్తయింది ✅ <b>{escape(st['name'])}</b> డిలీట్ అయ్యారు. <b>Deleted Students</b> నుండి తిరిగి తెచ్చుకోవచ్చు."))
+
+
+# -- restore student
+def _restore_preview(db, ctx, lang, d):
+    ok, msg = ctx['check_capacity'](db, d['hostel'], d['room_number'], d['sharing'])
+    if not ok:
+        return _reply(lang, escape(tr(lang, f"I can't restore {d['name']}: {msg} Free a bed first.", f"{d['name']} ను రీస్టోర్ చేయలేను: ఆ గది నిండిపోయింది. ముందు ఒక బెడ్ ఖాళీ చేయండి.")))
+    en = f"Restore <b>{escape(d['name'])}</b> to <b>{escape(_loc(d['hostel'], d['room_number']))}</b>? Rent {rupee(d.get('total_rent') or 0)}."
+    te = f"<b>{escape(d['name'])}</b> ను <b>{escape(_loc(d['hostel'], d['room_number'], 'te'))}</b> లో రీస్టోర్ చేయాలా? అద్దె {rupee(d.get('total_rent') or 0)}."
+    return _confirm_reply(lang, 'restore', {'did': d['id']}, en, te, 'Yes, restore', 'అవును, రీస్టోర్', danger=False)
+
+
+def _do_restore(db, ctx, lang, pending):
+    ok, msg, _row = ctx['do_restore_deleted'](db, pending['did'])
+    if not ok:
+        return _reply(lang, escape(msg + tr(lang, ' Nothing was changed.', ' ఏమీ మారలేదు.')))
+    return _reply(lang, tr(lang, f"Done ✅ {escape(msg)}", f"పూర్తయింది ✅ {escape(msg)}"))
+
+
+# -- delete one student's payment
+def _clear_preview(db, ctx, lang, st):
+    paid = st.get('amount_paid') or 0
+    if paid <= 0:
+        return _reply(lang, escape(tr(lang, f"{st['name']} has no payment recorded (Paid is already ₹0).", f"{st['name']} కు చెల్లింపు లేదు (Paid ఇప్పటికే ₹0).")))
+    en = (f"Delete the payment of <b>{escape(st['name'])}</b> ({escape(_loc(st['hostel'], st['room_number']))})? "
+          f"Paid {rupee(paid)} becomes <b>₹0</b> and balance becomes {rupee(st.get('total_rent') or 0)}.")
+    te = (f"<b>{escape(st['name'])}</b> ({escape(_loc(st['hostel'], st['room_number'], 'te'))}) చెల్లింపు డిలీట్ చేయాలా? "
+          f"Paid {rupee(paid)} <b>₹0</b> అవుతుంది, బ్యాలెన్స్ {rupee(st.get('total_rent') or 0)} అవుతుంది.")
+    return _confirm_reply(lang, 'clear_payment', {'sid': st['id']}, en, te, 'Yes, delete payment', 'అవును, చెల్లింపు డిలీట్')
+
+
+def _do_clear_payment(db, ctx, lang, pending):
+    ok, name, amount = ctx['do_clear_student_payment'](db, pending['sid'])
+    if not ok:
+        return _gone(lang)
+    return _reply(lang, tr(lang, f"Done ✅ {escape(name)}'s payment of {rupee(amount)} was deleted. Paid is now ₹0.",
+                           f"పూర్తయింది ✅ {escape(name)} చెల్లింపు {rupee(amount)} డిలీట్ అయింది. Paid ఇప్పుడు ₹0."))
+
+
+# -- delete ALL payment details
+def _reset_all_preview(db, ctx, lang):
+    c = ctx['reset_counts'](db)
+    if not c['students'] and not c['records']:
+        return _reply(lang, escape(tr(lang, 'There are no payment details to delete.', 'తొలగించడానికి చెల్లింపు వివరాలు ఏవీ లేవు.')))
+    en = (f"⚠ Delete <b>ALL</b> payment details? <b>{c['students']}</b> student(s) go back to <b>Paid ₹0</b> ({rupee(c['amount'])} removed) and "
+          f"<b>{c['records']}</b> payment record(s)/receipts are deleted"
+          + (f" (including {c['pending']} not yet confirmed)" if c['pending'] else '') + ". This cannot be undone.")
+    te = (f"⚠ <b>అన్ని</b> చెల్లింపు వివరాలు డిలీట్ చేయాలా? <b>{c['students']}</b> మంది <b>Paid ₹0</b> అవుతారు ({rupee(c['amount'])} తొలగుతుంది), "
+          f"<b>{c['records']}</b> చెల్లింపు రికార్డులు/రసీదులు తొలగుతాయి. ఇది తిరిగి తేలేరు.")
+    return _confirm_reply(lang, 'reset_all', {}, en, te, 'Yes, delete everything', 'అవును, అన్నీ డిలీట్')
+
+
+def _do_reset_all(db, ctx, lang, pending):
+    c = ctx['do_reset_all_payments'](db)
+    return _reply(lang, tr(lang, f"Done ✅ {c['students']} student(s) are now Paid ₹0 ({rupee(c['amount'])} removed) and {c['records']} payment record(s) were deleted.",
+                           f"పూర్తయింది ✅ {c['students']} మంది Paid ₹0 అయ్యారు ({rupee(c['amount'])} తొలగింది), {c['records']} రికార్డులు డిలీట్ అయ్యాయి."))
+
+
+_EXEC = {'shift': lambda db, ctx, lang, p: _do_shift(db, ctx, lang, p),
+         'delete_student': _do_delete_student, 'restore': _do_restore,
+         'clear_payment': _do_clear_payment, 'reset_all': _do_reset_all}
+
+
+def _handle_student_action(db, ctx, lang, kind, rows, tokens, none_en, none_te):
+    """Find the student the admin named, then show the confirmation (or ask which one)."""
+    m = _action_matches(rows, tokens)
+    if not m:
+        return _reply(lang, escape(tr(lang, none_en, none_te)))
+    best = m[0][0]
+    top = [x[1] for x in m if x[0] == best]
+    if len(top) > 1:
+        return _choose_reply(lang, top, kind)
+    st = top[0]
+    return {'delete_student': _delete_preview, 'clear_payment': _clear_preview, 'restore': _restore_preview}[kind](db, ctx, lang, st)
+
+
+def _topic_chips(lang):
+    qs = [('How does the Due List work?', 'డ్యూ లిస్ట్ ఎలా పనిచేస్తుంది?'), ('How do I restore a deleted student?', 'తొలగించిన విద్యార్థిని ఎలా రీస్టోర్ చేయాలి?'),
+          ('How do I add a guest?', 'గెస్ట్‌ను ఎలా చేర్చాలి?'), ('How do I delete a payment?', 'చెల్లింపును ఎలా డిలీట్ చేయాలి?'),
+          ('What happens at month end?', 'నెల చివర ఏమవుతుంది?'), ('What can you do?', 'నువ్వు ఏమి చేయగలవు?')]
+    return [{'label': tr(lang, a, b), 'action': {'message': tr(lang, a, b)}} for a, b in qs]
+
+
 # ---- main admin entry ----------------------------------------------------
 
 def _llm_admin_intent(message):
@@ -823,10 +1050,10 @@ def admin_reply(db, ctx, payload):
         session.pop('ai_pending', None)
         return _reply(lang, escape(tr(lang, 'Okay, nothing was changed.', 'సరే, ఏమీ మార్చలేదు.')))
     if payload.get('confirm'):
-        if not pending or pending.get('kind') != 'shift' or not secrets.compare_digest(str(payload['confirm']), pending['t']):
+        if not pending or pending.get('kind') not in ACTION_KINDS or not secrets.compare_digest(str(payload['confirm']), pending['t']):
             return _reply(lang, escape(tr(lang, 'That request has expired. Please give the command again.', 'ఆ అభ్యర్థన గడువు ముగిసింది. దయచేసి కమాండ్ మళ్లీ ఇవ్వండి.')))
-        session.pop('ai_pending', None)
-        return _do_shift(db, ctx, lang, pending)
+        session.pop('ai_pending', None)          # one confirmation = one execution (cannot be replayed)
+        return _EXEC[pending['kind']](db, ctx, lang, pending)
     if payload.get('choose') is not None:
         try:
             sid = int(payload['choose'])
@@ -836,10 +1063,15 @@ def admin_reply(db, ctx, payload):
                 or not secrets.compare_digest(str(payload.get('token', '')), pending['t'])):
             return _reply(lang, escape(tr(lang, 'That request has expired. Please give the command again.', 'ఆ అభ్యర్థన గడువు ముగిసింది. దయచేసి కమాండ్ మళ్లీ ఇవ్వండి.')))
         session.pop('ai_pending', None)
-        row = db.execute('SELECT * FROM students WHERE id=%s', (sid,)).fetchone()
+        then = pending.get('then') or 'shift'
+        table = 'deleted_students' if then == 'restore' else 'students'
+        row = db.execute(f'SELECT * FROM {table} WHERE id=%s', (sid,)).fetchone()
         if not row:
             return _reply(lang, escape(tr(lang, 'That student was not found.', 'ఆ విద్యార్థి కనిపించలేదు.')))
-        return _shift_preview(db, ctx, lang, dict(row), tuple(pending['dst']))
+        row = dict(row)
+        if then == 'shift':
+            return _shift_preview(db, ctx, lang, row, tuple(pending['dst']))
+        return {'delete_student': _delete_preview, 'clear_payment': _clear_preview, 'restore': _restore_preview}[then](db, ctx, lang, row)
 
     if not message:
         return _reply(lang, escape(tr(lang, 'Please type or say something.', 'దయచేసి ఏదైనా టైప్ చేయండి లేదా చెప్పండి.')))
@@ -849,12 +1081,15 @@ def admin_reply(db, ctx, payload):
     joined = ' '.join(tokens)
 
     # --- typed yes / no for a pending confirmation ---
-    if pending and pending.get('kind') == 'shift' and len(tokens) <= 3:
+    if pending and pending.get('kind') in ACTION_KINDS and len(tokens) <= 3:
         said_no = any(t in NO_WORDS for t in tokens) or any(w in raw for w in NO_WORDS if has_telugu(w))
         said_yes = (any(t in YES_WORDS for t in tokens) or 'do it' in raw or any(w in raw for w in YES_WORDS if has_telugu(w)))
         if said_yes and not said_no:
+            if pending['kind'] == 'reset_all':      # the most destructive action needs the red button, never a typed "ok"
+                return _reply(lang, escape(tr(lang, 'This one needs the red button. Press "Yes, delete everything" to confirm, or Cancel.',
+                                              'దీనికి ఎరుపు బటన్ నొక్కాలి. నిర్ధారించడానికి "Yes, delete everything" నొక్కండి లేదా Cancel.')))
             session.pop('ai_pending', None)
-            return _do_shift(db, ctx, lang, pending)
+            return _EXEC[pending['kind']](db, ctx, lang, pending)
         if said_no:
             session.pop('ai_pending', None)
             return _reply(lang, escape(tr(lang, 'Okay, nothing was changed.', 'సరే, ఏమీ మార్చలేదు.')))
@@ -865,6 +1100,29 @@ def admin_reply(db, ctx, payload):
                                       'పాస్‌వర్డ్‌లు, కీలు లేదా కాన్ఫిగరేషన్ వివరాలను నేను చూపించలేను. హాస్టల్ డేటా, ఫీచర్లలో సహాయం చేయగలను.')))
 
     students = [dict(r) for r in db.execute('SELECT * FROM students').fetchall()]
+
+    # --- actions that change data (never for questions such as "how do I delete a student?") ---
+    if not _is_question(tokens, raw):
+        is_restore = (any(t in RESTORE_WORDS for t in tokens) or any(w in raw for w in RESTORE_PHRASES)
+                      or any(w in raw for w in RESTORE_TE))
+        has_pay = any(t in PAY_WORDS for t in tokens) or any(w in raw for w in PAY_WORDS if has_telugu(w))
+        has_clear = any(t in CLEAR_WORDS for t in tokens) or any(w in raw for w in CLEAR_TE)
+        wants_all = any(t in ALL_WORDS for t in tokens) or any(w in raw for w in ALL_WORDS if has_telugu(w))
+        if is_restore:
+            deleted_rows = [dict(r) for r in db.execute('SELECT * FROM deleted_students ORDER BY id DESC').fetchall()]
+            if not deleted_rows:
+                return _reply(lang, escape(tr(lang, 'There are no deleted students to restore.', 'రీస్టోర్ చేయడానికి తొలగించిన విద్యార్థులు ఎవరూ లేరు.')))
+            return _handle_student_action(db, ctx, lang, 'restore', deleted_rows, tokens,
+                                          'Which deleted student should I restore? Say the name, or open Deleted Students.',
+                                          'ఏ తొలగించిన విద్యార్థిని రీస్టోర్ చేయాలి? పేరు చెప్పండి.')
+        if has_pay and has_clear:
+            if _action_matches(students, tokens):
+                return _handle_student_action(db, ctx, lang, 'clear_payment', students, tokens, '', '')
+            if wants_all:
+                return _reset_all_preview(db, ctx, lang)
+            return _reply(lang, escape(tr(lang, 'Whose payment should I delete? Say the student name, or say "delete all payment details".',
+                                          'ఎవరి చెల్లింపు డిలీట్ చేయాలి? విద్యార్థి పేరు చెప్పండి, లేదా "అన్ని చెల్లింపు వివరాలు డిలీట్" అనండి.')))
+
     mentions = parse_locations(tokens)
     src, dst = split_src_dst(mentions)
 
@@ -875,14 +1133,31 @@ def admin_reply(db, ctx, payload):
     if is_shift:
         return _handle_shift(db, ctx, lang, students, tokens, src, dst)
 
-    if is_delete:
-        return _reply(lang, escape(tr(
-            lang, "For safety I don't delete residents by chat. Use menu option '2) Make Empty' here, or the Delete button on the student card; both ask you to confirm.",
-            "భద్రత కోసం చాట్ ద్వారా విద్యార్థులను తొలగించను. ఇక్కడ మెనూలోని '2) Make Empty' లేదా విద్యార్థి కార్డ్‌లోని Delete బటన్ ఉపయోగించండి; రెండూ నిర్ధారణ అడుగుతాయి.")))
+    if is_delete and not _is_question(tokens, raw):
+        return _handle_student_action(db, ctx, lang, 'delete_student', students, tokens,
+                                      'Which student should I delete? Say the name (and the room if two students share a name).',
+                                      'ఏ విద్యార్థిని డిలీట్ చేయాలి? పేరు చెప్పండి.')
 
     hostel_words = {h for h in (_hostel_of(t) for t in tokens) if h}
     only_hostel = next(iter(hostel_words)) if len(hostel_words) == 1 else None
     asks_vacancy = any(k in joined for k in ('vacan', 'empty', 'free', 'available')) or 'ఖాళీ' in raw
+
+    # Income questions ("how much did we collect this month?") are answered from live data.
+    income_words = ('income' in tokens or 'collected' in tokens or 'collect' in tokens or 'received' in tokens
+                    or 'collection' in tokens or 'ఆదాయం' in raw or 'వసూలు' in raw)
+    asks_amount = ('how much' in joined or 'total' in tokens or 'this month' in joined or 'last month' in joined
+                   or 'so far' in joined or 'ఎంత' in raw)
+    explains = any(t in tokens for t in ('work', 'works', 'where', 'open', 'see', 'find', 'use', 'what'))
+    if income_words and asks_amount and not explains and ctx.get('month_income'):
+        cur, prev = ctx['month_income'](db, 'this'), ctx['month_income'](db, 'last')
+        which_last = 'last' in tokens or 'previous' in tokens or 'గత' in raw
+        m = prev if which_last else cur
+        return _reply(lang, tr(lang,
+                               f"Received in <b>{m['label']}</b>: <b>{rupee(m['total'])}</b> from {m['count']} payment(s) (Online {rupee(m['online'])}, Cash {rupee(m['cash'])}). "
+                               f"{'This month so far: ' + rupee(cur['total']) + '.' if which_last else 'Last month: ' + rupee(prev['total']) + '.'} "
+                               "Open <b>Monthly Income</b> in the sidebar for the full list.",
+                               f"<b>{m['label']}</b> లో అందినది: <b>{rupee(m['total'])}</b> ({m['count']} చెల్లింపులు; Online {rupee(m['online'])}, Cash {rupee(m['cash'])}). "
+                               f"{'ఈ నెల ఇప్పటివరకు: ' + rupee(cur['total']) if which_last else 'గత నెల: ' + rupee(prev['total'])}. పూర్తి జాబితాకు సైడ్‌బార్‌లో <b>Monthly Income</b> తెరవండి."))
 
     # Feature / how-to questions (including per-day rent rates) are answered from the admin knowledge base.
     kb = _admin_kb_reply(message, lang, ctx)
@@ -932,7 +1207,7 @@ def admin_reply(db, ctx, payload):
 
     return _reply(lang, escape(tr(
         lang, "I didn't understand that. Try: \"How many vacant rooms are available?\", \"Who is in room 2 Old Hostel?\" or \"Shift Manohar from room 2 Old Hostel to room 3 Old Hostel\". Ask \"help\" to see more.",
-        "నాకు అర్థం కాలేదు. ఇలా ప్రయత్నించండి: \"ఎన్ని గదులు ఖాళీగా ఉన్నాయి?\" లేదా \"మనోహర్ ను ఓల్డ్ హాస్టల్ రూమ్ 2 నుండి రూమ్ 3 కి మార్చండి\". మరిన్ని చూడటానికి \"సహాయం\" అని అడగండి.")))
+        "నాకు అర్థం కాలేదు. ఇలా ప్రయత్నించండి: \"ఎన్ని గదులు ఖాళీగా ఉన్నాయి?\" లేదా \"మనోహర్ ను ఓల్డ్ హాస్టల్ రూమ్ 2 నుండి రూమ్ 3 కి మార్చండి\". మరిన్ని చూడటానికి \"సహాయం\" అని అడగండి.")), chips=_topic_chips(lang))
 
 
 # ==========================================================================

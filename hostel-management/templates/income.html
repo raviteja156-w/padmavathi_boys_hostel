@@ -1,0 +1,320 @@
+```html
+{% extends 'base.html' %}
+
+{% block title %}All Payments & Income — Hostel Management System{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto animate-slide-up">
+
+  <!-- Page Header -->
+  <div class="flex items-center gap-3 mb-5">
+    <a href="{{ url_for('month_payments') }}"
+       class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-primary transition shrink-0">
+      <i class="fa-solid fa-arrow-left"></i>
+    </a>
+
+    <div class="min-w-0">
+      <h1 class="text-2xl font-bold text-slate-800">
+        {% if which == 'student' %}
+          {{ student.name }}
+        {% else %}
+          All Payments & Income
+        {% endif %}
+      </h1>
+
+      <p class="text-slate-500 text-sm">
+        {% if which == 'student' %}
+          Every payment of this student. Edit, change the month, or delete.
+        {% else %}
+          Money received in the month. Tap the pencil to change a payment or the month it counts in.
+        {% endif %}
+      </p>
+    </div>
+  </div>
+
+  <!-- Month Filters -->
+  {% if which != 'student' %}
+  <div class="grid grid-cols-2 gap-2 mb-5">
+    <a href="{{ url_for('income', m='this') }}"
+       class="text-center py-3 rounded-xl font-bold text-sm {{ 'bg-primary text-white' if which == 'this' else 'bg-white border border-slate-200 text-slate-600' }}">
+      This Month
+    </a>
+
+    <a href="{{ url_for('income', m='last') }}"
+       class="text-center py-3 rounded-xl font-bold text-sm {{ 'bg-primary text-white' if which == 'last' else 'bg-white border border-slate-200 text-slate-600' }}">
+      Last Month
+    </a>
+  </div>
+  {% endif %}
+
+  <!-- Income Summary -->
+  <div class="card p-5 mb-4 text-center">
+    <div class="text-xs text-slate-400">
+      {{ inc.label }}
+      {% if which != 'student' %}
+        — total received
+      {% else %}
+        — total
+      {% endif %}
+    </div>
+
+    <div class="text-4xl font-extrabold text-success mt-1">
+      ₹{{ '{:,.0f}'.format(inc.total) }}
+    </div>
+
+    <div class="text-xs text-slate-500 mt-1">
+      {{ inc.count }} payment{{ '' if inc.count == 1 else 's' }}
+      from {{ inc.payers }}
+      {{ 'person' if inc.payers == 1 else 'people' }}
+    </div>
+  </div>
+
+  <!-- Online and Cash Summary -->
+  <div class="grid grid-cols-2 gap-2 mb-4 text-center">
+
+    <div class="card p-3">
+      <div class="text-[11px] text-slate-400">
+        <i class="fa-solid fa-mobile-screen mr-1"></i>
+        Online
+      </div>
+
+      <div class="font-bold text-slate-800">
+        ₹{{ '{:,.0f}'.format(inc.online) }}
+      </div>
+    </div>
+
+    <div class="card p-3">
+      <div class="text-[11px] text-slate-400">
+        <i class="fa-solid fa-money-bill-wave mr-1"></i>
+        Cash
+      </div>
+
+      <div class="font-bold text-slate-800">
+        ₹{{ '{:,.0f}'.format(inc.cash) }}
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Rent and Due Summary -->
+  {% if which == 'this' %}
+  <div class="grid grid-cols-2 gap-2 mb-5 text-center">
+
+    <div class="card p-3">
+      <div class="text-[11px] text-slate-400">
+        Total monthly rent of students
+      </div>
+
+      <div class="font-bold text-slate-800">
+        ₹{{ '{:,.0f}'.format(rent_roll) }}
+      </div>
+    </div>
+
+    <div class="card p-3">
+      <div class="text-[11px] text-slate-400">
+        Due now ({{ due_count }} student{{ '' if due_count == 1 else 's' }})
+      </div>
+
+      <div class="font-bold text-danger">
+        ₹{{ '{:,.0f}'.format(due_total) }}
+      </div>
+    </div>
+
+  </div>
+  {% endif %}
+
+  <!-- Empty State: Last Month -->
+  {% if which == 'last' and not inc.rows %}
+  <div class="card p-8 text-center">
+    <p class="text-slate-500 text-sm">
+      No payments were recorded for {{ inc.label }}.
+      The app started tracking payments in October 2026.
+    </p>
+  </div>
+  {% endif %}
+
+  <!-- Payment History -->
+  {% if inc.rows %}
+
+  <h2 class="font-bold text-slate-700 mb-2">
+    {% if which == 'student' %}
+      Payments
+    {% else %}
+      All payments counted in {{ inc.label }}
+    {% endif %}
+  </h2>
+
+  <div class="space-y-2">
+
+    {% for e in inc.rows %}
+
+    <div class="card p-3 {{ 'border-l-4 border-danger' if e.deleted else '' }}">
+
+      <div class="flex items-center gap-3">
+
+        <!-- Payment Information -->
+        <div class="min-w-0 flex-1">
+
+          <p class="font-semibold text-slate-800 truncate">
+            {{ e.name }}
+
+            {% if e.deleted %}
+            <span class="text-[10px] font-bold text-danger">
+              (deleted student)
+            </span>
+            {% endif %}
+          </p>
+
+          <p class="text-xs text-slate-500">
+            {{ e.date.isoformat()|pretty_date }}
+            &bull; {{ e.hostel }}
+            {{ room_label(e.room_number) }}
+            &bull; {{ e.mode or 'Online' }}
+
+            {% if e.paid_to %}
+              &bull; {{ e.paid_to }}
+            {% endif %}
+          </p>
+
+          {% if e.overridden %}
+
+          <p class="text-[11px] font-semibold text-amber-600 mt-0.5">
+            <i class="fa-solid fa-calendar-check mr-1"></i>
+            Counted in {{ cycle_label(e.month_key) }} (set by you)
+          </p>
+
+          {% elif which == 'student' %}
+
+          <p class="text-[11px] text-slate-400 mt-0.5">
+            Counted in {{ cycle_label(e.month_key) }}
+          </p>
+
+          {% endif %}
+
+        </div>
+
+        <!-- Payment Amount -->
+        <div class="font-bold text-success shrink-0">
+          ₹{{ '{:,.0f}'.format(e.amount) }}
+        </div>
+
+      </div>
+
+      <!-- Edit and Delete Actions -->
+      {% if e.kind != 'deleted' %}
+
+      <div class="flex gap-2 mt-2">
+
+        <a
+          href="{{ url_for(
+            'edit_payment',
+            kind=e.kind,
+            ref_id=e.ref_id,
+            student=(student.id if student else None),
+            m=(which if which in ('this', 'last') else None)
+          ) }}"
+          class="btn-edit flex-1 text-center text-xs px-3 py-2"
+        >
+          <i class="fa-solid fa-pen mr-1"></i>
+          Edit / change month
+        </a>
+
+        <form
+          method="POST"
+          action="{{ url_for('delete_payment_event', kind=e.kind, ref_id=e.ref_id) }}"
+          class="delete-payment-form shrink-0"
+          data-payment-name="{{ e.name }}"
+          data-payment-amount="{{ '{:,.0f}'.format(e.amount) }}"
+        >
+
+          <input
+            type="hidden"
+            name="csrf_token"
+            value="{{ csrf_token() }}"
+          >
+
+          {% if student %}
+          <input
+            type="hidden"
+            name="student"
+            value="{{ student.id }}"
+          >
+          {% endif %}
+
+          {% if which in ('this', 'last') %}
+          <input
+            type="hidden"
+            name="m"
+            value="{{ which }}"
+          >
+          {% endif %}
+
+          <button
+            type="submit"
+            class="w-10 h-9 rounded-lg border border-red-200 text-danger hover:bg-red-50"
+            title="Delete this payment"
+            aria-label="Delete payment"
+          >
+            <i class="fa-solid fa-trash"></i>
+          </button>
+
+        </form>
+
+      </div>
+
+      {% else %}
+
+      <p class="mt-2 text-[11px] text-slate-400">
+        Restore this student from Deleted Students to change their payment.
+      </p>
+
+      {% endif %}
+
+    </div>
+
+    {% endfor %}
+
+  </div>
+
+  {% elif which == 'student' %}
+
+  <!-- Empty State: Student -->
+  <div class="card p-8 text-center">
+    <p class="text-slate-500 text-sm">
+      No payments recorded for this student.
+    </p>
+  </div>
+
+  {% endif %}
+
+</div>
+
+<!-- JavaScript Confirmation -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  document.querySelectorAll('.delete-payment-form').forEach(function (form) {
+
+    form.addEventListener('submit', function (event) {
+
+      const paymentName = form.dataset.paymentName || 'this student';
+      const paymentAmount = form.dataset.paymentAmount || '0';
+
+      const message =
+        'Delete this ₹' + paymentAmount +
+        ' payment of ' + paymentName +
+        '? This cannot be undone.';
+
+      if (!window.confirm(message)) {
+        event.preventDefault();
+      }
+
+    });
+
+  });
+
+});
+</script>
+
+{% endblock %}
+```

@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+{% block title %}Guests — Hostel Management System{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto animate-slide-up">
+
+  <div class="flex items-center gap-3 mb-5">
+    <a href="{{ url_for('admin_dashboard') }}" class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-primary transition shrink-0">
+      <i class="fa-solid fa-arrow-left"></i>
+    </a>
+    <div class="min-w-0">
+      <h1 class="text-2xl font-bold text-slate-800">Guests</h1>
+      <p class="text-slate-500 text-sm">People staying for a few days. Charged per day, kept separate from students.</p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5 text-center">
+    <div class="card p-3"><div class="text-[11px] text-slate-400">Staying</div><div class="font-bold text-slate-800">{{ totals.staying }}</div></div>
+    <div class="card p-3"><div class="text-[11px] text-slate-400">Total</div><div class="font-bold text-slate-800">₹{{ '{:,.0f}'.format(totals.total) }}</div></div>
+    <div class="card p-3"><div class="text-[11px] text-slate-400">Paid</div><div class="font-bold text-success">₹{{ '{:,.0f}'.format(totals.paid) }}</div></div>
+    <div class="card p-3"><div class="text-[11px] text-slate-400">Due</div><div class="font-bold text-danger">₹{{ '{:,.0f}'.format(totals.balance) }}</div></div>
+  </div>
+
+  <details class="card p-4 mb-5" {% if not guests %}open{% endif %}>
+    <summary class="font-bold text-primary cursor-pointer"><i class="fa-solid fa-user-plus mr-2"></i>Add a guest</summary>
+    <form method="POST" action="{{ url_for('guest_add') }}" class="grid grid-cols-2 gap-3 mt-4" id="guestForm">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label class="col-span-2 text-sm font-semibold text-slate-600">Guest name *
+        <input type="text" name="name" required maxlength="80" class="form-input w-full mt-1"></label>
+      <label class="text-sm font-semibold text-slate-600">Mobile (optional)
+        <input type="tel" name="contact" maxlength="14" inputmode="numeric" class="form-input w-full mt-1"></label>
+      <label class="text-sm font-semibold text-slate-600">Check-in date
+        <input type="date" name="check_in" value="{{ today_iso() }}" class="form-input w-full mt-1"></label>
+      <label class="text-sm font-semibold text-slate-600">Hostel (optional)
+        <select name="hostel" class="form-input w-full mt-1"><option value="">-</option>{% for h in HOSTELS %}<option>{{ h }}</option>{% endfor %}</select></label>
+      <label class="text-sm font-semibold text-slate-600">Room (optional)
+        <select name="room_number" class="form-input w-full mt-1"><option value="">-</option>{% for r in ROOMS %}<option value="{{ r }}">Room {{ r }}</option>{% endfor %}<option value="{{ HALL_ROOM_NUMBER }}">Hall (New Hostel)</option></select></label>
+      <label class="text-sm font-semibold text-slate-600">Number of days *
+        <input type="number" name="days" id="gDays" min="1" max="365" step="1" required class="form-input w-full mt-1"></label>
+      <label class="text-sm font-semibold text-slate-600">Rate per day (₹) *
+        <input type="number" name="rate_per_day" id="gRate" min="0" step="1" required class="form-input w-full mt-1"></label>
+      <div class="col-span-2 bg-blue-50 rounded-xl px-4 py-3 text-sm font-bold text-primary">Total: ₹<span id="gTotal">0</span></div>
+      <label class="text-sm font-semibold text-slate-600">Paid now (₹)
+        <input type="number" name="amount_paid" id="gPaid" min="0" step="1" value="0" class="form-input w-full mt-1"></label>
+      <label class="text-sm font-semibold text-slate-600">Mode
+        <select name="payment_mode" class="form-input w-full mt-1">{% for m in PAYMENT_MODES %}<option>{{ m }}</option>{% endfor %}</select></label>
+      <label class="col-span-2 text-sm font-semibold text-slate-600">Paid to
+        <input type="text" name="paid_to" maxlength="80" class="form-input w-full mt-1"></label>
+      <label class="col-span-2 text-sm font-semibold text-slate-600">Note
+        <input type="text" name="note" maxlength="300" class="form-input w-full mt-1"></label>
+      <button type="submit" class="btn-primary col-span-2 py-3"><i class="fa-solid fa-plus mr-1"></i> Add guest</button>
+    </form>
+  </details>
+
+  {% if not guests %}
+  <div class="card p-10 text-center"><i class="fa-solid fa-suitcase text-slate-300 text-3xl mb-3"></i><p class="text-slate-500">No guests yet.</p></div>
+  {% endif %}
+
+  <div class="space-y-3">
+    {% for g in guests %}
+    <div class="card p-4 border-l-4 {{ 'border-success' if g.status == 'STAYING' else 'border-slate-300' }}">
+      <div class="flex justify-between items-start gap-3">
+        <div class="min-w-0 flex-1">
+          <h3 class="font-bold text-slate-800 truncate">{{ g.name }}</h3>
+          <p class="text-xs text-slate-500 mt-0.5">{{ g.check_in|pretty_date }} &bull; {{ g.days }} day{{ '' if g.days == 1 else 's' }} (till {{ g.last_day|pretty_date }}){% if g.place %} &bull; {{ g.place }}{% endif %}</p>
+          {% if g.contact %}<p class="text-xs text-slate-400"><i class="fa-solid fa-phone text-[10px] mr-1"></i>{{ g.contact }}</p>{% endif %}
+          {% if g.note %}<p class="text-xs text-slate-400 italic">{{ g.note }}</p>{% endif %}
+        </div>
+        <span class="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full {{ 'bg-green-100 text-green-700' if g.status == 'STAYING' else 'bg-slate-100 text-slate-500' }}">{{ g.status.title() }}</span>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 text-center">
+        <div class="mini-stat"><span class="block text-[10px] text-slate-400">Per day</span>₹{{ '{:,.0f}'.format(g.rate_per_day) }}</div>
+        <div class="mini-stat"><span class="block text-[10px] text-slate-400">Total</span>₹{{ '{:,.0f}'.format(g.total_amount) }}</div>
+        <div class="mini-stat"><span class="block text-[10px] text-slate-400">Paid</span>₹{{ '{:,.0f}'.format(g.amount_paid) }}</div>
+        <div class="mini-stat {{ 'text-danger' if g.balance > 0 else 'text-success' }}"><span class="block text-[10px] text-slate-400">Due</span>₹{{ '{:,.0f}'.format(g.balance) }}</div>
+      </div>
+      {% if g.balance > 0 %}
+      <form method="POST" action="{{ url_for('guest_pay', guest_id=g.id) }}" class="flex flex-wrap gap-2 mt-3">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="number" name="amount" min="1" max="{{ g.balance|int }}" step="1" placeholder="Amount" required class="form-input text-sm py-2 w-24">
+        <select name="payment_mode" class="form-input text-sm py-2">{% for m in PAYMENT_MODES %}<option>{{ m }}</option>{% endfor %}</select>
+        <input type="text" name="paid_to" placeholder="Paid to" maxlength="80" class="form-input text-sm py-2 flex-1 min-w-[7rem]">
+        <button type="submit" class="btn-primary px-4 py-2 text-sm w-full sm:w-auto">Receive</button>
+      </form>
+      {% endif %}
+      <div class="flex flex-wrap gap-2 mt-3">
+        <form method="POST" action="{{ url_for('guest_extend', guest_id=g.id) }}" class="flex gap-1 items-center">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="number" name="days" min="1" step="1" value="1" class="form-input text-sm py-1.5 w-16">
+          <button type="submit" class="btn-outline text-xs px-3 py-2">+ Days</button>
+        </form>
+        {% if g.status == 'STAYING' %}
+        <form method="POST" action="{{ url_for('guest_checkout', guest_id=g.id) }}" onsubmit="return confirm('Check out {{ g.name|e }}?');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn-outline text-xs px-3 py-2"><i class="fa-solid fa-door-open mr-1"></i> Check out</button>
+        </form>
+        {% endif %}
+        <form method="POST" action="{{ url_for('guest_delete', guest_id=g.id) }}" class="ml-auto" onsubmit="return confirm('Delete {{ g.name|e }} and their payment record?');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="px-3 py-2 rounded-xl border border-red-200 text-danger text-xs font-semibold hover:bg-red-50"><i class="fa-solid fa-trash"></i></button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+  (function () {
+    var d = document.getElementById('gDays'), r = document.getElementById('gRate'), t = document.getElementById('gTotal'), p = document.getElementById('gPaid');
+    if (!d) return;
+    function calc() { var v = Math.max(0, (+d.value || 0) * (+r.value || 0)); t.textContent = v.toLocaleString('en-IN'); p.max = v; }
+    d.addEventListener('input', calc); r.addEventListener('input', calc);
+  })();
+</script>
+{% endblock %}

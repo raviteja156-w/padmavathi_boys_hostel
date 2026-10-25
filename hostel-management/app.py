@@ -328,6 +328,75 @@ def init_db():
     cur.execute('CREATE INDEX IF NOT EXISTS idx_paused_student ON paused_beds(student_id)')
     # Lets a student dismiss the green "Payment Confirmed" notification on their dashboard.
     cur.execute("ALTER TABLE payment_submissions ADD COLUMN IF NOT EXISTS student_seen INTEGER NOT NULL DEFAULT 0")
+
+    # DELETED STUDENTS: deleting a student now moves a full copy here so the admin can see and RESTORE them.
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS deleted_students (
+            id SERIAL PRIMARY KEY,
+            original_id INTEGER,
+            hostel TEXT NOT NULL,
+            room_number INTEGER NOT NULL,
+            sharing INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            contact TEXT NOT NULL DEFAULT '',
+            total_rent REAL NOT NULL DEFAULT 0,
+            amount_paid REAL NOT NULL DEFAULT 0,
+            balance REAL NOT NULL DEFAULT 0,
+            photo_filename TEXT,
+            note TEXT NOT NULL DEFAULT '',
+            due_date INTEGER,
+            date_of_join TEXT,
+            payment_date TEXT,
+            payment_mode TEXT,
+            cash_amount REAL,
+            paid_to TEXT,
+            receipt_filename TEXT,
+            created_at TEXT,
+            deleted_at TEXT NOT NULL,
+            deleted_cycle TEXT NOT NULL
+        )
+    ''')
+
+    # GUESTS: people who stay only for a few days. Kept separate from students and their monthly totals.
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS guests (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL,
+            contact TEXT NOT NULL DEFAULT '',
+            hostel TEXT,
+            room_number INTEGER,
+            check_in TEXT NOT NULL,
+            days INTEGER NOT NULL CHECK(days BETWEEN 1 AND 365),
+            rate_per_day REAL NOT NULL DEFAULT 0,
+            total_amount REAL NOT NULL DEFAULT 0,
+            amount_paid REAL NOT NULL DEFAULT 0,
+            payment_mode TEXT,
+            paid_to TEXT,
+            note TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'STAYING',
+            check_out TEXT,
+            created_at TEXT NOT NULL
+        )
+    ''')
+
+    # Which month a payment counts in for INCOME reports when the admin overrides it ('YYYY-MM'); NULL = by payment date.
+    cur.execute("ALTER TABLE payment_submissions ADD COLUMN IF NOT EXISTS income_month TEXT")
+    cur.execute("ALTER TABLE payment_history ADD COLUMN IF NOT EXISTS income_month TEXT")
+    cur.execute("ALTER TABLE students ADD COLUMN IF NOT EXISTS income_month TEXT")
+
+    # Audit trail for payments the admin deletes (so a wrong delete can be traced and re-entered).
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS payment_delete_log (
+            id SERIAL PRIMARY KEY,
+            student_id INTEGER,
+            name TEXT,
+            hostel TEXT,
+            room_number INTEGER,
+            amount REAL,
+            detail TEXT,
+            deleted_at TEXT NOT NULL
+        )
+    ''')
     conn.commit()
     cur.close()
     conn.close()
@@ -450,6 +519,120 @@ def save_photo(file_storage):
     return upload_photo_to_supabase(image_bytes, storage_filename)
 
 
+def archive_student(db, student):
+    """Saves a full copy of a student into deleted_students BEFORE the row is removed, so the admin
+    can restore them later. The photo is kept in storage for the same reason."""
+    st = dict(student)
+    db.execute('''
+        INSERT INTO deleted_students
+        (original_id, hostel, room_number, sharing, name, contact, total_rent, amount_paid, balance,
+         photo_filename, note, due_date, date_of_join, payment_date, payment_mode, cash_amount, paid_to,
+         receipt_filename, created_at, deleted_at, deleted_cycle)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+    ''', (st['id'], st['hostel'], st['room_number'], st['sharing'], st['name'], st.get('contact') or '',
+          st.get('total_rent') or 0, st.get('amount_paid') or 0, st.get('balance') or 0,
+          st.get('photo_filename'), st.get('note') or '', st.get('due_date'), st.get('date_of_join'),
+          st.get('payment_date'), st.get('payment_mode'), st.get('cash_amount'), st.get('paid_to'),
+          st.get('receipt_filename'), st.get('created_at'), now_ist().isoformat(), current_cycle()))
+
+
+def do_delete_student(db, student):
+    """Deleting a student always goes through here: copy to Deleted Students first, then remove."""
+    archive_student(db, student)
+    db.execute('DELETE FROM students WHERE id=%s', (student['id'],))
+    db.commit()
+
+
+def do_restore_deleted(db, deleted_id):
+    """Puts a deleted student back. Returns (ok, message, row)."""
+    row = db.execute('SELECT * FROM deleted_students WHERE id=%s', (deleted_id,)).fetchone()
+    if not row:
+        return False, 'That student is no longer in the deleted list.', None
+    row = dict(row)
+    ok, msg = check_capacity(db, row['hostel'], row['room_number'], row['sharing'])
+    if not ok:
+        return False, f"Cannot restore {row['name']}: {msg} Free a bed first, then restore.", row
+    # If the month changed since they were deleted, their old payment details no longer apply.
+    same_month = row['deleted_cycle'] == current_cycle()
+    rent = row['total_rent'] or 0
+    paid = (row['amount_paid'] or 0) if same_month else 0
+    balance = max(round(rent - paid, 2), 0)
+    now_iso = datetime.utcnow().isoformat()
+    new = db.execute('''
+        INSERT INTO students
+        (hostel, room_number, sharing, name, contact, total_rent, amount_paid, balance, photo_filename, note,
+         due_date, date_of_join, payment_date, payment_mode, cash_amount, paid_to, receipt_filename,
+         created_at, updated_at)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        RETURNING id
+    ''', (row['hostel'], row['room_number'], row['sharing'], row['name'], row['contact'] or '',
+          rent, paid, balance, row['photo_filename'], row['note'] or '', row['due_date'], row['date_of_join'],
+          row['payment_date'] if same_month else None, row['payment_mode'] if same_month else None,
+          row['cash_amount'] if same_month else None, row['paid_to'] if same_month else None,
+          row['receipt_filename'] if same_month else None,
+          row['created_at'] or now_iso, now_iso)).fetchone()
+    # Re-attach this student's old payment notifications (they were detached when the student was deleted).
+    db.execute('''UPDATE payment_submissions SET student_id=%s
+                  WHERE student_id IS NULL AND name=%s AND hostel=%s AND room_number=%s''',
+               (new['id'], row['name'], row['hostel'], row['room_number']))
+    db.execute('DELETE FROM deleted_students WHERE id=%s', (deleted_id,))
+    db.commit()
+    return True, f"{row['name']} was restored to {row['hostel']} • {room_label(row['room_number'])}.", row
+
+
+def _log_payment_delete(db, student_id, name, hostel, room_number, amount, detail):
+    db.execute('''INSERT INTO payment_delete_log (student_id, name, hostel, room_number, amount, detail, deleted_at)
+                  VALUES (%s,%s,%s,%s,%s,%s,%s)''',
+               (student_id, name, hostel, room_number, amount, detail, now_ist().isoformat()))
+
+
+def do_clear_student_payment(db, student_id):
+    """Deletes a student's payment details for this month: Total Paid -> 0, full rent is the balance, and
+    their confirmed payment notifications of this month are removed. Returns (ok, name, amount_removed)."""
+    st = db.execute('SELECT * FROM students WHERE id=%s', (student_id,)).fetchone()
+    if not st:
+        return False, None, 0
+    amount = st['amount_paid'] or 0
+    month_start = today_ist().replace(day=1).isoformat()
+    _log_payment_delete(db, st['id'], st['name'], st['hostel'], st['room_number'], amount,
+                        f"Payment deleted (mode: {st.get('payment_mode') or '-'}, paid to: {st.get('paid_to') or '-'})")
+    db.execute('''UPDATE students SET amount_paid=0, balance=total_rent, payment_date=NULL, payment_mode=NULL,
+                  cash_amount=NULL, paid_to=NULL, receipt_filename=NULL, income_month=NULL, updated_at=%s WHERE id=%s''',
+               (datetime.utcnow().isoformat(), student_id))
+    db.execute('''DELETE FROM payment_submissions WHERE student_id=%s AND status='CONFIRMED'
+                  AND COALESCE(confirmed_at, submitted_at) >= %s''', (student_id, month_start))
+    db.execute('DELETE FROM month_payment_dismissals WHERE student_id=%s', (student_id,))
+    db.commit()
+    return True, st['name'], amount
+
+
+def reset_counts(db):
+    r = db.execute('SELECT COUNT(*) AS n, COALESCE(SUM(amount_paid),0) AS amt FROM students WHERE amount_paid > 0').fetchone()
+    p = db.execute("SELECT COUNT(*) AS n, COALESCE(SUM(CASE WHEN status='PENDING' THEN 1 ELSE 0 END),0) AS pend FROM payment_submissions").fetchone()
+    return {'students': r['n'] or 0, 'amount': r['amt'] or 0, 'records': p['n'] or 0, 'pending': p['pend'] or 0}
+
+
+def do_reset_all_payments(db):
+    """Deletes ALL payment details: every student's Paid goes to 0 (balance = full rent) and every
+    payment record / receipt that students uploaded is removed. Returns the counts that were deleted."""
+    counts = reset_counts(db)
+    files = {r['proof_filename'] for r in db.execute('SELECT proof_filename FROM payment_submissions WHERE proof_filename IS NOT NULL').fetchall()}
+    files |= {r['receipt_filename'] for r in db.execute('SELECT receipt_filename FROM students WHERE receipt_filename IS NOT NULL').fetchall()}
+    _log_payment_delete(db, None, '[ALL STUDENTS]', None, None, counts['amount'],
+                        f"ALL payment details deleted: {counts['students']} student(s) back to Paid 0, {counts['records']} payment record(s) removed")
+    db.execute('''UPDATE students SET amount_paid=0, balance=total_rent, payment_date=NULL, payment_mode=NULL,
+                  cash_amount=NULL, paid_to=NULL, receipt_filename=NULL, income_month=NULL, updated_at=%s''', (datetime.utcnow().isoformat(),))
+    db.execute('DELETE FROM payment_submissions')
+    db.execute('DELETE FROM month_payment_dismissals')
+    db.commit()
+    for f in files:                      # best effort: remove the uploaded receipt images too
+        try:
+            delete_photo(f)
+        except Exception:
+            pass
+    return counts
+
+
 def delete_photo(photo_value):
     delete_photo_from_supabase(photo_value)
 
@@ -505,6 +688,8 @@ PHOTO_PLACEHOLDER = 'data:image/svg+xml;base64,' + base64.b64encode(b'''
 '''.strip()).decode('ascii')
 
 app.jinja_env.globals['photo_url'] = photo_url
+app.jinja_env.globals['cycle_label'] = lambda c: cycle_label(c)   # '2026-10' -> 'October 2026' (resolved at call time)
+app.jinja_env.globals['PAYMENT_MODES'] = PAYMENT_MODES
 app.jinja_env.globals['PHOTO_PLACEHOLDER'] = PHOTO_PLACEHOLDER
 
 
@@ -800,99 +985,322 @@ def effective_due_day(student, year, month):
     return min(int(day), calendar.monthrange(year, month)[1])
 
 
-def get_due_students(db):
-    """Students whose due day has arrived this month and who still have a balance.
-    Nothing is due before LAUNCH_DATE."""
+EARLY_PAY_DAYS = 2   # a payment counts for a due date from 2 days BEFORE that date (set by the admin)
+UPCOMING_DAYS = 7    # "Coming up" shows rent falling due in the next 7 days
+
+
+def _billing_period_start(db):
+    """First day of the month whose payments are still stored on the students (changes only when the admin
+    answers Yes to the month-end question)."""
+    row = db.execute("SELECT value FROM app_settings WHERE key = 'billing_cycle'").fetchone()
+    try:
+        return datetime.strptime(row['value'] + '-01', '%Y-%m-%d').date()
+    except (TypeError, ValueError, KeyError):
+        return today_ist().replace(day=1)
+
+
+def build_payment_events(db):
+    """Every payment the app knows about, each with its own DATE and an identity (kind + ref_id) so it can be
+    edited: 'history' (a saved month), 'submission' (a confirmed student payment), 'record' (what the admin
+    recorded on the student), 'deleted' (a deleted student). month_key is the month it counts in for income:
+    the admin's override if set, otherwise the month of the payment date. Read only."""
+    today = today_ist()
+    period_start = _billing_period_start(db)
+    active = {r['id']: dict(r) for r in db.execute('SELECT * FROM students').fetchall()}
+    events = []
+
+    for r in db.execute('SELECT * FROM payment_history WHERE amount_paid > 0').fetchall():
+        d_ = (parse_iso_date(r['payment_date']) or parse_iso_date((r['billing_month'] or '') + '-01') or period_start)
+        events.append({'kind': 'history', 'ref_id': r['id'], 'income_month': r.get('income_month'), 'base': 0,
+                       'student_id': r['student_id'], 'name': r['name'], 'hostel': r['hostel'], 'room_number': r['room_number'],
+                       'date': d_, 'amount': r['amount_paid'] or 0, 'mode': r['payment_mode'], 'paid_to': r['paid_to'],
+                       'cash': r['cash_amount'], 'deleted': r['student_id'] not in active, 'source': 'history'})
+
+    subs = {}
+    for r in db.execute("""SELECT * FROM payment_submissions WHERE status='CONFIRMED' AND student_id IS NOT NULL
+                           AND COALESCE(confirmed_at, submitted_at) >= %s""", (period_start.isoformat(),)).fetchall():
+        subs.setdefault(r['student_id'], []).append(dict(r))
+    for sid, st in active.items():
+        paid = st['amount_paid'] or 0
+        if paid <= 0:
+            continue
+        base = {'student_id': sid, 'name': st['name'], 'hostel': st['hostel'], 'room_number': st['room_number'],
+                'deleted': False, 'source': 'current'}
+        own = subs.get(sid, [])
+        sub_total = sum(x['amount'] or 0 for x in own)
+        if own and sub_total <= paid + 0.005:
+            for x in own:
+                d_ = (parse_iso_date(x.get('payment_date')) or parse_iso_date((x.get('confirmed_at') or x.get('submitted_at') or '')[:10])
+                      or period_start)
+                events.append(dict(base, kind='submission', ref_id=x['id'], income_month=x.get('income_month'), base_amount=0,
+                                   date=d_, amount=x['amount'] or 0, mode=x.get('payment_mode') or 'Online',
+                                   paid_to=x.get('paid_to'), cash=x.get('cash_amount')))
+            rest = round(paid - sub_total, 2)
+            if rest > 0.005:
+                events.append(dict(base, kind='record', ref_id=sid, income_month=st.get('income_month'), base_amount=sub_total,
+                                   date=parse_iso_date(st.get('payment_date')) or period_start, amount=rest,
+                                   mode=st.get('payment_mode'), paid_to=st.get('paid_to'), cash=None))
+        else:
+            events.append(dict(base, kind='record', ref_id=sid, income_month=st.get('income_month'), base_amount=0,
+                               date=parse_iso_date(st.get('payment_date')) or period_start, amount=paid,
+                               mode=st.get('payment_mode'), paid_to=st.get('paid_to'), cash=st.get('cash_amount')))
+
+    for r in db.execute('SELECT * FROM deleted_students WHERE amount_paid > 0').fetchall():
+        d_ = parse_iso_date(r['payment_date']) or parse_iso_date((r['deleted_at'] or '')[:10]) or today
+        events.append({'kind': 'deleted', 'ref_id': r['id'], 'income_month': None, 'base': 0,
+                       'student_id': None, 'name': r['name'], 'hostel': r['hostel'], 'room_number': r['room_number'],
+                       'date': d_, 'amount': r['amount_paid'] or 0, 'mode': r['payment_mode'], 'paid_to': r['paid_to'],
+                       'cash': r['cash_amount'], 'deleted': True, 'source': 'deleted'})
+    for e in events:
+        e.setdefault('base_amount', 0)
+        e['month_key'] = e.get('income_month') or e['date'].strftime('%Y-%m')
+        e['overridden'] = bool(e.get('income_month')) and e['income_month'] != e['date'].strftime('%Y-%m')
+    return events
+
+
+def _due_cycles(raw_day, start, end):
+    """The student's due dates between start and end: the same day every month (31 becomes 30 or 28 in short months)."""
+    out = []
+    y, m = start.year, start.month
+    while (y, m) <= (end.year, end.month):
+        d_ = date(y, m, min(raw_day, calendar.monthrange(y, m)[1]))
+        if start <= d_ <= end:
+            out.append(d_)
+        m += 1
+        if m > 12:
+            y, m = y + 1, 1
+    return out
+
+
+def evaluate_student_due(student, events, today):
+    """THE RULE. Rent falls due on the student's due day every month (the day of their join date, or the due
+    day the admin set). Payments are matched to due dates in order, oldest first, and a payment can only pay a
+    due date that is at most 2 days before it. So a payment made 8 days late belongs to the OLD due date, and
+    the next due date still comes up on its own day. Returns None when the student has no due day on record,
+    else {'due': [(date, amount)...], 'upcoming': [(date, amount)...]}."""
+    joined = parse_iso_date(student.get('date_of_join'))
+    raw = student.get('due_date') or (joined.day if joined else None)
+    if not raw:
+        return None
+    rent = float(student.get('total_rent') or 0)
+    start = max(LAUNCH_DATE, joined or LAUNCH_DATE)
+    end = today + timedelta(days=UPCOMING_DAYS)
+    # A payment dated in the future does not count yet (protects against a wrongly typed date hiding a due student).
+    pool = sorted([[e['date'], float(e['amount'] or 0)] for e in events if e['date'] <= today], key=lambda x: x[0])
+    due, upcoming = [], []
+    for d_ in _due_cycles(int(raw), start, end):
+        need = rent
+        for ev in pool:
+            if need <= 0.005:
+                break
+            if ev[1] <= 0.005 or ev[0] < d_ - timedelta(days=EARLY_PAY_DAYS):
+                continue
+            take = min(ev[1], need)
+            ev[1] -= take
+            need -= take
+        if need > 0.005:
+            (due if d_ <= today else upcoming).append((d_, round(need, 2)))
+    return {'due': due, 'upcoming': upcoming}
+
+
+def get_due_and_upcoming(db):
+    """(due_now, coming_up_in_7_days). Based on due dates and payment DATES, not on the calendar-month balance."""
     today = today_ist()
     if today < LAUNCH_DATE:
-        return []
-    rows = db.execute('SELECT * FROM students WHERE balance > 0').fetchall()
-    due = []
-    for row in rows:
+        return [], []
+    by_student = {}
+    for e in build_payment_events(db):
+        if e['student_id'] is not None and not e['deleted']:
+            by_student.setdefault(e['student_id'], []).append(e)
+    due_list, up_list = [], []
+    for row in db.execute('SELECT * FROM students').fetchall():
         s = dict(row)
-        due_day = effective_due_day(s, today.year, today.month)
-        if due_day is None or due_day > today.day:
-            continue
         joined = parse_iso_date(s.get('date_of_join'))
         if joined and joined > today:
             continue
-        s['due_day'] = due_day
-        s['due_on'] = date(today.year, today.month, due_day).isoformat()
-        s['days_overdue'] = today.day - due_day
-        due.append(s)
-    due.sort(key=lambda x: (x['due_day'], (x['name'] or '').lower()))
-    return due
+        res = evaluate_student_due(s, by_student.get(s['id'], []), today)
+        if res is None:
+            # No join date and no due date on record: fall back to the plain balance so nobody is hidden.
+            if (s.get('balance') or 0) > 0:
+                s.update(no_due_date=True, due_day=1, due_on=today.replace(day=1).isoformat(), days_overdue=today.day - 1,
+                         due_amount=s['balance'], cycles_due=1)
+                due_list.append(s)
+            continue
+        s['no_due_date'] = False
+        if res['due']:
+            first = res['due'][0][0]
+            s.update(due_day=first.day, due_on=first.isoformat(), days_overdue=(today - first).days,
+                     due_amount=round(sum(a for _, a in res['due']), 2), cycles_due=len(res['due']))
+            due_list.append(s)
+        elif res['upcoming']:
+            nxt = res['upcoming'][0][0]
+            s.update(due_day=nxt.day, due_on=nxt.isoformat(), days_until=(nxt - today).days, due_amount=res['upcoming'][0][1])
+            up_list.append(s)
+    due_list.sort(key=lambda x: (-x['days_overdue'], (x['name'] or '').lower()))
+    up_list.sort(key=lambda x: (x['days_until'], (x['name'] or '').lower()))
+    return due_list, up_list
 
 
-_rollover_checked_cycle = None
+def get_due_students(db):
+    return get_due_and_upcoming(db)[0]
 
 
-def ensure_monthly_rollover():
-    """On the first request of each new month (IST), copy every student's payment details into
-    payment_history and then blank them (amount paid, payment date, mode, receipt, cash amount,
-    paid to, note). Everything else stays. Safe with several workers: the billing_cycle row is
-    locked, so only one of them performs the reset."""
-    global _rollover_checked_cycle
+def get_upcoming_due_students(db, days=7):
+    return get_due_and_upcoming(db)[1]
+
+
+def _income_stats(rows):
+    total = round(sum(e['amount'] for e in rows), 2)
+    cash = 0.0
+    for e in rows:
+        if e['mode'] == 'Cash':
+            cash += e['amount']
+        elif e['mode'] == 'Online + Cash':
+            cash += min(e['cash'] or 0, e['amount'])
+    return {'rows': rows, 'total': total, 'count': len(rows), 'payers': len({(e['name'], e['room_number']) for e in rows}),
+            'cash': round(cash, 2), 'online': round(total - cash, 2)}
+
+
+def income_month_keys():
+    today = today_ist()
+    return today.strftime('%Y-%m'), (today.replace(day=1) - timedelta(days=1)).strftime('%Y-%m')
+
+
+def month_income_summary(db, which='this'):
+    """Money RECEIVED in a calendar month: each payment counts in the month of its payment date, unless the admin
+    moved it to this/last month. Includes payments of deleted students."""
+    this_key, last_key = income_month_keys()
+    key = last_key if which == 'last' else this_key
+    rows = [e for e in build_payment_events(db) if e['month_key'] == key]
+    rows.sort(key=lambda e: (e['date'], e['name'] or ''), reverse=True)
+    out = _income_stats(rows)
+    out.update({'key': key, 'label': cycle_label(key)})
+    return out
+
+
+def current_cycle():
+    return today_ist().strftime('%Y-%m')
+
+
+def cycle_label(cycle):
+    """'2026-10' -> 'October 2026'."""
+    try:
+        return datetime.strptime(cycle, '%Y-%m').strftime('%B %Y')
+    except (TypeError, ValueError):
+        return cycle or ''
+
+
+def pending_rollover_cycle(db):
+    """The month whose payment details are still on the students although a new month has started
+    (from 12:00 AM on the 1st, IST). None when nothing is waiting. NOTHING is deleted automatically:
+    the admin is asked every time the admin area is opened until they say yes."""
     today = today_ist()
     if today < LAUNCH_DATE:
-        return
-    cycle = today.strftime('%Y-%m')
-    if _rollover_checked_cycle == cycle:
-        return
+        return None
+    row = db.execute("SELECT value FROM app_settings WHERE key = 'billing_cycle'").fetchone()
+    if row is None:
+        # First run: same starting point the old automatic reset used.
+        db.execute("INSERT INTO app_settings (key, value) VALUES ('billing_cycle', %s) ON CONFLICT (key) DO NOTHING",
+                   (previous_month_label(LAUNCH_DATE),))
+        db.commit()
+        row = db.execute("SELECT value FROM app_settings WHERE key = 'billing_cycle'").fetchone()
+    closing = row['value']
+    return closing if closing < current_cycle() else None
 
+
+def perform_monthly_rollover():
+    """Only called after the admin answers YES. Copies every student's payment details into
+    payment_history, then blanks them (amount paid, payment date, mode, receipt, cash amount,
+    paid to, note) and moves the billing cycle to the current month. Safe with several workers:
+    the billing_cycle row is locked. Returns the closed month label, or None if nothing to do."""
+    cycle = current_cycle()
     conn = psycopg2.connect(DATABASE_URL)
+    closed = None
     try:
         cur = conn.cursor()
         cur.execute("SELECT value FROM app_settings WHERE key = 'billing_cycle' FOR UPDATE")
         row = cur.fetchone()
         if row is None:
-            cur.execute("INSERT INTO app_settings (key, value) VALUES ('billing_cycle', %s) ON CONFLICT (key) DO NOTHING",
-                        (previous_month_label(LAUNCH_DATE),))
-            cur.execute("SELECT value FROM app_settings WHERE key = 'billing_cycle' FOR UPDATE")
-            row = cur.fetchone()
+            conn.rollback()
+            return None
         closing_cycle = row[0]
-
         if closing_cycle < cycle:
             now_iso = datetime.utcnow().isoformat()
             cur.execute('''
                 INSERT INTO payment_history
                 (student_id, hostel, room_number, name, contact, billing_month, total_rent, amount_paid, balance,
-                 payment_date, payment_mode, cash_amount, paid_to, receipt_filename, note, archived_at)
+                 payment_date, payment_mode, cash_amount, paid_to, receipt_filename, note, archived_at, income_month)
                 SELECT id, hostel, room_number, name, contact, %s, total_rent, amount_paid, balance,
-                       payment_date, payment_mode, cash_amount, paid_to, receipt_filename, note, %s
+                       payment_date, payment_mode, cash_amount, paid_to, receipt_filename, note, %s, income_month
                 FROM students
             ''', (closing_cycle, now_iso))
             cur.execute('''
                 UPDATE students
                 SET amount_paid = 0, balance = total_rent, payment_date = NULL, payment_mode = NULL,
-                    cash_amount = NULL, paid_to = NULL, receipt_filename = NULL, note = '', updated_at = %s
+                    cash_amount = NULL, paid_to = NULL, receipt_filename = NULL, note = '', income_month = NULL, updated_at = %s
             ''', (now_iso,))
             cur.execute("UPDATE app_settings SET value = %s WHERE key = 'billing_cycle'", (cycle,))
+            closed = cycle_label(closing_cycle)
         conn.commit()
-        _rollover_checked_cycle = cycle
     except Exception:
         conn.rollback()
         app.logger.exception('Monthly payment rollover failed')
+        raise
     finally:
         conn.close()
+    return closed
 
 
 # --------------------------------------------------------------------------
 # INITIALIZE DATABASE ON STARTUP
 # --------------------------------------------------------------------------
 
-init_db()
+OCT_DELETED_SEED = [
+    # hostel, room, sharing, name, contact, rent, paid, join date, pay date, mode, paid to, deleted on
+    ('Old Hostel', 3, 6, 'B.Ram charan', '9121534983', 6000, 0, '2026-03-10', None, None, None, '2026-10-16'),
+    ('Old Hostel', 4, 4, 'Ch Srikanth', '8309184011', 3000, 3000, '2026-04-24', '2026-10-07', 'Online', 'Ravi Teja', '2026-10-16'),
+    ('Old Hostel', 6, 4, 'M Ajay', '7036692116', 3000, 3000, '2026-06-22', '2026-10-08', 'Online', 'Narayana', '2026-10-16'),
+    ('New Hostel', 4, 5, 'B Raju kumar', '8639759087', 2000, 2000, '2026-06-23', None, None, None, '2026-10-16'),
+    ('New Hostel', 4, 5, 'Vinodh', '9948772275', 2600, 2900, None, None, None, None, '2026-10-20'),
+    ('New Hostel', 11, 9, 'E. Vikram', '8555808628', 5500, 0, '2026-09-08', None, None, None, '2026-10-16'),
+]
 
 
-@app.before_request
-def _monthly_rollover_hook():
-    if request.endpoint == 'static':
-        return
+def seed_october_deleted_students():
+    """One time only: puts the students deleted in October 2026 into the Deleted Students list so they can be
+    restored. Skips anyone who is already a current student or already listed."""
+    conn = psycopg2.connect(DATABASE_URL)
     try:
-        ensure_monthly_rollover()
+        cur = conn.cursor()
+        cur.execute("SELECT 1 FROM app_settings WHERE key = 'seed_deleted_oct2026'")
+        if cur.fetchone():
+            return
+        now_iso = datetime.utcnow().isoformat()
+        for (hostel, room, sharing, name, contact, rent, paid, joined, pdate, mode, paid_to, deleted_on) in OCT_DELETED_SEED:
+            cur.execute('SELECT 1 FROM students WHERE LOWER(name)=LOWER(%s) AND hostel=%s AND room_number=%s', (name, hostel, room))
+            if cur.fetchone():
+                continue
+            cur.execute('SELECT 1 FROM deleted_students WHERE LOWER(name)=LOWER(%s) AND hostel=%s AND room_number=%s', (name, hostel, room))
+            if cur.fetchone():
+                continue
+            cur.execute('''
+                INSERT INTO deleted_students
+                (original_id, hostel, room_number, sharing, name, contact, total_rent, amount_paid, balance, note,
+                 date_of_join, payment_date, payment_mode, paid_to, created_at, deleted_at, deleted_cycle)
+                VALUES (NULL,%s,%s,%s,%s,%s,%s,%s,%s,'',%s,%s,%s,%s,%s,%s,'2026-10')
+            ''', (hostel, room, sharing, name, contact, rent, paid, max(rent - paid, 0), joined, pdate, mode, paid_to,
+                  now_iso, deleted_on + 'T00:00:00'))
+        cur.execute("INSERT INTO app_settings (key, value) VALUES ('seed_deleted_oct2026', 'done') ON CONFLICT (key) DO NOTHING")
+        conn.commit()
     except Exception:
-        app.logger.exception('Monthly payment rollover hook failed')
+        conn.rollback()
+        app.logger.exception('Could not add the October deleted students')
+    finally:
+        conn.close()
 
+
+init_db()
+seed_october_deleted_students()
 
 
 # --------------------------------------------------------------------------
@@ -1286,7 +1694,7 @@ def bot_make_empty():
     if not student:
         return jsonify({'ok': False, 'error': 'That member was not found (maybe already removed).'}), 404
     student = dict(student)
-    delete_photo(student['photo_filename'])
+    archive_student(db, student)   # keep a copy so it can be restored from "Deleted Students"
     db.execute('DELETE FROM students WHERE id=%s', (student_id,))
     db.commit()
 
@@ -1422,9 +1830,15 @@ def inject_admin_nav():
     """Small counters for the admin sidebar badges. Only runs on admin pages for a logged-in admin."""
     if not (session.get('admin_logged_in') and request.path.startswith('/admin')):
         return {}
-    counts = {'pending': 0, 'pauses': 0}
+    counts = {'pending': 0, 'pauses': 0, 'deleted': 0, 'guests': 0}
+    month_end = None
     try:
         db = get_db()
+        counts['deleted'] = db.execute('SELECT COUNT(*) AS c FROM deleted_students').fetchone()['c'] or 0
+        counts['guests'] = db.execute("SELECT COUNT(*) AS c FROM guests WHERE status='STAYING'").fetchone()['c'] or 0
+        closing = pending_rollover_cycle(db)
+        if closing:
+            month_end = {'closing': closing, 'label': cycle_label(closing), 'now_label': cycle_label(current_cycle())}
         counts['pending'] = db.execute("SELECT COUNT(*) AS c FROM payment_submissions WHERE status='PENDING'").fetchone()['c'] or 0
         counts['pauses'] = db.execute('SELECT COUNT(*) AS c FROM paused_beds WHERE end_date > %s',
                                       (today_ist().isoformat(),)).fetchone()['c'] or 0
@@ -1433,7 +1847,7 @@ def inject_admin_nav():
             get_db().conn.rollback()
         except Exception:
             pass
-    return {'admin_nav': counts}
+    return {'admin_nav': counts, 'month_end': month_end}
 
 
 @app.route('/admin/pause-bed')
@@ -1555,6 +1969,12 @@ assistant.register(app, {
     'current_payment_student': current_payment_student,
     'student_due_amount': student_due_amount,
     'room_label': room_label,
+    'do_delete_student': do_delete_student,
+    'do_restore_deleted': do_restore_deleted,
+    'do_clear_student_payment': do_clear_student_payment,
+    'do_reset_all_payments': do_reset_all_payments,
+    'reset_counts': reset_counts,
+    'month_income': month_income_summary,
 })
 
 
@@ -1567,10 +1987,11 @@ assistant.register(app, {
 def due_list():
     db = get_db()
     today = today_ist()
-    students = get_due_students(db)
+    students, upcoming = get_due_and_upcoming(db)
     return render_template(
         'due_list.html',
         students=students,
+        upcoming=upcoming,
         today=today.isoformat(),
         tracking_started=(today >= LAUNCH_DATE),
         launch_date=LAUNCH_DATE.isoformat(),
@@ -1945,6 +2366,316 @@ def clear_confirmed_notifications():
 
 
 # --------------------------------------------------------------------------
+# DELETED STUDENTS (view + restore)
+# --------------------------------------------------------------------------
+
+def _deleted_student_rows(db):
+    out = []
+    for r in db.execute('SELECT * FROM deleted_students ORDER BY id DESC').fetchall():
+        d = dict(r)
+        count, cap = room_occupancy(db, d['hostel'], d['room_number'])
+        d['room_full'] = count >= (cap if cap else d['sharing'])
+        d['deleted_on'] = (d.get('deleted_at') or '')[:10]
+        d['month_label'] = cycle_label(d.get('deleted_cycle'))
+        out.append(d)
+    return out
+
+
+@app.route('/admin/deleted-students')
+@login_required
+def deleted_students():
+    db = get_db()
+    students = _deleted_student_rows(db)
+    totals = {
+        'count': len(students),
+        'rent': sum(s['total_rent'] or 0 for s in students),
+        'paid': sum(s['amount_paid'] or 0 for s in students),
+        'balance': sum(s['balance'] or 0 for s in students),
+    }
+    return render_template('deleted_students.html', students=students, totals=totals)
+
+
+@app.route('/admin/deleted-students/<int:deleted_id>/restore', methods=['POST'])
+@login_required
+def restore_student(deleted_id):
+    if not validate_csrf(request.form.get('csrf_token')):
+        flash('Security check failed. Please try again.', 'error')
+        return redirect(url_for('deleted_students'))
+    ok, msg, _row = do_restore_deleted(get_db(), deleted_id)
+    flash(msg, 'success' if ok else 'error')
+    return redirect(url_for('deleted_students'))
+
+
+@app.route('/admin/deleted-students/<int:deleted_id>/purge', methods=['POST'])
+@login_required
+def purge_deleted_student(deleted_id):
+    """Permanently removes a student from the deleted list (cannot be restored afterwards)."""
+    if not validate_csrf(request.form.get('csrf_token')):
+        flash('Security check failed. Please try again.', 'error')
+        return redirect(url_for('deleted_students'))
+    db = get_db()
+    row = db.execute('SELECT * FROM deleted_students WHERE id=%s', (deleted_id,)).fetchone()
+    if not row:
+        flash('That student is no longer in the deleted list.', 'error')
+        return redirect(url_for('deleted_students'))
+    delete_photo(row['photo_filename'])
+    db.execute('DELETE FROM deleted_students WHERE id=%s', (deleted_id,))
+    db.commit()
+    flash(f"{row['name']} was permanently removed.", 'success')
+    return redirect(url_for('deleted_students'))
+
+
+# --------------------------------------------------------------------------
+# GUESTS (short stays, charged per day)
+# --------------------------------------------------------------------------
+
+def _num(raw, default=None):
+    try:
+        return float(str(raw).replace(',', '').strip())
+    except (TypeError, ValueError):
+        return default
+
+
+@app.route('/admin/guests')
+@login_required
+def guests():
+    db = get_db()
+    rows = [dict(r) for r in db.execute(
+        "SELECT * FROM guests ORDER BY CASE WHEN status='STAYING' THEN 0 ELSE 1 END, id DESC").fetchall()]
+    for g_ in rows:
+        ci = parse_iso_date(g_['check_in'])
+        g_['last_day'] = (ci + timedelta(days=g_['days'] - 1)).isoformat() if ci else None
+        g_['balance'] = max(round((g_['total_amount'] or 0) - (g_['amount_paid'] or 0), 2), 0)
+        g_['place'] = (f"{g_['hostel']} • {room_label(g_['room_number'])}" if g_['hostel'] and g_['room_number']
+                       else (g_['hostel'] or ''))
+    staying = [g_ for g_ in rows if g_['status'] == 'STAYING']
+    totals = {
+        'staying': len(staying),
+        'total': sum(g_['total_amount'] or 0 for g_ in rows),
+        'paid': sum(g_['amount_paid'] or 0 for g_ in rows),
+        'balance': sum(g_['balance'] for g_ in rows),
+    }
+    return render_template('guests.html', guests=rows, totals=totals)
+
+
+@app.route('/admin/guests/add', methods=['POST'])
+@login_required
+def guest_add():
+    if not validate_csrf(request.form.get('csrf_token')):
+        flash('Security check failed. Please try again.', 'error')
+        return redirect(url_for('guests'))
+    f = request.form
+    name = (f.get('name') or '').strip()
+    contact = (f.get('contact') or '').strip()
+    hostel = (f.get('hostel') or '').strip() or None
+    room = f.get('room_number') or ''
+    days = _num(f.get('days'))
+    rate = _num(f.get('rate_per_day'), 0)
+    paid = _num(f.get('amount_paid'), 0) or 0
+    mode = (f.get('payment_mode') or '').strip()
+    paid_to = (f.get('paid_to') or '').strip()
+    note = (f.get('note') or '').strip()[:300]
+    check_in = parse_iso_date(f.get('check_in')) or today_ist()
+
+    errors = []
+    if not name:
+        errors.append('Guest name is required.')
+    if contact:
+        ok, contact = validate_mobile(contact)
+        if not ok:
+            errors.append('Enter a valid 10-digit mobile number (or leave it blank).')
+    if hostel and hostel not in HOSTELS:
+        errors.append('Choose a valid hostel.')
+    room_number = None
+    if room:
+        try:
+            room_number = int(room)
+        except ValueError:
+            room_number = None
+        if room_number is None or not 1 <= room_number <= HALL_ROOM_NUMBER:
+            errors.append('Choose a valid room.')
+    if days is None or days < 1 or days != int(days) or days > 365:
+        errors.append('Number of days must be a whole number from 1 to 365.')
+    if rate is None or rate < 0:
+        errors.append('Rate per day cannot be negative.')
+    total = round((days or 0) * (rate or 0), 2)
+    if paid < 0 or paid > total:
+        errors.append('Amount paid must be between 0 and the total amount.')
+    if paid > 0 and mode not in PAYMENT_MODES:
+        errors.append('Choose how the guest paid (Online / Cash).')
+    if errors:
+        for e in errors:
+            flash(e, 'error')
+        return redirect(url_for('guests'))
+
+    db = get_db()
+    db.execute('''
+        INSERT INTO guests (name, contact, hostel, room_number, check_in, days, rate_per_day, total_amount,
+                            amount_paid, payment_mode, paid_to, note, status, created_at)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'STAYING',%s)
+    ''', (name, contact, hostel, room_number if hostel else None, check_in.isoformat(), int(days), rate, total,
+          paid, mode if paid > 0 else None, paid_to if paid > 0 else None, note, datetime.utcnow().isoformat()))
+    db.commit()
+    flash(f"Guest {name} added for {int(days)} day(s): ₹{total:,.0f} total.", 'success')
+    return redirect(url_for('guests'))
+
+
+@app.route('/admin/guests/<int:guest_id>/pay', methods=['POST'])
+@login_required
+def guest_pay(guest_id):
+    if not validate_csrf(request.form.get('csrf_token')):
+        flash('Security check failed. Please try again.', 'error')
+        return redirect(url_for('guests'))
+    db = get_db()
+    g_ = db.execute('SELECT * FROM guests WHERE id=%s', (guest_id,)).fetchone()
+    if not g_:
+        flash('That guest no longer exists.', 'error')
+        return redirect(url_for('guests'))
+    amount = _num(request.form.get('amount'))
+    mode = (request.form.get('payment_mode') or '').strip()
+    balance = round((g_['total_amount'] or 0) - (g_['amount_paid'] or 0), 2)
+    if amount is None or amount <= 0:
+        flash('Enter an amount greater than 0.', 'error')
+    elif amount > balance + 0.005:
+        flash(f"Amount is more than the balance (₹{balance:,.0f}).", 'error')
+    elif mode not in PAYMENT_MODES:
+        flash('Choose how the guest paid (Online / Cash).', 'error')
+    else:
+        db.execute('UPDATE guests SET amount_paid = amount_paid + %s, payment_mode=%s, paid_to=COALESCE(NULLIF(%s,\'\'), paid_to) WHERE id=%s',
+                   (amount, mode, (request.form.get('paid_to') or '').strip(), guest_id))
+        db.commit()
+        flash(f"₹{amount:,.0f} received from {g_['name']}.", 'success')
+    return redirect(url_for('guests'))
+
+
+@app.route('/admin/guests/<int:guest_id>/extend', methods=['POST'])
+@login_required
+def guest_extend(guest_id):
+    if not validate_csrf(request.form.get('csrf_token')):
+        flash('Security check failed. Please try again.', 'error')
+        return redirect(url_for('guests'))
+    db = get_db()
+    g_ = db.execute('SELECT * FROM guests WHERE id=%s', (guest_id,)).fetchone()
+    extra = _num(request.form.get('days'))
+    if not g_:
+        flash('That guest no longer exists.', 'error')
+    elif extra is None or extra < 1 or extra != int(extra) or (g_['days'] + int(extra)) > 365:
+        flash('Enter a whole number of extra days (1 or more).', 'error')
+    else:
+        extra = int(extra)
+        db.execute('UPDATE guests SET days = days + %s, total_amount = total_amount + %s, status=\'STAYING\', check_out=NULL WHERE id=%s',
+                   (extra, round(extra * (g_['rate_per_day'] or 0), 2), guest_id))
+        db.commit()
+        flash(f"{g_['name']}'s stay extended by {extra} day(s).", 'success')
+    return redirect(url_for('guests'))
+
+
+@app.route('/admin/guests/<int:guest_id>/checkout', methods=['POST'])
+@login_required
+def guest_checkout(guest_id):
+    if not validate_csrf(request.form.get('csrf_token')):
+        flash('Security check failed. Please try again.', 'error')
+        return redirect(url_for('guests'))
+    db = get_db()
+    g_ = db.execute('SELECT name FROM guests WHERE id=%s', (guest_id,)).fetchone()
+    if g_:
+        db.execute("UPDATE guests SET status='CHECKED OUT', check_out=%s WHERE id=%s", (today_ist().isoformat(), guest_id))
+        db.commit()
+        flash(f"{g_['name']} checked out.", 'success')
+    return redirect(url_for('guests'))
+
+
+@app.route('/admin/guests/<int:guest_id>/delete', methods=['POST'])
+@login_required
+def guest_delete(guest_id):
+    if not validate_csrf(request.form.get('csrf_token')):
+        flash('Security check failed. Please try again.', 'error')
+        return redirect(url_for('guests'))
+    db = get_db()
+    g_ = db.execute('SELECT name FROM guests WHERE id=%s', (guest_id,)).fetchone()
+    if g_:
+        db.execute('DELETE FROM guests WHERE id=%s', (guest_id,))
+        db.commit()
+        flash(f"Guest {g_['name']} deleted.", 'success')
+    return redirect(url_for('guests'))
+
+
+# --------------------------------------------------------------------------
+# DELETE PAYMENTS: one student (from This Month Payments) or everything (Reset All Payments)
+# --------------------------------------------------------------------------
+
+@app.route('/admin/month-payments/<int:student_id>/remove', methods=['POST'])
+@login_required
+def month_payment_remove(student_id):
+    """Really deletes this student's payment: Total Paid goes back to 0 (balance = full rent)."""
+    view = 'deleted' if request.form.get('view') == 'deleted' else None
+    if not validate_csrf(request.form.get('csrf_token')):
+        flash('Security check failed. Please try again.', 'error')
+        return redirect(url_for('month_payments', view=view))
+    ok, name, amount = do_clear_student_payment(get_db(), student_id)
+    if ok:
+        flash(f"{name}'s payment of ₹{amount:,.0f} was deleted. Paid is now ₹0.", 'success')
+    else:
+        flash('That student no longer exists.', 'error')
+    try:
+        idx = max(int(request.form.get('i', 0)), 0)
+    except ValueError:
+        idx = 0
+    return redirect(url_for('month_payments', i=idx, view=view))
+
+
+@app.route('/admin/reset-payments')
+@login_required
+def reset_payments():
+    return render_template('reset_payments.html', counts=reset_counts(get_db()))
+
+
+@app.route('/admin/reset-payments/confirm', methods=['POST'])
+@login_required
+def reset_payments_confirm():
+    """Deletes ALL payment details. Only runs when the admin typed DELETE."""
+    if not validate_csrf(request.form.get('csrf_token')):
+        flash('Security check failed. Please try again.', 'error')
+        return redirect(url_for('reset_payments'))
+    if (request.form.get('confirm_text') or '').strip().upper() != 'DELETE':
+        flash('Nothing was deleted. Type DELETE in the box to confirm.', 'error')
+        return redirect(url_for('reset_payments'))
+    try:
+        counts = do_reset_all_payments(get_db())
+    except Exception:
+        app.logger.exception('Reset all payments failed')
+        get_db().conn.rollback()
+        flash('Could not delete the payment details. Nothing was changed. Please try again.', 'error')
+        return redirect(url_for('reset_payments'))
+    flash(f"All payment details deleted: {counts['students']} student(s) are now Paid ₹0 "
+          f"(₹{counts['amount']:,.0f} removed) and {counts['records']} payment record(s) were removed.", 'success')
+    return redirect(url_for('admin_dashboard'))
+
+
+# --------------------------------------------------------------------------
+# MONTH END: "Can I delete last month's payment details?"
+# --------------------------------------------------------------------------
+
+@app.route('/admin/month-end/confirm', methods=['POST'])
+@login_required
+def month_end_confirm():
+    """Runs the monthly reset, but ONLY when the admin presses Yes."""
+    if not validate_csrf(request.form.get('csrf_token')):
+        flash('Security check failed. Please try again.', 'error')
+        return redirect(url_for('admin_dashboard'))
+    try:
+        closed = perform_monthly_rollover()
+    except Exception:
+        flash('Could not delete last month\'s payment details. Nothing was changed. Please try again.', 'error')
+        return redirect(url_for('admin_dashboard'))
+    if closed:
+        flash(f"{closed} payment details were deleted (a copy is saved in payment history). New month started.", 'success')
+    else:
+        flash('Nothing to delete: the new month was already started.', 'success')
+    return redirect(url_for('admin_dashboard'))
+
+
+# --------------------------------------------------------------------------
 # EDIT / DELETE STUDENT
 # --------------------------------------------------------------------------
 
@@ -2049,10 +2780,10 @@ def delete_student(student_id):
     student = db.execute('SELECT * FROM students WHERE id = %s', (student_id,)).fetchone()
     if not student:
         abort(404)
-    delete_photo(student['photo_filename'])
+    archive_student(db, student)   # keep a copy so it can be restored from "Deleted Students"
     db.execute('DELETE FROM students WHERE id = %s', (student_id,))
     db.commit()
-    flash(f"{student['name']} was deleted.", 'success')
+    flash(f"{student['name']} was deleted. You can bring them back from Deleted Students.", 'success')
     return redirect(url_for('admin_dashboard'))
 
 
@@ -2200,7 +2931,291 @@ def month_payments():
         'balance': sum(p['balance'] for p in active),
     }
     return render_template('month_payments.html', payments=active, deleted=deleted, view=view,
-                           start_index=start_index, totals=totals)
+                           start_index=start_index, totals=totals,
+                           income_this=month_income_summary(db, 'this'))
+
+
+CALC_CARDS = {
+    'students': ('Total Students', 'count', None),
+    'old': ('Old Hostel Students', 'count', 'Old Hostel'),
+    'new': ('New Hostel Students', 'count', 'New Hostel'),
+    'rent': ('Total Rent to Receive', 'rent', None),
+    'paid': ('Total Paid', 'paid', None),
+    'due': ('Balance Due', 'due', None),
+}
+
+
+def build_calculation(db, card):
+    """Explains a dashboard card student by student, using EXACTLY the same numbers as the card:
+    rent = each student's monthly rent; paid = payments the admin CONFIRMED this calendar month;
+    due = rent minus confirmed payments (never below 0)."""
+    title, kind, only_hostel = CALC_CARDS[card]
+    month_start = today_ist().replace(day=1).isoformat()
+    confirmed = {r['student_id']: (r['c'] or 0) for r in db.execute(
+        """SELECT student_id, SUM(amount) AS c FROM payment_submissions
+           WHERE status='CONFIRMED' AND confirmed_at >= %s AND student_id IS NOT NULL GROUP BY student_id""",
+        (month_start,)).fetchall()}
+    students = [dict(r) for r in db.execute('SELECT * FROM students').fetchall()]
+    students.sort(key=lambda x: (0 if x['hostel'] == 'Old Hostel' else 1, x['room_number'], (x['name'] or '').lower()))
+    layout = [('Old Hostel', 'Old Hostel', lambda x: x['hostel'] == 'Old Hostel'),
+              ('New Hostel (Rooms 1-10)', 'New Hostel', lambda x: x['hostel'] == 'New Hostel' and x['room_number'] != HALL_ROOM_NUMBER),
+              ('Hall (New Hostel)', 'New Hostel', lambda x: x['hostel'] == 'New Hostel' and x['room_number'] == HALL_ROOM_NUMBER)]
+    zero_hidden = 0
+    groups = []
+    not_counted = []
+    for gtitle, ghostel, pick in layout:
+        if only_hostel and ghostel != only_hostel:
+            continue
+        rooms = {}
+        for st in students:
+            if not pick(st):
+                continue
+            rent = st['total_rent'] or 0
+            conf = confirmed.get(st['id'], 0)
+            if kind == 'count':
+                value, detail = 1, ''
+            elif kind == 'rent':
+                value, detail = rent, ''
+            elif kind == 'paid':
+                value, detail = conf, ''
+                if (st['amount_paid'] or 0) > conf + 0.005:
+                    not_counted.append({'name': st['name'], 'place': f"{st['hostel']} {room_label(st['room_number'])}",
+                                        'record': st['amount_paid'] or 0, 'confirmed': conf, 'diff': round((st['amount_paid'] or 0) - conf, 2)})
+            else:
+                value = max(rent - conf, 0)
+                detail = f"{rent:,.0f} − {conf:,.0f}"
+            if kind in ('paid', 'due') and value <= 0:
+                zero_hidden += 1
+                continue
+            rooms.setdefault(st['room_number'], []).append({'name': st['name'], 'value': value, 'detail': detail,
+                                                            'contact': st.get('contact') or '', 'id': st['id']})
+        room_list = []
+        for rn in sorted(rooms):
+            items = rooms[rn]
+            room_list.append({'label': f"{ghostel} • {room_label(rn)}", 'students': items, 'value': sum(i['value'] for i in items),
+                              'formula': ' + '.join(f"{i['value']:,.0f}" for i in items)})
+        if room_list:
+            gval = sum(r['value'] for r in room_list)
+            groups.append({'title': gtitle, 'rooms': room_list, 'value': gval,
+                           'formula': ' + '.join(f"{r['value']:,.0f}" for r in room_list)})
+    grand = sum(g['value'] for g in groups)
+    stats = get_dashboard_stats(db)
+    expected = {'students': stats['total'], 'old': stats['old_count'], 'new': stats['new_count'],
+                'rent': stats['total_rent'], 'paid': stats['total_paid'], 'due': stats['total_balance']}[card]
+    extra = {}
+    if kind == 'rent':
+        d = db.execute('SELECT COUNT(*) AS n, COALESCE(SUM(total_rent),0) AS r FROM deleted_students').fetchone()
+        extra = {'deleted_count': d['n'] or 0, 'deleted_rent': d['r'] or 0}
+    return {'title': title, 'kind': kind, 'card': card, 'groups': groups, 'grand': grand, 'grand_formula': ' + '.join(f"{g['value']:,.0f}" for g in groups),
+            'matches': abs(grand - expected) < 0.01, 'expected': expected, 'zero_hidden': zero_hidden,
+            'not_counted': not_counted, 'month_label': today_ist().strftime('%B %Y'), 'extra': extra,
+            'student_count': sum(len(r['students']) for g in groups for r in g['rooms'])}
+
+
+@app.route('/admin/students/<int:student_id>/payment-details')
+@login_required
+def student_payment_details(student_id):
+    """What a student paid: the payment photo(s) if there are any, otherwise the details the student submitted
+    (and, when nothing was submitted, what the admin recorded on the student's record). Read only."""
+    db = get_db()
+    row = db.execute('SELECT * FROM students WHERE id=%s', (student_id,)).fetchone()
+    if not row:
+        abort(404)
+    st = dict(row)
+    subs = [dict(r) for r in db.execute(
+        'SELECT * FROM payment_submissions WHERE student_id=%s ORDER BY id DESC LIMIT 30', (student_id,)).fetchall()]
+    month_start = today_ist().replace(day=1).isoformat()
+    confirmed = sum((x['amount'] or 0) for x in subs
+                    if x['status'] == 'CONFIRMED' and (x.get('confirmed_at') or '') >= month_start)
+    return render_template('student_payment_details.html', st=st, subs=subs, confirmed=confirmed,
+                           month_label=today_ist().strftime('%B %Y'))
+
+
+@app.route('/admin/calculation/<card>')
+@login_required
+def calculation(card):
+    if card not in CALC_CARDS:
+        abort(404)
+    return render_template('calculation.html', c=build_calculation(get_db(), card))
+
+
+@app.route('/admin/income')
+@login_required
+def income():
+    """All payments of a month (by the month they count in) or of one student, with edit / delete for each."""
+    db = get_db()
+    sid = request.args.get('student', type=int)
+    if sid:
+        row = db.execute('SELECT * FROM students WHERE id=%s', (sid,)).fetchone()
+        if not row:
+            abort(404)
+        evs = [e for e in build_payment_events(db) if e['student_id'] == sid and not e['deleted']]
+        evs.sort(key=lambda e: (e['date'], e['name'] or ''), reverse=True)
+        inc = _income_stats(evs)
+        inc.update({'label': f"All payments of {row['name']}", 'key': None})
+        return render_template('income.html', inc=inc, which='student', student=dict(row), due_total=0, due_count=0,
+                               rent_roll=0, last_has_data=True)
+    which = 'last' if request.args.get('m') == 'last' else 'this'
+    inc = month_income_summary(db, which)
+    due_now = get_due_students(db) if which == 'this' else []
+    roll = db.execute('SELECT COALESCE(SUM(total_rent),0) AS r FROM students').fetchone()['r'] or 0
+    return render_template('income.html', inc=inc, which=which, student=None, due_total=sum(x['due_amount'] for x in due_now),
+                           due_count=len(due_now), rent_roll=roll,
+                           last_has_data=bool(month_income_summary(db, 'last')['rows']))
+
+
+# ---- edit / delete ONE payment ----------------------------------------------------------------
+
+def _find_payment_event(db, kind, ref_id):
+    for e in build_payment_events(db):
+        if e['kind'] == kind and e['ref_id'] == ref_id:
+            return e
+    return None
+
+
+def _shift_student_paid(db, student_id, delta):
+    """Adds delta (can be negative) to a student's Paid and recalculates the balance. Returns the new Paid."""
+    st = db.execute('SELECT * FROM students WHERE id=%s', (student_id,)).fetchone()
+    if not st:
+        return None
+    new_paid = max(round((st['amount_paid'] or 0) + delta, 2), 0)
+    new_bal = max(round((st['total_rent'] or 0) - new_paid, 2), 0)
+    db.execute('UPDATE students SET amount_paid=%s, balance=%s, updated_at=%s WHERE id=%s',
+               (new_paid, new_bal, datetime.utcnow().isoformat(), student_id))
+    return new_paid
+
+
+def _clear_student_payment_fields(db, student_id):
+    db.execute('''UPDATE students SET amount_paid=0, balance=total_rent, payment_date=NULL, payment_mode=NULL,
+                  cash_amount=NULL, paid_to=NULL, receipt_filename=NULL, income_month=NULL, updated_at=%s WHERE id=%s''',
+               (datetime.utcnow().isoformat(), student_id))
+
+
+def _parse_payment_edit(form):
+    """Returns (errors, values)."""
+    errors = []
+    amount = _num(form.get('amount'))
+    if amount is None or amount <= 0 or amount > 1000000:
+        errors.append('Amount must be more than 0.')
+    pdate = parse_iso_date(form.get('payment_date'))
+    if not pdate:
+        errors.append('Choose a valid payment date.')
+    elif pdate > today_ist():
+        errors.append('The payment date cannot be in the future.')
+    mode = (form.get('payment_mode') or '').strip()
+    if mode not in PAYMENT_MODES:
+        errors.append('Choose how it was paid (Online / Cash / Online + Cash).')
+    cash = None
+    if mode == 'Cash' and amount:
+        cash = amount
+    elif mode == 'Online + Cash':
+        cash = _num(form.get('cash_amount'))
+        if cash is None or cash <= 0 or (amount and cash >= amount):
+            errors.append('For Online + Cash, enter the cash part (more than 0 and less than the amount).')
+    paid_to = (form.get('paid_to') or '').strip()[:80]
+    counted = form.get('counted_in') or 'auto'
+    this_key, last_key = income_month_keys()
+    income_month = {'this': this_key, 'last': last_key}.get(counted)
+    return errors, {'amount': amount, 'date': pdate, 'mode': mode, 'cash': cash, 'paid_to': paid_to, 'income_month': income_month}
+
+
+def _after_payment_redirect(form):
+    if form.get('student'):
+        return redirect(url_for('income', student=form.get('student', type=int)))
+    return redirect(url_for('income', m='last' if form.get('m') == 'last' else 'this'))
+
+
+@app.route('/admin/payments/edit/<kind>/<int:ref_id>', methods=['GET', 'POST'])
+@login_required
+def edit_payment(kind, ref_id):
+    if kind not in ('submission', 'record', 'history'):
+        flash('Payments of deleted students can only be changed after you restore the student.', 'error')
+        return redirect(url_for('income'))
+    db = get_db()
+    ev = _find_payment_event(db, kind, ref_id)
+    if not ev:
+        flash('That payment was not found.', 'error')
+        return redirect(url_for('income'))
+    this_key, last_key = income_month_keys()
+    if request.method == 'POST':
+        if not validate_csrf(request.form.get('csrf_token')):
+            flash('Security check failed. Please try again.', 'error')
+            return redirect(url_for('edit_payment', kind=kind, ref_id=ref_id))
+        errors, v = _parse_payment_edit(request.form)
+        if errors:
+            for e_ in errors:
+                flash(e_, 'error')
+            return redirect(url_for('edit_payment', kind=kind, ref_id=ref_id, student=request.form.get('student'), m=request.form.get('m')))
+        now_iso = datetime.utcnow().isoformat()
+        if kind == 'submission':
+            sub = db.execute('SELECT * FROM payment_submissions WHERE id=%s', (ref_id,)).fetchone()
+            db.execute('''UPDATE payment_submissions SET amount=%s, payment_date=%s, payment_mode=%s, cash_amount=%s,
+                          paid_to=%s, income_month=%s WHERE id=%s''',
+                       (v['amount'], v['date'].isoformat(), v['mode'], v['cash'], v['paid_to'], v['income_month'], ref_id))
+            if sub['status'] == 'CONFIRMED' and sub['student_id']:
+                delta = v['amount'] - (sub['amount'] or 0)
+                if abs(delta) > 0.004:
+                    _shift_student_paid(db, sub['student_id'], delta)
+        elif kind == 'record':
+            st = db.execute('SELECT * FROM students WHERE id=%s', (ref_id,)).fetchone()
+            new_paid = round((ev.get('base_amount') or 0) + v['amount'], 2)
+            db.execute('''UPDATE students SET amount_paid=%s, balance=%s, payment_date=%s, payment_mode=%s, cash_amount=%s,
+                          paid_to=%s, income_month=%s, updated_at=%s WHERE id=%s''',
+                       (new_paid, max(round((st['total_rent'] or 0) - new_paid, 2), 0), v['date'].isoformat(), v['mode'], v['cash'],
+                        v['paid_to'], v['income_month'], now_iso, ref_id))
+        else:
+            db.execute('''UPDATE payment_history SET amount_paid=%s, balance=GREATEST(COALESCE(total_rent,0) - %s, 0), payment_date=%s,
+                          payment_mode=%s, cash_amount=%s, paid_to=%s, income_month=%s WHERE id=%s''',
+                       (v['amount'], v['amount'], v['date'].isoformat(), v['mode'], v['cash'], v['paid_to'], v['income_month'], ref_id))
+        db.commit()
+        flash(f"Payment of {ev['name']} updated.", 'success')
+        return _after_payment_redirect(request.form)
+    counted = 'auto'
+    if ev.get('income_month') == this_key:
+        counted = 'this'
+    elif ev.get('income_month') == last_key:
+        counted = 'last'
+    return render_template('edit_payment.html', ev=ev, counted=counted, this_label=cycle_label(this_key),
+                           last_label=cycle_label(last_key), today_iso=today_ist().isoformat(),
+                           back_student=request.args.get('student', type=int), back_m=request.args.get('m') or 'this')
+
+
+@app.route('/admin/payments/delete/<kind>/<int:ref_id>', methods=['POST'])
+@login_required
+def delete_payment_event(kind, ref_id):
+    if not validate_csrf(request.form.get('csrf_token')):
+        flash('Security check failed. Please try again.', 'error')
+        return _after_payment_redirect(request.form)
+    if kind not in ('submission', 'record', 'history'):
+        flash('Payments of deleted students can only be changed after you restore the student.', 'error')
+        return _after_payment_redirect(request.form)
+    db = get_db()
+    ev = _find_payment_event(db, kind, ref_id)
+    if not ev:
+        flash('That payment was not found.', 'error')
+        return _after_payment_redirect(request.form)
+    detail = f"One payment deleted from All Payments (mode: {ev.get('mode') or '-'}, paid to: {ev.get('paid_to') or '-'}, date: {ev['date'].isoformat()})"
+    if kind == 'submission':
+        sub = db.execute('SELECT * FROM payment_submissions WHERE id=%s', (ref_id,)).fetchone()
+        if sub['status'] == 'CONFIRMED' and sub['student_id']:
+            new_paid = _shift_student_paid(db, sub['student_id'], -(sub['amount'] or 0))
+            if new_paid is not None and new_paid <= 0.005:
+                _clear_student_payment_fields(db, sub['student_id'])
+        db.execute('DELETE FROM payment_submissions WHERE id=%s', (ref_id,))
+    elif kind == 'record':
+        st = db.execute('SELECT * FROM students WHERE id=%s', (ref_id,)).fetchone()
+        keep = round(ev.get('base_amount') or 0, 2)
+        if keep <= 0.005:
+            _clear_student_payment_fields(db, ref_id)
+        else:
+            db.execute('UPDATE students SET amount_paid=%s, balance=%s, income_month=NULL, updated_at=%s WHERE id=%s',
+                       (keep, max(round((st['total_rent'] or 0) - keep, 2), 0), datetime.utcnow().isoformat(), ref_id))
+    else:
+        db.execute('DELETE FROM payment_history WHERE id=%s', (ref_id,))
+    _log_payment_delete(db, ev['student_id'], ev['name'], ev['hostel'], ev['room_number'], ev['amount'], detail)
+    db.commit()
+    flash(f"Payment of ₹{ev['amount']:,.0f} from {ev['name']} deleted.", 'success')
+    return _after_payment_redirect(request.form)
 
 
 @app.route('/admin/month-payments/<int:student_id>/delete', methods=['POST'])

@@ -279,6 +279,20 @@
             <a href="{{ url_for('paid_unconfirmed') }}" class="sb-link {{ 'active' if request.endpoint == 'paid_unconfirmed' }}">
                 <i class="fa-solid fa-user-check fa-fw"></i> Paid (Unconfirmed)
             </a>
+            <a href="{{ url_for('income') }}" class="sb-link {{ 'active' if request.endpoint == 'income' }}">
+                <i class="fa-solid fa-chart-line fa-fw"></i> All Payments &amp; Income
+            </a>
+            <a href="{{ url_for('deleted_students') }}" class="sb-link {{ 'active' if request.endpoint == 'deleted_students' }}">
+                <i class="fa-solid fa-user-slash fa-fw"></i> Deleted Students
+                {% if nav.get('deleted') %}<span class="sb-count" style="background:#DC2626">{{ nav.deleted }}</span>{% endif %}
+            </a>
+            <a href="{{ url_for('guests') }}" class="sb-link {{ 'active' if request.endpoint == 'guests' }}">
+                <i class="fa-solid fa-suitcase-rolling fa-fw"></i> Guests
+                {% if nav.get('guests') %}<span class="sb-count" style="background:#0F766E">{{ nav.guests }}</span>{% endif %}
+            </a>
+            <a href="{{ url_for('reset_payments') }}" class="sb-link {{ 'active' if request.endpoint == 'reset_payments' }}" style="color:#B91C1C">
+                <i class="fa-solid fa-eraser fa-fw" style="color:#B91C1C"></i> Delete All Payment Details
+            </a>
             <a href="{{ url_for('pause_bed') }}" class="sb-link {{ 'active' if request.endpoint == 'pause_bed' }}">
                 <i class="fa-solid fa-bed-pulse fa-fw"></i> Pause Bed
                 {% if nav.get('pauses') %}<span class="sb-count" style="background:#7C3AED">{{ nav.pauses }}</span>{% endif %}
@@ -356,6 +370,8 @@
         })();
     </script>
     {% endif %}
+
+    {% if is_admin_area and request.method == 'GET' %}{% include '_month_end_prompt.html' %}{% endif %}
 
     {% block extra_scripts %}{% endblock %}
 

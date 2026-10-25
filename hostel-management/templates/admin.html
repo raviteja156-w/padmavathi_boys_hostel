@@ -53,36 +53,42 @@
 
   <!-- SUMMARY CARDS (colour-coded; same figures as before) -->
   <section class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4 mb-5 sm:mb-7">
-    <div class="tile tone-blue rise rise-1">
+    <a href="{{ url_for('calculation', card='students') }}" class="tile tone-blue rise rise-1" style="display:block;text-decoration:none;color:inherit" title="Tap to see how this number is calculated">
       <span class="ico ico-blue mb-2"><i class="fa-solid fa-users"></i></span>
       <div class="tile-value">{{ stats.total }}</div>
       <div class="tile-label">Total Students</div>
-    </div>
-    <div class="tile tone-amber rise rise-1">
+      <div class="text-[10px] mt-1 opacity-60">Tap for calculation ›</div>
+    </a>
+    <a href="{{ url_for('calculation', card='old') }}" class="tile tone-amber rise rise-1" style="display:block;text-decoration:none;color:inherit" title="Tap to see how this number is calculated">
       <span class="ico ico-amber mb-2"><i class="fa-solid fa-house"></i></span>
       <div class="tile-value">{{ stats.old_count }}</div>
       <div class="tile-label">Old Hostel</div>
-    </div>
-    <div class="tile tone-indigo rise rise-2">
+      <div class="text-[10px] mt-1 opacity-60">Tap for calculation ›</div>
+    </a>
+    <a href="{{ url_for('calculation', card='new') }}" class="tile tone-indigo rise rise-2" style="display:block;text-decoration:none;color:inherit" title="Tap to see how this number is calculated">
       <span class="ico ico-indigo mb-2"><i class="fa-solid fa-city"></i></span>
       <div class="tile-value">{{ stats.new_count }}</div>
       <div class="tile-label">New Hostel</div>
-    </div>
-    <div class="tile tone-teal rise rise-2">
+      <div class="text-[10px] mt-1 opacity-60">Tap for calculation ›</div>
+    </a>
+    <a href="{{ url_for('calculation', card='rent') }}" class="tile tone-teal rise rise-2" style="display:block;text-decoration:none;color:inherit" title="Tap to see how this number is calculated">
       <span class="ico ico-blue mb-2"><i class="fa-solid fa-hand-holding-dollar"></i></span>
       <div class="tile-value">₹{{ '{:,.0f}'.format(stats.total_rent) }}</div>
       <div class="tile-label">Total Rent to Receive</div>
-    </div>
-    <div class="tile tone-green rise rise-3">
+      <div class="text-[10px] mt-1 opacity-60">Tap for calculation ›</div>
+    </a>
+    <a href="{{ url_for('calculation', card='paid') }}" class="tile tone-green rise rise-3" style="display:block;text-decoration:none;color:inherit" title="Tap to see how this number is calculated">
       <span class="ico ico-green mb-2"><i class="fa-solid fa-sack-dollar"></i></span>
       <div class="tile-value">₹{{ '{:,.0f}'.format(stats.total_paid) }}</div>
       <div class="tile-label">Total Paid</div>
-    </div>
-    <div class="tile tone-red rise rise-3">
+      <div class="text-[10px] mt-1 opacity-60">Tap for calculation ›</div>
+    </a>
+    <a href="{{ url_for('calculation', card='due') }}" class="tile tone-red rise rise-3" style="display:block;text-decoration:none;color:inherit" title="Tap to see how this number is calculated">
       <span class="ico ico-red mb-2"><i class="fa-solid fa-triangle-exclamation"></i></span>
       <div class="tile-value">₹{{ '{:,.0f}'.format(stats.total_balance) }}</div>
       <div class="tile-label">Balance Due</div>
-    </div>
+      <div class="text-[10px] mt-1 opacity-60">Tap for calculation ›</div>
+    </a>
   </section>
 
   <!-- QUICK ACTIONS -->

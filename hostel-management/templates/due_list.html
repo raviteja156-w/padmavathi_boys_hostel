@@ -11,7 +11,7 @@
     <div class="min-w-0">
       <h1 class="text-2xl font-bold text-slate-800">Due List</h1>
       <p class="text-slate-500 text-sm">
-        Today is {{ today|pretty_date }}. Students appear here from their due day (the day of their join date, every month) until their balance is cleared.
+        Today is {{ today|pretty_date }}. Rent falls due on each student's joining day every month. A student is listed here from that day until they pay it, and shows under <b>Coming up</b> for the 7 days before.
       </p>
     </div>
   </div>
@@ -42,7 +42,7 @@
             <i class="fa-solid {{ 'fa-house' if s.hostel == 'Old Hostel' else 'fa-city' }} mr-1"></i>{{ s.hostel }} &bull; {{ room_label(s.room_number) }}
           </p>
           <p class="text-xs font-semibold mt-1 {{ 'text-danger' if s.days_overdue > 0 else 'text-amber-600' }}">
-            <i class="fa-solid fa-calendar-day mr-1"></i>Due: {{ s.due_on|pretty_date }}
+            <i class="fa-solid fa-calendar-day mr-1"></i>{% if s.no_due_date %}No due date set (counted from the 1st){% else %}Due since {{ s.due_on|pretty_date }}{% endif %}
             &bull;
             {% if s.days_overdue == 0 %}Due today{% elif s.days_overdue == 1 %}1 day overdue{% else %}{{ s.days_overdue }} days overdue{% endif %}
           </p>
@@ -57,9 +57,9 @@
       </div>
 
       <div class="grid grid-cols-3 gap-1.5 mt-3 text-center">
-        <div class="mini-stat"><span class="block text-[10px] text-slate-400">Rent</span>₹{{ '{:,.0f}'.format(s.total_rent) }}</div>
-        <div class="mini-stat"><span class="block text-[10px] text-slate-400">Paid</span>₹{{ '{:,.0f}'.format(s.amount_paid) }}</div>
-        <div class="mini-stat text-danger"><span class="block text-[10px] text-slate-400">Balance</span>₹{{ '{:,.0f}'.format(s.balance) }}</div>
+        <div class="mini-stat"><span class="block text-[10px] text-slate-400">Monthly rent</span>₹{{ '{:,.0f}'.format(s.total_rent) }}</div>
+        <div class="mini-stat"><span class="block text-[10px] text-slate-400">Unpaid due dates</span>{{ s.cycles_due }}</div>
+        <div class="mini-stat text-danger"><span class="block text-[10px] text-slate-400">Due now</span>₹{{ '{:,.0f}'.format(s.due_amount) }}</div>
       </div>
 
       <p class="text-xs text-slate-400 mt-2">
@@ -80,6 +80,40 @@
         <a href="{{ url_for('edit_student', student_id=s.id) }}" class="btn-edit text-xs px-4 py-2">
           <i class="fa-solid fa-pen"></i> Edit / Record Payment
         </a>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if tracking_started %}
+  <h2 class="mt-8 mb-1 font-bold text-slate-700"><i class="fa-solid fa-clock mr-2 text-amber-500"></i>Coming up in the next 7 days ({{ upcoming|length }})</h2>
+  <p class="text-xs text-slate-400 mb-3">Rent that falls due in the next 7 days. They move into the Due List on their due day.</p>
+  {% if not upcoming %}
+  <div class="card p-6 text-center"><p class="text-slate-500 text-sm">Nobody has rent falling due in the next 7 days.</p></div>
+  {% endif %}
+  <div class="space-y-3">
+    {% for u in upcoming %}
+    <div class="card p-4 border-l-4 border-amber-300">
+      <div class="flex justify-between items-start gap-3">
+        <div class="min-w-0">
+          <h3 class="font-bold text-slate-800 truncate">{{ u.name }}</h3>
+          <p class="text-xs text-slate-500 mt-0.5"><i class="fa-solid {{ 'fa-house' if u.hostel == 'Old Hostel' else 'fa-city' }} mr-1"></i>{{ u.hostel }} &bull; {{ room_label(u.room_number) }}</p>
+          <p class="text-xs font-semibold mt-1 text-amber-600"><i class="fa-solid fa-calendar-day mr-1"></i>Due {{ u.due_on|pretty_date }} &bull; {% if u.days_until == 1 %}tomorrow{% else %}in {{ u.days_until }} days{% endif %}</p>
+        </div>
+        {% if u.contact %}
+        <a href="tel:{{ u.contact }}" class="btn-primary shrink-0 px-4 py-2.5 text-sm flex items-center gap-1.5"><i class="fa-solid fa-phone"></i> Call</a>
+        {% else %}
+        <span class="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-400">No number</span>
+        {% endif %}
+      </div>
+      <div class="grid grid-cols-2 gap-1.5 mt-3 text-center">
+        <div class="mini-stat"><span class="block text-[10px] text-slate-400">Monthly rent</span>₹{{ '{:,.0f}'.format(u.total_rent) }}</div>
+        <div class="mini-stat text-amber-600"><span class="block text-[10px] text-slate-400">Will be due</span>₹{{ '{:,.0f}'.format(u.due_amount) }}</div>
+      </div>
+      <p class="text-xs text-slate-400 mt-2">{% if u.date_of_join %}Joined {{ u.date_of_join|pretty_date }}{% endif %}{% if u.contact %}{% if u.date_of_join %} &bull; {% endif %}<i class="fa-solid fa-phone text-[10px] mr-0.5"></i>{{ u.contact }}{% endif %}</p>
+      <div class="flex justify-end mt-3">
+        <a href="{{ url_for('edit_student', student_id=u.id) }}" class="btn-edit text-xs px-4 py-2"><i class="fa-solid fa-pen"></i> Edit / Record Payment</a>
       </div>
     </div>
     {% endfor %}

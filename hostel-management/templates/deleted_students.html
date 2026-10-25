@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% block title %}Deleted Students — Hostel Management System{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto animate-slide-up">
+
+  <div class="flex items-center gap-3 mb-5">
+    <a href="{{ url_for('admin_dashboard') }}" class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-primary transition shrink-0">
+      <i class="fa-solid fa-arrow-left"></i>
+    </a>
+    <div class="min-w-0">
+      <h1 class="text-2xl font-bold text-slate-800">Deleted Students</h1>
+      <p class="text-slate-500 text-sm">Every student you delete is kept here. Press <b>Restore</b> to put them back in their room.</p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-3 gap-2 mb-5 text-center">
+    <div class="card p-3"><div class="text-[11px] text-slate-400">Deleted</div><div class="font-bold text-slate-800">{{ totals.count }}</div></div>
+    <div class="card p-3"><div class="text-[11px] text-slate-400">They paid</div><div class="font-bold text-success">₹{{ '{:,.0f}'.format(totals.paid) }}</div></div>
+    <div class="card p-3"><div class="text-[11px] text-slate-400">Unpaid</div><div class="font-bold text-danger">₹{{ '{:,.0f}'.format(totals.balance) }}</div></div>
+  </div>
+
+  {% if not students %}
+  <div class="card p-10 text-center">
+    <i class="fa-solid fa-user-slash text-slate-300 text-3xl mb-3"></i>
+    <p class="text-slate-500">No deleted students.</p>
+  </div>
+  {% else %}
+  <input type="search" id="delSearch" placeholder="Search name, number or room..." class="form-input mb-4 w-full">
+  <div class="space-y-3" id="delList">
+    {% for s in students %}
+    <div class="card p-4 border-l-4 border-danger del-item" data-search="{{ (s.name ~ ' ' ~ s.contact ~ ' ' ~ s.hostel ~ ' ' ~ room_label(s.room_number))|lower }}">
+      <div class="flex justify-between items-start gap-3">
+        <div class="min-w-0">
+          <h3 class="font-bold text-slate-800 truncate">{{ s.name }}</h3>
+          <p class="text-xs text-slate-500 mt-0.5"><i class="fa-solid {{ 'fa-house' if s.hostel == 'Old Hostel' else 'fa-city' }} mr-1"></i>{{ s.hostel }} &bull; {{ room_label(s.room_number) }} &bull; {{ s.sharing }} sharing</p>
+          <p class="text-xs text-slate-400 mt-0.5">Deleted {{ s.deleted_on|pretty_date }} ({{ s.month_label }}){% if s.contact %} &bull; {{ s.contact }}{% endif %}</p>
+        </div>
+        {% if s.contact %}<a href="tel:{{ s.contact }}" class="btn-outline shrink-0 px-3 py-2 text-sm"><i class="fa-solid fa-phone"></i></a>{% endif %}
+      </div>
+      <div class="grid grid-cols-3 gap-2 mt-3 text-center">
+        <div class="mini-stat"><span class="block text-[10px] text-slate-400">Rent</span>₹{{ '{:,.0f}'.format(s.total_rent) }}</div>
+        <div class="mini-stat"><span class="block text-[10px] text-slate-400">Paid</span>₹{{ '{:,.0f}'.format(s.amount_paid) }}</div>
+        <div class="mini-stat text-danger"><span class="block text-[10px] text-slate-400">Balance</span>₹{{ '{:,.0f}'.format(s.balance) }}</div>
+      </div>
+      {% if s.room_full %}<p class="text-xs text-amber-600 font-semibold mt-3"><i class="fa-solid fa-triangle-exclamation mr-1"></i>This room is full now. Free a bed to restore.</p>{% endif %}
+      <div class="flex gap-2 mt-3">
+        <form method="POST" action="{{ url_for('restore_student', deleted_id=s.id) }}" class="flex-1" onsubmit="return confirm('Restore {{ s.name|e }} to {{ s.hostel }} {{ room_label(s.room_number) }}?');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn-primary w-full py-2.5 text-sm" {% if s.room_full %}disabled style="opacity:.5"{% endif %}><i class="fa-solid fa-rotate-left mr-1"></i> Restore</button>
+        </form>
+        <form method="POST" action="{{ url_for('purge_deleted_student', deleted_id=s.id) }}" onsubmit="return confirm('Remove {{ s.name|e }} for good? This cannot be undone.');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="px-4 py-2.5 rounded-xl border border-red-200 text-danger text-sm font-semibold hover:bg-red-50" title="Delete forever"><i class="fa-solid fa-trash"></i></button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+  (function () {
+    var q = document.getElementById('delSearch'); if (!q) return;
+    q.addEventListener('input', function () {
+      var v = q.value.trim().toLowerCase();
+      document.querySelectorAll('.del-item').forEach(function (el) { el.style.display = (!v || el.dataset.search.indexOf(v) > -1) ? '' : 'none'; });
+    });
+  })();
+</script>
+{% endblock %}
