@@ -94,8 +94,8 @@
 
 <body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col animate-fade-in">
 
-    {# Admin pages (everything under /admin except the login page) get a sidebar. Student pages never do. #}
-    {% set is_admin_area = session.get('admin_logged_in') and request.path.startswith('/admin') and request.endpoint != 'admin_login' %}
+    {# When the admin is logged in, EVERY page (except the login page) gets the full admin menu, so every part of the app is one tap away. #}
+    {% set is_admin_area = session.get('admin_logged_in') and request.endpoint != 'admin_login' %}
 
     <!-- Navigation -->
     <nav class="app-nav shadow-lg sticky top-0 z-40">
@@ -266,6 +266,9 @@
             <a href="{{ url_for('admin_dashboard') }}" class="sb-link {{ 'active' if request.endpoint == 'admin_dashboard' }}">
                 <i class="fa-solid fa-gauge fa-fw"></i> Dashboard
             </a>
+            <a href="{{ url_for('admin_dashboard') }}#studentList" class="sb-link {{ 'active' if request.endpoint in ('edit_student', 'student_payment_details') }}">
+                <i class="fa-solid fa-users fa-fw"></i> Students &amp; Payment Control
+            </a>
             <a href="{{ url_for('admin_payments') }}" class="sb-link {{ 'active' if request.endpoint == 'admin_payments' }}">
                 <i class="fa-solid fa-hourglass-half fa-fw"></i> Today's Payments
                 {% if nav.get('pending') %}<span class="sb-count">{{ nav.pending }}</span>{% endif %}
@@ -302,8 +305,14 @@
             <a href="{{ url_for('payment_settings') }}" class="sb-link {{ 'active' if request.endpoint == 'payment_settings' }}">
                 <i class="fa-solid fa-qrcode fa-fw"></i> Payment Settings
             </a>
-            <a href="{{ url_for('add_student') }}" class="sb-link">
+            <a href="{{ url_for('add_student') }}" class="sb-link {{ 'active' if request.endpoint == 'add_student' }}">
                 <i class="fa-solid fa-user-plus fa-fw"></i> Add Student
+            </a>
+            <a href="{{ url_for('payments_lookup') }}" class="sb-link {{ 'active' if request.endpoint and request.endpoint.startswith('payments_') }}">
+                <i class="fa-solid fa-mobile-screen fa-fw"></i> Student Payment Page
+            </a>
+            <a href="{{ url_for('export_excel') }}" class="sb-link">
+                <i class="fa-solid fa-file-excel fa-fw"></i> Download Excel
             </a>
             <a href="{{ url_for('admin_logout') }}" class="sb-link" style="color:#B91C1C">
                 <i class="fa-solid fa-right-from-bracket fa-fw" style="color:#B91C1C"></i> Logout

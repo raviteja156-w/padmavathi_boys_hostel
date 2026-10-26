@@ -973,20 +973,7 @@ def save_receipt(file_storage):
 # DUE LIST LOGIC + MONTHLY RESET
 # --------------------------------------------------------------------------
 
-def effective_due_day(student, year, month):
-    """Day of the month rent is due: the admin-set due_date if present, otherwise the day of
-    the student's join date. Capped to the month's length (join day 31 -> 30 in April, etc.)."""
-    day = student.get('due_date')
-    if not day:
-        joined = parse_iso_date(student.get('date_of_join'))
-        if not joined:
-            return None
-        day = joined.day
-    return min(int(day), calendar.monthrange(year, month)[1])
-
-
-EARLY_PAY_DAYS = 2   # a payment counts for a due date from 2 days BEFORE that date (set by the admin)
-UPCOMING_DAYS = 7    # "Coming up" shows rent falling due in the next 7 days
+UPCOMING_DAYS = 1    # "Tomorrow" list: rent that falls due tomorrow (moves into the Due List on its due day)
 
 
 def _billing_period_start(db):
@@ -1073,38 +1060,33 @@ def _due_cycles(raw_day, start, end):
 
 
 def evaluate_student_due(student, events, today):
-    """THE RULE. Rent falls due on the student's due day every month (the day of their join date, or the due
-    day the admin set). Payments are matched to due dates in order, oldest first, and a payment can only pay a
-    due date that is at most 2 days before it. So a payment made 8 days late belongs to the OLD due date, and
-    the next due date still comes up on its own day. Returns None when the student has no due day on record,
-    else {'due': [(date, amount)...], 'upcoming': [(date, amount)...]}."""
+    """THE RULE (joined date only). Rent falls due every month on the DAY OF THE STUDENT'S JOINED DATE
+    (joined on the 30th -> due on the 30th of every month; joined on the 31st -> due on the last day of
+    short months, e.g. 30 Nov, 28/29 Feb). From that day he is in the Due List until his rent is paid,
+    and the day before he is in the Tomorrow list.
+    Paid amounts are matched to due dates oldest first. Only the AMOUNT matters here, never the payment
+    date (payment dates are used for the monthly income only), so a student who has paid never shows up as due.
+    Returns None when the student has no joined date, else {'due': [(date, amount)...], 'upcoming': [...]}."""
     joined = parse_iso_date(student.get('date_of_join'))
-    raw = student.get('due_date') or (joined.day if joined else None)
-    if not raw:
+    if not joined:
         return None
     rent = float(student.get('total_rent') or 0)
-    start = max(LAUNCH_DATE, joined or LAUNCH_DATE)
+    start = max(LAUNCH_DATE, joined)
     end = today + timedelta(days=UPCOMING_DAYS)
-    # A payment dated in the future does not count yet (protects against a wrongly typed date hiding a due student).
-    pool = sorted([[e['date'], float(e['amount'] or 0)] for e in events if e['date'] <= today], key=lambda x: x[0])
+    # Money paid since tracking started (a payment dated in the future does not count yet).
+    credit = round(sum(float(e['amount'] or 0) for e in events if LAUNCH_DATE <= e['date'] <= today), 2)
     due, upcoming = [], []
-    for d_ in _due_cycles(int(raw), start, end):
-        need = rent
-        for ev in pool:
-            if need <= 0.005:
-                break
-            if ev[1] <= 0.005 or ev[0] < d_ - timedelta(days=EARLY_PAY_DAYS):
-                continue
-            take = min(ev[1], need)
-            ev[1] -= take
-            need -= take
+    for d_ in _due_cycles(joined.day, start, end):
+        take = min(credit, rent)
+        credit = round(credit - take, 2)
+        need = round(rent - take, 2)
         if need > 0.005:
-            (due if d_ <= today else upcoming).append((d_, round(need, 2)))
+            (due if d_ <= today else upcoming).append((d_, need))
     return {'due': due, 'upcoming': upcoming}
 
 
 def get_due_and_upcoming(db):
-    """(due_now, coming_up_in_7_days). Based on due dates and payment DATES, not on the calendar-month balance."""
+    """(due_now, due_tomorrow). Due dates come from the joined date only; payment dates are not used."""
     today = today_ist()
     if today < LAUNCH_DATE:
         return [], []
@@ -1120,9 +1102,9 @@ def get_due_and_upcoming(db):
             continue
         res = evaluate_student_due(s, by_student.get(s['id'], []), today)
         if res is None:
-            # No join date and no due date on record: fall back to the plain balance so nobody is hidden.
+            # No joined date on record: fall back to the plain balance so nobody is hidden.
             if (s.get('balance') or 0) > 0:
-                s.update(no_due_date=True, due_day=1, due_on=today.replace(day=1).isoformat(), days_overdue=today.day - 1,
+                s.update(no_due_date=True, due_day=1, due_on=today.isoformat(), days_overdue=0,
                          due_amount=s['balance'], cycles_due=1)
                 due_list.append(s)
             continue
@@ -1145,7 +1127,7 @@ def get_due_students(db):
     return get_due_and_upcoming(db)[0]
 
 
-def get_upcoming_due_students(db, days=7):
+def get_upcoming_due_students(db, days=1):
     return get_due_and_upcoming(db)[1]
 
 
@@ -1828,7 +1810,7 @@ def get_pauses(db):
 @app.context_processor
 def inject_admin_nav():
     """Small counters for the admin sidebar badges. Only runs on admin pages for a logged-in admin."""
-    if not (session.get('admin_logged_in') and request.path.startswith('/admin')):
+    if not (session.get('admin_logged_in') and request.endpoint != 'admin_login'):
         return {}
     counts = {'pending': 0, 'pauses': 0, 'deleted': 0, 'guests': 0}
     month_end = None
@@ -3027,8 +3009,52 @@ def student_payment_details(student_id):
     month_start = today_ist().replace(day=1).isoformat()
     confirmed = sum((x['amount'] or 0) for x in subs
                     if x['status'] == 'CONFIRMED' and (x.get('confirmed_at') or '') >= month_start)
+    pays = [e for e in build_payment_events(db) if e['student_id'] == student_id and not e['deleted']]
+    pays.sort(key=lambda e: (e['date'], e['ref_id']), reverse=True)
     return render_template('student_payment_details.html', st=st, subs=subs, confirmed=confirmed,
-                           month_label=today_ist().strftime('%B %Y'))
+                           month_label=today_ist().strftime('%B %Y'), pays=pays,
+                           remaining=max(round((st['total_rent'] or 0) - (st['amount_paid'] or 0), 2), 0),
+                           today_iso=today_ist().isoformat())
+
+
+@app.route('/admin/students/<int:student_id>/record-payment', methods=['POST'])
+@login_required
+def admin_record_payment(student_id):
+    """Admin marks rent as paid (full or part) in one step. It is saved as a CONFIRMED payment, so it shows in
+    All Payments (editable / deletable) and counts in the income of the month of the payment date."""
+    back = redirect(url_for('student_payment_details', student_id=student_id))
+    if not validate_csrf(request.form.get('csrf_token')):
+        flash('Security check failed. Please try again.', 'error')
+        return back
+    db = get_db()
+    st = db.execute('SELECT * FROM students WHERE id=%s', (student_id,)).fetchone()
+    if not st:
+        abort(404)
+    errors, v = _parse_payment_edit(request.form)
+    if errors:
+        for e_ in errors:
+            flash(e_, 'error')
+        return back
+    now = datetime.utcnow().isoformat()
+    db.execute('''
+        INSERT INTO payment_submissions
+        (student_id, hostel, room_number, name, contact, amount, for_month, proof_filename, note, status, submitted_at,
+         confirmed_at, confirmed_by, payment_mode, cash_amount, paid_to, payment_date, income_month)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, NULL, %s, 'CONFIRMED', %s, %s, %s, %s, %s, %s, %s, %s)
+    ''', (student_id, st['hostel'], st['room_number'], st['name'], st['contact'], v['amount'], '',
+          'Recorded by admin', now, now, session.get('admin_username') or ADMIN_USERNAME,
+          v['mode'], v['cash'], v['paid_to'], v['date'].isoformat(), v['income_month']))
+    new_paid = round((st['amount_paid'] or 0) + v['amount'], 2)
+    new_cash = round((st.get('cash_amount') or 0) + (v['cash'] or 0), 2) if v['cash'] else st.get('cash_amount')
+    old_mode = st.get('payment_mode')
+    new_mode = v['mode'] if not old_mode or old_mode == v['mode'] else 'Online + Cash'
+    db.execute('''UPDATE students SET amount_paid=%s, balance=%s, payment_date=%s, payment_mode=%s, cash_amount=%s,
+                  paid_to=%s, updated_at=%s WHERE id=%s''',
+               (new_paid, max(round((st['total_rent'] or 0) - new_paid, 2), 0), v['date'].isoformat(), new_mode,
+                new_cash, v['paid_to'] or st.get('paid_to'), now, student_id))
+    db.commit()
+    flash(f"₹{v['amount']:,.0f} recorded for {st['name']}.", 'success')
+    return back
 
 
 @app.route('/admin/calculation/<card>')
@@ -3121,7 +3147,7 @@ def _parse_payment_edit(form):
 
 def _after_payment_redirect(form):
     if form.get('student'):
-        return redirect(url_for('income', student=form.get('student', type=int)))
+        return redirect(url_for('student_payment_details', student_id=form.get('student', type=int)))
     return redirect(url_for('income', m='last' if form.get('m') == 'last' else 'this'))
 
 

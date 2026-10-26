@@ -160,13 +160,6 @@
              value="{{ form.get('note', '') }}" class="form-input">
     </div>
 
-    <div>
-      <label class="form-label"><i class="fa-solid fa-calendar-day mr-1.5 text-primary"></i>Monthly Due Date (optional)</label>
-      <input type="number" name="due_date" min="1" max="31" placeholder="Day of month, e.g. 5"
-             value="{{ form.get('due_date', '') }}" class="form-input {{ lock }}" {{ 'readonly' if ro }}>
-      <p class="text-xs text-slate-400 mt-1">Used for the admin Due List — e.g. 5 means rent is due on the 5th of every month.</p>
-    </div>
-
     <button type="submit" class="btn-primary w-full text-base py-4 flex items-center justify-center gap-2">
       {% if ro %}<i class="fa-solid fa-paper-plane"></i> SUBMIT PAYMENT{% else %}<i class="fa-solid fa-floppy-disk"></i> SAVE STUDENT{% endif %}
     </button>

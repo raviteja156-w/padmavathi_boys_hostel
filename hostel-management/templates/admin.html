@@ -144,7 +144,7 @@
   </section>
 
   <!-- SEARCH & FILTERS (stay pinned under the navbar while scrolling on phones) -->
-  <section class="card p-3 sm:p-5 mb-6 sm:mb-8 sticky top-16 z-30 sm:static shadow-md sm:shadow-none">
+  <section id="studentList" class="card p-3 sm:p-5 mb-6 sm:mb-8 sticky top-16 z-30 sm:static shadow-md sm:shadow-none scroll-mt-20">
     <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
       <div class="col-span-2 sm:col-span-1 relative">
         <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
@@ -245,6 +245,9 @@
                 </div>
               </div>
               <div class="flex gap-2 mt-3">
+                <a href="{{ url_for('student_payment_details', student_id=s.id) }}" class="btn-primary flex-1 text-center text-sm py-2 flex items-center justify-center gap-1.5">
+                  <i class="fa-solid fa-indian-rupee-sign"></i> Payments
+                </a>
                 <a href="{{ url_for('edit_student', student_id=s.id) }}" class="btn-edit flex-1">
                   <i class="fa-solid fa-pen"></i> Edit
                 </a>
