@@ -62,6 +62,12 @@
     </div>
 
     <div>
+      <label class="form-label"><i class="fa-solid fa-tag mr-1.5 text-violet-600"></i>Old balance tag (₹)</label>
+      <input type="number" name="old_balance" min="0" step="any" value="{{ (student.old_balance or 0)|round(2) }}" class="form-input">
+      <p class="text-xs text-slate-400 mt-1">Delete All Data adds a student's unpaid balance to the Total Rent and shows it here as a tag. After you change the Total Rent back to normal, set this to 0 to remove the tag.</p>
+    </div>
+
+    <div>
       <label class="form-label"><i class="fa-solid fa-calendar-plus mr-1.5 text-primary"></i>Date of Join</label>
       <input type="date" name="date_of_join" value="{{ student.date_of_join or '' }}" class="form-input">
       <p class="text-xs text-slate-400 mt-1">Rent is due on this day of every month, and the student appears in the Due List from that day until paid.</p>

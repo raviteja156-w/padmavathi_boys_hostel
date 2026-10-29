@@ -4,117 +4,617 @@
 
 <style>
   /* Mobile-friendly tweaks scoped to the admin dashboard */
-  .admin-dash .form-input { font-size: 16px; }            /* stops iOS zooming into fields */
+  .admin-dash .form-input { font-size: 16px; }
   .admin-dash .btn-edit, .admin-dash .btn-delete { min-height: 44px; }
   .admin-dash .tap { min-height: 44px; }
-  .admin-dash .student-card, .admin-dash .student-card * { overflow-wrap: anywhere; }
+  .admin-dash .student-card,
+  .admin-dash .student-card * { overflow-wrap: anywhere; }
   .admin-dash .student-card img.student-thumb { flex-shrink: 0; }
-  .admin-fab { position: fixed; right: 1rem; bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); z-index: 45; }
+
+  .admin-fab {
+    position: fixed;
+    right: 1rem;
+    bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+    z-index: 45;
+  }
+
   @media (max-width: 640px) {
     .admin-dash .room-body { padding: 0.75rem; }
     .admin-dash .room-header { flex-wrap: wrap; gap: 0.35rem; }
     .modal-box { padding: 1.25rem; }
     #photoModalImg { max-height: 65vh; object-fit: contain; }
-    main { padding-bottom: 5.5rem; }                        /* room for the floating button */
+    main { padding-bottom: 5.5rem; }
   }
-  @media (min-width: 641px) { .admin-fab { display: none; } }
+
+  @media (min-width: 641px) {
+    .admin-fab { display: none; }
+  }
 </style>
 
-<div class="animate-slide-up admin-dash">
+<div class="animate-slide-up admin-dash dash-v3">
+  <div class="dash-blobs" aria-hidden="true">
+    <span></span><span></span><span></span>
+  </div>
 
-  <!-- HERO / WELCOME -->
-  <section class="admin-hero mb-4 sm:mb-5 rise">
-    <div class="flex flex-col sm:flex-row sm:items-center gap-4">
-      <div class="flex items-center gap-3 min-w-0 flex-1">
-        <span class="ai-orb shrink-0" style="background:rgba(255,255,255,.16)"><i class="fa-solid fa-building-shield"></i></span>
-        <div class="min-w-0">
-          <h1 class="text-xl sm:text-3xl font-extrabold tracking-tight leading-tight">Hostel Admin Dashboard</h1>
-          <p class="text-blue-100 text-xs sm:text-sm mt-0.5">Padmavathi Boys Hostel &bull; residents, rooms, rent and payments in one place.</p>
-        </div>
+  <!-- HERO: live animated hostel scene -->
+  <section
+    class="hostel-hero {{ 'is-night' if is_night else 'is-day' }} mb-4 sm:mb-5 rise"
+    id="hostelHero"
+  >
+    <div class="hero-text">
+      <p class="hero-kicker">
+        <i class="fa-solid fa-calendar-day"></i> {{ today_label }}
+      </p>
+
+      <h1 class="hero-title">
+        {{ greeting }}, Admin <span class="wave">👋</span>
+      </h1>
+
+      <p class="hero-sub">
+        Padmavathi Boys Hostel &bull;
+        {{ stats.total }} residents in Old &amp; New Hostel
+      </p>
+
+      <div class="hero-chips">
+        <a href="{{ url_for('due_list') }}" class="hchip hchip-red">
+          <i class="fa-solid fa-bell"></i>
+          <b>{{ due_count }}</b> due
+          {% if due_today_count %}
+            &bull; {{ due_today_count }} today
+          {% endif %}
+        </a>
+
+        <a href="{{ url_for('due_list') }}#tomorrow" class="hchip hchip-amber">
+          <i class="fa-solid fa-clock"></i>
+          <b>{{ tomorrow_count }}</b> tomorrow
+        </a>
+
+        <a href="{{ url_for('admin_payments') }}" class="hchip hchip-green">
+          <i class="fa-solid fa-hourglass-half"></i>
+          <b>{{ pending_payments_count }}</b> to confirm
+        </a>
       </div>
-      <div class="flex flex-wrap gap-2">
-        <span class="chip chip-glass"><i class="fa-solid fa-house"></i> Old Hostel &bull; {{ stats.old_count }}</span>
-        <span class="chip chip-glass"><i class="fa-solid fa-city"></i> New Hostel &bull; {{ stats.new_count }}</span>
-        <span class="chip chip-glass"><i class="fa-solid fa-users"></i> {{ stats.total }} residents</span>
-      </div>
+    </div>
+
+    <div class="hostel-scene" aria-hidden="true">
+      <svg
+        viewBox="0 0 800 260"
+        preserveAspectRatio="xMidYMax slice"
+        class="scene-svg"
+      >
+        <defs>
+          <linearGradient id="hsSky" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" class="sky-top"/>
+            <stop offset="1" class="sky-bottom"/>
+          </linearGradient>
+
+          <linearGradient id="hsOld" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#FDBA74"/>
+            <stop offset="1" stop-color="#EA580C"/>
+          </linearGradient>
+
+          <linearGradient id="hsNew" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#93C5FD"/>
+            <stop offset="1" stop-color="#1D4ED8"/>
+          </linearGradient>
+
+          <radialGradient id="hsGlow">
+            <stop offset="0" stop-color="#FFF7AE" stop-opacity=".9"/>
+            <stop offset="1" stop-color="#FFF7AE" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+
+        <rect width="800" height="260" fill="url(#hsSky)"/>
+
+        <!-- Sun / moon -->
+        <g class="sky-orb">
+          <circle
+            cx="660"
+            cy="62"
+            r="56"
+            fill="url(#hsGlow)"
+            class="orb-glow"
+          />
+          <circle cx="660" cy="62" r="24" class="orb"/>
+        </g>
+
+        <!-- Stars -->
+        <g class="stars">
+          <circle cx="90" cy="30" r="1.6"/>
+          <circle cx="210" cy="55" r="1.3"/>
+          <circle cx="330" cy="22" r="1.8"/>
+          <circle cx="470" cy="48" r="1.3"/>
+          <circle cx="560" cy="18" r="1.6"/>
+          <circle cx="750" cy="120" r="1.4"/>
+        </g>
+
+        <!-- Clouds -->
+        <g class="cloud c1">
+          <ellipse cx="120" cy="60" rx="38" ry="14"/>
+          <ellipse cx="145" cy="50" rx="26" ry="14"/>
+          <ellipse cx="98" cy="54" rx="20" ry="11"/>
+        </g>
+
+        <g class="cloud c2">
+          <ellipse cx="430" cy="40" rx="30" ry="11"/>
+          <ellipse cx="450" cy="32" rx="20" ry="11"/>
+        </g>
+
+        <!-- Birds -->
+        <g class="birds">
+          <path d="M0 0 q6 -6 12 0 q6 -6 12 0"/>
+          <path d="M30 12 q5 -5 10 0 q5 -5 10 0"/>
+        </g>
+
+        <!-- Far hills -->
+        <path
+          d="M0 200 Q120 150 240 190 T480 185 T800 175 V260 H0Z"
+          class="hill-far"
+        />
+
+        <!-- OLD HOSTEL -->
+        <g transform="translate(250 92)">
+          <rect
+            x="0"
+            y="22"
+            width="150"
+            height="118"
+            rx="6"
+            fill="url(#hsOld)"
+          />
+
+          <path d="M-8 26 L75 -8 L158 26 Z" fill="#9A3412"/>
+
+          <rect
+            x="45"
+            y="8"
+            width="60"
+            height="14"
+            rx="3"
+            fill="#FFF7ED"
+          />
+
+          <text
+            x="75"
+            y="18.5"
+            text-anchor="middle"
+            class="sign"
+          >OLD HOSTEL</text>
+
+          {% for row in range(3) %}
+            {% for col in range(4) %}
+              <rect
+                x="{{ 14 + col * 34 }}"
+                y="{{ 36 + row * 30 }}"
+                width="22"
+                height="18"
+                rx="2"
+                class="win"
+              />
+            {% endfor %}
+          {% endfor %}
+
+          <rect
+            x="62"
+            y="116"
+            width="26"
+            height="24"
+            rx="3"
+            fill="#7C2D12"
+          />
+
+          <circle cx="83" cy="128" r="1.6" fill="#FDE68A"/>
+        </g>
+
+        <!-- NEW HOSTEL -->
+        <g transform="translate(440 52)">
+          <rect
+            x="0"
+            y="16"
+            width="170"
+            height="164"
+            rx="8"
+            fill="url(#hsNew)"
+          />
+
+          <rect
+            x="128"
+            y="-2"
+            width="26"
+            height="18"
+            rx="2"
+            fill="#1E3A8A"
+          />
+
+          <rect
+            x="132"
+            y="-10"
+            width="18"
+            height="8"
+            rx="2"
+            fill="#60A5FA"
+          />
+
+          <line
+            x1="20"
+            y1="16"
+            x2="20"
+            y2="-26"
+            stroke="#E2E8F0"
+            stroke-width="2"
+          />
+
+          <path d="M20 -26 L46 -19 L20 -12 Z" class="flag"/>
+
+          <rect
+            x="45"
+            y="24"
+            width="80"
+            height="14"
+            rx="3"
+            fill="#EFF6FF"
+          />
+
+          <text
+            x="85"
+            y="34.5"
+            text-anchor="middle"
+            class="sign sign-blue"
+          >NEW HOSTEL</text>
+
+          {% for row in range(4) %}
+            {% for col in range(5) %}
+              <rect
+                x="{{ 12 + col * 31 }}"
+                y="{{ 48 + row * 28 }}"
+                width="20"
+                height="17"
+                rx="2"
+                class="win"
+              />
+            {% endfor %}
+          {% endfor %}
+
+          <rect
+            x="70"
+            y="152"
+            width="30"
+            height="28"
+            rx="3"
+            fill="#172554"
+          />
+
+          <circle cx="94" cy="166" r="1.6" fill="#FDE68A"/>
+        </g>
+
+        <!-- Trees -->
+        <g class="tree">
+          <rect x="196" y="196" width="8" height="36" fill="#78350F"/>
+          <circle cx="200" cy="186" r="22" fill="#16A34A"/>
+          <circle cx="188" cy="196" r="14" fill="#15803D"/>
+        </g>
+
+        <g class="tree t2">
+          <rect x="646" y="200" width="8" height="32" fill="#78350F"/>
+          <circle cx="650" cy="190" r="20" fill="#22C55E"/>
+          <circle cx="662" cy="200" r="13" fill="#15803D"/>
+        </g>
+
+        <g class="tree t3">
+          <rect x="737" y="206" width="6" height="26" fill="#78350F"/>
+          <circle cx="740" cy="198" r="15" fill="#16A34A"/>
+        </g>
+
+        <!-- Ground and path -->
+        <rect x="0" y="232" width="800" height="28" class="ground"/>
+        <rect x="0" y="238" width="800" height="7" class="path"/>
+
+        <!-- Student walking with backpack -->
+        <g class="walker">
+          <g class="walker-body">
+            <rect
+              x="-7"
+              y="-36"
+              width="9"
+              height="15"
+              rx="3"
+              fill="#F59E0B"
+            />
+
+            <rect
+              x="-2"
+              y="-38"
+              width="12"
+              height="20"
+              rx="4"
+              fill="#2563EB"
+            />
+
+            <circle cx="4" cy="-45" r="6" fill="#FCD9B6"/>
+
+            <path
+              d="M-2 -48 q6 -7 12 0 v-2 q-6 -6 -12 0z"
+              fill="#1F2937"
+            />
+
+            <line
+              x1="1"
+              y1="-18"
+              x2="-3"
+              y2="-4"
+              class="leg l1"
+            />
+
+            <line
+              x1="7"
+              y1="-18"
+              x2="11"
+              y2="-4"
+              class="leg l2"
+            />
+          </g>
+        </g>
+
+        <!-- Cyclist going the other way -->
+        <g class="rider">
+          <circle cx="-14" cy="-8" r="8" class="wheel"/>
+          <circle cx="14" cy="-8" r="8" class="wheel"/>
+
+          <path
+            d="M-14 -8 L0 -8 L-4 -20 M0 -8 L14 -8 L8 -22 L-4 -20"
+            class="frame"
+          />
+
+          <rect
+            x="-6"
+            y="-38"
+            width="10"
+            height="17"
+            rx="4"
+            fill="#DC2626"
+          />
+
+          <circle cx="-1" cy="-44" r="6" fill="#FCD9B6"/>
+        </g>
+      </svg>
+
+      <!-- Floating hostel icons -->
+      <span class="floaty f1">
+        <i class="fa-solid fa-bed"></i>
+      </span>
+
+      <span class="floaty f2">
+        <i class="fa-solid fa-key"></i>
+      </span>
+
+      <span class="floaty f3">
+        <i class="fa-solid fa-indian-rupee-sign"></i>
+      </span>
+
+      <span class="floaty f4">
+        <i class="fa-solid fa-utensils"></i>
+      </span>
     </div>
   </section>
 
-  <!-- AI ASSISTANT (the existing Admin Bot; this card just opens it) -->
-  <section class="ai-card ai-glow mb-4 sm:mb-6 rise rise-1" aria-label="AI Assistant">
+  <!-- AI ASSISTANT -->
+  <section
+    class="ai-card ai-glow mb-4 sm:mb-6 rise rise-1"
+    aria-label="AI Assistant"
+  >
     <span class="ai-orb float-y shrink-0">🤖</span>
+
     <div class="flex-1 min-w-0" style="min-width:12rem">
-      <div class="font-extrabold text-base sm:text-lg leading-tight">🤖 Work Smarter with AI <span class="badge-new">NEW</span></div>
-      <p class="text-sm text-indigo-100 mt-0.5">Ask the AI Assistant for help with hostel management, payments, students and reports.</p>
-      <p class="text-xs text-indigo-200 mt-1">Use AI Assistant to make your work easier. English &amp; Telugu, typed or spoken.</p>
+      <div class="font-extrabold text-base sm:text-lg leading-tight">
+        🤖 Work Smarter with AI <span class="badge-new">NEW</span>
+      </div>
+
+      <p class="text-sm text-indigo-100 mt-0.5">
+        Ask the AI Assistant for help with hostel management, payments,
+        students and reports.
+      </p>
+
+      <p class="text-xs text-indigo-200 mt-1">
+        Use AI Assistant to make your work easier. English &amp; Telugu,
+        typed or spoken.
+      </p>
     </div>
-    <button type="button" id="adminAiBtn" class="ai-btn w-full sm:w-auto"><i class="fa-solid fa-wand-magic-sparkles"></i> Open AI Assistant</button>
+
+    <button
+      type="button"
+      id="adminAiBtn"
+      class="ai-btn w-full sm:w-auto"
+    >
+      <i class="fa-solid fa-wand-magic-sparkles"></i>
+      Open AI Assistant
+    </button>
   </section>
 
-  <!-- SUMMARY CARDS (colour-coded; same figures as before) -->
-  <section class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4 mb-5 sm:mb-7">
-    <a href="{{ url_for('calculation', card='students') }}" class="tile tone-blue rise rise-1" style="display:block;text-decoration:none;color:inherit" title="Tap to see how this number is calculated">
-      <span class="ico ico-blue mb-2"><i class="fa-solid fa-users"></i></span>
-      <div class="tile-value">{{ stats.total }}</div>
+  <!-- SUMMARY CARDS -->
+  <section
+    class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4 mb-5 sm:mb-7"
+  >
+    <a
+      href="{{ url_for('calculation', card='students') }}"
+      class="tile tone-blue rise rise-1"
+      style="display:block;text-decoration:none;color:inherit"
+      title="Tap to see how this number is calculated"
+    >
+      <span class="ico ico-blue mb-2">
+        <i class="fa-solid fa-users"></i>
+      </span>
+
+      <div class="tile-value" data-count="{{ stats.total }}">
+        {{ stats.total }}
+      </div>
+
       <div class="tile-label">Total Students</div>
       <div class="text-[10px] mt-1 opacity-60">Tap for calculation ›</div>
     </a>
-    <a href="{{ url_for('calculation', card='old') }}" class="tile tone-amber rise rise-1" style="display:block;text-decoration:none;color:inherit" title="Tap to see how this number is calculated">
-      <span class="ico ico-amber mb-2"><i class="fa-solid fa-house"></i></span>
-      <div class="tile-value">{{ stats.old_count }}</div>
+
+    <a
+      href="{{ url_for('calculation', card='old') }}"
+      class="tile tone-amber rise rise-1"
+      style="display:block;text-decoration:none;color:inherit"
+      title="Tap to see how this number is calculated"
+    >
+      <span class="ico ico-amber mb-2">
+        <i class="fa-solid fa-house"></i>
+      </span>
+
+      <div class="tile-value" data-count="{{ stats.old_count }}">
+        {{ stats.old_count }}
+      </div>
+
       <div class="tile-label">Old Hostel</div>
       <div class="text-[10px] mt-1 opacity-60">Tap for calculation ›</div>
     </a>
-    <a href="{{ url_for('calculation', card='new') }}" class="tile tone-indigo rise rise-2" style="display:block;text-decoration:none;color:inherit" title="Tap to see how this number is calculated">
-      <span class="ico ico-indigo mb-2"><i class="fa-solid fa-city"></i></span>
-      <div class="tile-value">{{ stats.new_count }}</div>
+
+    <a
+      href="{{ url_for('calculation', card='new') }}"
+      class="tile tone-indigo rise rise-2"
+      style="display:block;text-decoration:none;color:inherit"
+      title="Tap to see how this number is calculated"
+    >
+      <span class="ico ico-indigo mb-2">
+        <i class="fa-solid fa-city"></i>
+      </span>
+
+      <div class="tile-value" data-count="{{ stats.new_count }}">
+        {{ stats.new_count }}
+      </div>
+
       <div class="tile-label">New Hostel</div>
       <div class="text-[10px] mt-1 opacity-60">Tap for calculation ›</div>
     </a>
-    <a href="{{ url_for('calculation', card='rent') }}" class="tile tone-teal rise rise-2" style="display:block;text-decoration:none;color:inherit" title="Tap to see how this number is calculated">
-      <span class="ico ico-blue mb-2"><i class="fa-solid fa-hand-holding-dollar"></i></span>
-      <div class="tile-value">₹{{ '{:,.0f}'.format(stats.total_rent) }}</div>
+
+    <a
+      href="{{ url_for('calculation', card='rent') }}"
+      class="tile tone-teal rise rise-2"
+      style="display:block;text-decoration:none;color:inherit"
+      title="Tap to see how this number is calculated"
+    >
+      <span class="ico ico-blue mb-2">
+        <i class="fa-solid fa-hand-holding-dollar"></i>
+      </span>
+
+      <div
+        class="tile-value"
+        data-count="{{ stats.total_rent|round|int }}"
+        data-prefix="₹"
+      >₹{{ '{:,.0f}'.format(stats.total_rent) }}</div>
+
       <div class="tile-label">Total Rent to Receive</div>
       <div class="text-[10px] mt-1 opacity-60">Tap for calculation ›</div>
     </a>
-    <a href="{{ url_for('calculation', card='paid') }}" class="tile tone-green rise rise-3" style="display:block;text-decoration:none;color:inherit" title="Tap to see how this number is calculated">
-      <span class="ico ico-green mb-2"><i class="fa-solid fa-sack-dollar"></i></span>
-      <div class="tile-value">₹{{ '{:,.0f}'.format(stats.total_paid) }}</div>
+
+    <a
+      href="{{ url_for('calculation', card='paid') }}"
+      class="tile tone-green rise rise-3"
+      style="display:block;text-decoration:none;color:inherit"
+      title="Tap to see how this number is calculated"
+    >
+      <span class="ico ico-green mb-2">
+        <i class="fa-solid fa-sack-dollar"></i>
+      </span>
+
+      <div
+        class="tile-value"
+        data-count="{{ stats.total_paid|round|int }}"
+        data-prefix="₹"
+      >₹{{ '{:,.0f}'.format(stats.total_paid) }}</div>
+
       <div class="tile-label">Total Paid</div>
       <div class="text-[10px] mt-1 opacity-60">Tap for calculation ›</div>
     </a>
-    <a href="{{ url_for('calculation', card='due') }}" class="tile tone-red rise rise-3" style="display:block;text-decoration:none;color:inherit" title="Tap to see how this number is calculated">
-      <span class="ico ico-red mb-2"><i class="fa-solid fa-triangle-exclamation"></i></span>
-      <div class="tile-value">₹{{ '{:,.0f}'.format(stats.total_balance) }}</div>
+
+    <a
+      href="{{ url_for('calculation', card='due') }}"
+      class="tile tone-red rise rise-3"
+      style="display:block;text-decoration:none;color:inherit"
+      title="Tap to see how this number is calculated"
+    >
+      <span class="ico ico-red mb-2">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+      </span>
+
+      <div
+        class="tile-value"
+        data-count="{{ stats.total_balance|round|int }}"
+        data-prefix="₹"
+      >₹{{ '{:,.0f}'.format(stats.total_balance) }}</div>
+
       <div class="tile-label">Balance Due</div>
       <div class="text-[10px] mt-1 opacity-60">Tap for calculation ›</div>
     </a>
   </section>
 
   <!-- QUICK ACTIONS -->
-  <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-5 sm:mb-7">
+  <section
+    class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-5 sm:mb-7"
+  >
     <a href="{{ url_for('due_list') }}" class="action-tile">
-      {% if due_count %}<span class="corner-count" style="background:#DC2626">{{ due_count }}</span>{% endif %}
-      <span class="ico ico-red mb-2"><i class="fa-solid fa-calendar-days"></i></span>
+      {% if due_count %}
+        <span class="corner-count" style="background:#DC2626">
+          {{ due_count }}
+        </span>
+      {% endif %}
+
+      <span class="ico ico-red mb-2">
+        <i class="fa-solid fa-calendar-days"></i>
+      </span>
+
       <div class="font-extrabold text-slate-800">Due List</div>
       <div class="text-xs text-slate-500">Students due for payment</div>
     </a>
+
     <a href="{{ url_for('admin_payments') }}" class="action-tile">
-      {% if pending_payments_count %}<span class="corner-count" style="background:#F59E0B">{{ pending_payments_count }}</span>{% endif %}
-      <span class="ico ico-amber mb-2"><i class="fa-solid fa-hourglass-half"></i></span>
+      {% if pending_payments_count %}
+        <span class="corner-count" style="background:#F59E0B">
+          {{ pending_payments_count }}
+        </span>
+      {% endif %}
+
+      <span class="ico ico-amber mb-2">
+        <i class="fa-solid fa-hourglass-half"></i>
+      </span>
+
       <div class="font-extrabold text-slate-800">Today's Payments</div>
-      <div class="text-xs text-slate-500">Submissions awaiting confirmation</div>
+      <div class="text-xs text-slate-500">
+        Submissions awaiting confirmation
+      </div>
     </a>
-    <a href="{{ url_for('paid_unconfirmed') }}" class="action-tile">
-      {% if unconfirmed_paid_count %}<span class="corner-count" style="background:#4F46E5">{{ unconfirmed_paid_count }}</span>{% endif %}
-      <span class="ico ico-indigo mb-2"><i class="fa-solid fa-user-check"></i></span>
-      <div class="font-extrabold text-slate-800">Paid (Unconfirmed)</div>
-      <div class="text-xs text-slate-500">Marked paid without confirmation</div>
+
+    <a href="{{ url_for('admin_notes') }}" class="action-tile">
+      {% if admin_nav and admin_nav.notes %}
+        <span class="corner-count" style="background:#CA8A04">
+          {{ admin_nav.notes }}
+        </span>
+      {% endif %}
+
+      <span class="ico ico-indigo mb-2">
+        <i class="fa-solid fa-note-sticky"></i>
+      </span>
+
+      <div class="font-extrabold text-slate-800">Notes</div>
+      <div class="text-xs text-slate-500">Your own notes</div>
     </a>
+
     <a href="{{ url_for('pause_bed') }}" class="action-tile">
-      {% if admin_nav and admin_nav.pauses %}<span class="corner-count" style="background:#7C3AED">{{ admin_nav.pauses }}</span>{% endif %}
-      <span class="ico ico-purple mb-2"><i class="fa-solid fa-bed-pulse pulse-soft"></i></span>
-      <div class="font-extrabold text-slate-800">Pause Bed <span class="badge-new">NEW</span></div>
+      {% if admin_nav and admin_nav.pauses %}
+        <span class="corner-count" style="background:#7C3AED">
+          {{ admin_nav.pauses }}
+        </span>
+      {% endif %}
+
+      <span class="ico ico-purple mb-2">
+        <i class="fa-solid fa-bed-pulse pulse-soft"></i>
+      </span>
+
+      <div class="font-extrabold text-slate-800">
+        Pause Bed <span class="badge-new">NEW</span>
+      </div>
+
       <div class="text-xs text-slate-500">Temporarily pause beds</div>
     </a>
   </section>
@@ -122,47 +622,105 @@
   <!-- ACTIONS -->
   <section class="card p-3 sm:p-5 mb-4">
     <div class="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
-      <a href="{{ url_for('add_student') }}" class="btn-primary tap text-sm px-4 py-2.5 flex items-center justify-center gap-2 col-span-2 sm:col-span-1 sm:order-last sm:ml-auto">
-        <i class="fa-solid fa-user-plus"></i> Add Student
+      <a
+        href="{{ url_for('add_student') }}"
+        class="btn-primary tap text-sm px-4 py-2.5 flex items-center justify-center gap-2 col-span-2 sm:col-span-1 sm:order-last sm:ml-auto"
+      >
+        <i class="fa-solid fa-user-plus"></i>
+        Add Student
       </a>
-      <a href="{{ url_for('export_excel') }}" class="btn-outline tap text-sm px-3 sm:px-4 py-2.5 flex items-center justify-center gap-2">
-        <i class="fa-solid fa-file-excel text-success"></i> Export Excel
+
+      <a
+        href="{{ url_for('export_excel') }}"
+        class="btn-outline tap text-sm px-3 sm:px-4 py-2.5 flex items-center justify-center gap-2"
+      >
+        <i class="fa-solid fa-file-excel text-success"></i>
+        Export Excel
       </a>
-      <button type="button" onclick="openModal('importModal')" class="btn-outline tap text-sm px-3 sm:px-4 py-2.5 flex items-center justify-center gap-2">
-        <i class="fa-solid fa-file-arrow-up text-success"></i> Import Excel
+
+      <button
+        type="button"
+        onclick="openModal('importModal')"
+        class="btn-outline tap text-sm px-3 sm:px-4 py-2.5 flex items-center justify-center gap-2"
+      >
+        <i class="fa-solid fa-file-arrow-up text-success"></i>
+        Import Excel
       </button>
-      <button type="button" onclick="openModal('pdfModal')" class="btn-outline tap text-sm px-3 sm:px-4 py-2.5 flex items-center justify-center gap-2">
-        <i class="fa-solid fa-file-pdf text-danger"></i> Generate PDF
+
+      <button
+        type="button"
+        onclick="openModal('pdfModal')"
+        class="btn-outline tap text-sm px-3 sm:px-4 py-2.5 flex items-center justify-center gap-2"
+      >
+        <i class="fa-solid fa-file-pdf text-danger"></i>
+        Generate PDF
       </button>
-      <a href="{{ url_for('month_payments') }}" class="btn-primary tap text-sm px-3 sm:px-4 py-2.5 flex items-center justify-center gap-2 col-span-2 sm:col-span-1">
-        <i class="fa-solid fa-wallet fa-bounce" style="--fa-animation-duration:2s"></i> This Month Payments
+
+      <a
+        href="{{ url_for('month_payments') }}"
+        class="btn-primary tap text-sm px-3 sm:px-4 py-2.5 flex items-center justify-center gap-2 col-span-2 sm:col-span-1"
+      >
+        <i
+          class="fa-solid fa-wallet fa-bounce"
+          style="--fa-animation-duration:2s"
+        ></i>
+        This Month Payments
       </a>
-      <a href="{{ url_for('payment_settings') }}" class="btn-outline tap text-sm px-3 sm:px-4 py-2.5 flex items-center justify-center gap-2 col-span-2 sm:col-span-1">
-        <i class="fa-solid fa-qrcode text-primary"></i> Payment Settings
+
+      <a
+        href="{{ url_for('payment_settings') }}"
+        class="btn-outline tap text-sm px-3 sm:px-4 py-2.5 flex items-center justify-center gap-2 col-span-2 sm:col-span-1"
+      >
+        <i class="fa-solid fa-qrcode text-primary"></i>
+        Payment Settings
       </a>
     </div>
   </section>
 
-  <!-- SEARCH & FILTERS (stay pinned under the navbar while scrolling on phones) -->
-  <section id="studentList" class="card p-3 sm:p-5 mb-6 sm:mb-8 sticky top-16 z-30 sm:static shadow-md sm:shadow-none scroll-mt-20">
+  <!-- SEARCH AND FILTERS -->
+  <section
+    id="studentList"
+    class="card p-3 sm:p-5 mb-6 sm:mb-8 sticky top-16 z-30 sm:static shadow-md sm:shadow-none scroll-mt-20"
+  >
     <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
       <div class="col-span-2 sm:col-span-1 relative">
-        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
-        <input type="search" id="searchInput" placeholder="Search name, contact or room..."
-               class="form-input pl-10" autocomplete="off" enterkeyhint="search">
+        <i
+          class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+        ></i>
+
+        <input
+          type="search"
+          id="searchInput"
+          placeholder="Search name, contact or room..."
+          class="form-input pl-10"
+          autocomplete="off"
+          enterkeyhint="search"
+        >
       </div>
-      <select id="hostelFilter" class="form-input" aria-label="Filter by hostel">
+
+      <select
+        id="hostelFilter"
+        class="form-input"
+        aria-label="Filter by hostel"
+      >
         <option value="all">All Hostels</option>
         <option value="Old Hostel">Old Hostel</option>
         <option value="New Hostel">New Hostel</option>
       </select>
-      <select id="roomFilter" class="form-input" aria-label="Filter by room">
+
+      <select
+        id="roomFilter"
+        class="form-input"
+        aria-label="Filter by room"
+      >
         <option value="all">All Rooms</option>
+
         {% for r in rooms %}
-        <option value="{{ r }}">Room {{ r }}</option>
+          <option value="{{ r }}">Room {{ r }}</option>
         {% endfor %}
+
         {% if HALL_ROOM_NUMBER not in rooms %}
-        <option value="{{ HALL_ROOM_NUMBER }}">Hall</option>
+          <option value="{{ HALL_ROOM_NUMBER }}">Hall</option>
         {% endif %}
       </select>
     </div>
@@ -175,121 +733,274 @@
 
   <!-- ROOM-WISE VIEW -->
   {% for hostel in hostels %}
-  <section class="hostel-section mb-8 sm:mb-10 scroll-mt-40" data-hostel-section="{{ hostel }}">
-    <h2 class="hostel-title">
-      <i class="fa-solid {{ 'fa-house' if hostel == 'Old Hostel' else 'fa-city' }}"></i>
-      {{ hostel.upper() }}
-    </h2>
+    <section
+      class="hostel-section mb-8 sm:mb-10 scroll-mt-40"
+      data-hostel-section="{{ hostel }}"
+    >
+      <h2 class="hostel-title">
+        <i
+          class="fa-solid {{ 'fa-house' if hostel == 'Old Hostel' else 'fa-city' }}"
+        ></i>
+        {{ hostel.upper() }}
+      </h2>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-      {% for room_no in rooms_for_hostel(hostel) %}
-      {% set students = rooms_structure[hostel][room_no] %}
-      <div class="room-block" data-hostel="{{ hostel }}" data-room="{{ room_no }}">
-        <div class="room-card">
-          <div class="room-header">
-            <span><i class="fa-solid fa-door-open mr-1.5"></i>{{ room_label(room_no).upper() }}</span>
-            <span class="occupancy-badge {{ 'occupancy-full' if students and students|length >= students[0].sharing }}">
-              {{ students|length }} / {{ students[0].sharing if students else '—' }} occupied
-            </span>
-          </div>
-          <div class="room-body">
-            {% if not students %}
-            <p class="empty-msg"><i class="fa-regular fa-circle-xmark mr-1"></i>No students assigned.</p>
-            {% else %}
-            <p class="search-empty-msg hidden text-sm text-slate-400 italic py-2">No matching students.</p>
-            {% for s in students %}
-            <div class="student-card" data-name="{{ s.name|lower }}" data-contact="{{ s.contact }}">
-              <div class="flex gap-3">
-                {% if s.photo_filename %}
-                <img src="{{ photo_url(s.photo_filename) }}" loading="lazy"
-                     class="student-thumb" alt="{{ s.name }}"
-                     onerror="this.onerror=null;this.src='{{ PHOTO_PLACEHOLDER }}';"
-                     data-photo-url="{{ photo_url(s.photo_filename) }}"
-                     data-photo-name="{{ s.name }}"
-                     onclick="openPhotoModal(this.dataset.photoUrl, this.dataset.photoName)">
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        {% for room_no in rooms_for_hostel(hostel) %}
+          {% set students = rooms_structure[hostel][room_no] %}
+
+          <div
+            class="room-block"
+            data-hostel="{{ hostel }}"
+            data-room="{{ room_no }}"
+          >
+            <div class="room-card">
+              <div class="room-header">
+                <span>
+                  <i class="fa-solid fa-door-open mr-1.5"></i>
+                  {{ room_label(room_no).upper() }}
+                </span>
+
+                <span
+                  class="occupancy-badge {{ 'occupancy-full' if students and students|length >= students[0].sharing }}"
+                >
+                  {{ students|length }} /
+                  {{ students[0].sharing if students else '—' }}
+                  occupied
+                </span>
+              </div>
+
+              <div class="room-body">
+                {% if not students %}
+                  <p class="empty-msg">
+                    <i class="fa-regular fa-circle-xmark mr-1"></i>
+                    No students assigned.
+                  </p>
                 {% else %}
-                <div class="student-thumb flex items-center justify-center bg-slate-100 text-slate-400">
-                  <i class="fa-solid fa-user"></i>
-                </div>
+                  <p
+                    class="search-empty-msg hidden text-sm text-slate-400 italic py-2"
+                  >
+                    No matching students.
+                  </p>
+
+                  {% for s in students %}
+                    <div
+                      class="student-card"
+                      data-name="{{ s.name|lower }}"
+                      data-contact="{{ s.contact }}"
+                    >
+                      <div class="flex gap-3">
+                        {% if s.photo_filename %}
+                          <img
+                            src="{{ photo_url(s.photo_filename) }}"
+                            loading="lazy"
+                            class="student-thumb"
+                            alt="{{ s.name }}"
+                            onerror="this.onerror=null;this.src='{{ PHOTO_PLACEHOLDER }}';"
+                            data-photo-url="{{ photo_url(s.photo_filename) }}"
+                            data-photo-name="{{ s.name }}"
+                            onclick="openPhotoModal(this.dataset.photoUrl, this.dataset.photoName)"
+                          >
+                        {% else %}
+                          <div
+                            class="student-thumb flex items-center justify-center bg-slate-100 text-slate-400"
+                          >
+                            <i class="fa-solid fa-user"></i>
+                          </div>
+                        {% endif %}
+
+                        <div class="flex-1 min-w-0">
+                          <h4 class="font-semibold text-slate-800 break-words">
+                            {{ s.name }}
+                          </h4>
+
+                          <p class="text-xs text-slate-500">
+                            <i class="fa-solid fa-phone text-[10px] mr-1"></i>
+                            <a
+                              href="tel:{{ s.contact }}"
+                              class="hover:underline"
+                            >{{ s.contact }}</a>
+                          </p>
+
+                          <p class="text-xs text-slate-500">
+                            <i class="fa-solid fa-users text-[10px] mr-1"></i>
+                            Sharing: {{ s.sharing }}
+                          </p>
+
+                          {% if s.date_of_join %}
+                            <p class="text-xs text-slate-500">
+                              <i class="fa-solid fa-calendar-plus text-[10px] mr-1"></i>
+                              Joined: {{ s.date_of_join|pretty_date }}
+                            </p>
+                          {% endif %}
+
+                          {% if s.payment_date %}
+                            <p class="text-xs text-slate-500 leading-relaxed">
+                              <i class="fa-solid fa-calendar-check text-[10px] mr-1"></i>
+                              Paid: {{ s.payment_date|pretty_date }}
+
+                              {% if s.payment_mode %}
+                                &bull; {{ s.payment_mode }}
+                              {% endif %}
+
+                              {% if s.paid_to %}
+                                &bull; to {{ s.paid_to }}
+                              {% endif %}
+
+                              {% if s.cash_amount %}
+                                &bull; cash ₹{{ '{:,.0f}'.format(s.cash_amount) }}
+                              {% endif %}
+
+                              {% if s.receipt_filename %}
+                                <a
+                                  href="#"
+                                  class="text-primary font-semibold ml-1 inline-block py-1 px-1.5 rounded bg-primary/10"
+                                  data-receipt-url="{{ photo_url(s.receipt_filename) }}"
+                                  data-receipt-name="{{ s.name }} - receipt"
+                                  onclick="openPhotoModal(this.dataset.receiptUrl, this.dataset.receiptName); return false;"
+                                >Receipt</a>
+                              {% endif %}
+                            </p>
+                          {% endif %}
+
+                          {% if s.old_balance and s.old_balance > 0 %}
+                            <p
+                              class="text-[11px] font-bold text-violet-700 bg-violet-100 rounded-full px-2 py-0.5 mt-1 inline-block"
+                            >
+                              <i class="fa-solid fa-tag text-[10px] mr-1"></i>
+                              Old balance ₹{{ '{:,.0f}'.format(s.old_balance) }}
+                              added to rent
+                            </p>
+                          {% endif %}
+
+                          {% if s.note %}
+                            <p
+                              class="text-xs text-primary bg-primary/10 rounded px-1.5 py-0.5 mt-1 inline-block max-w-full break-words"
+                            >
+                              <i class="fa-solid fa-tag text-[10px] mr-1"></i>
+                              {{ s.note }}
+                            </p>
+                          {% endif %}
+                        </div>
+                      </div>
+
+                      <div class="grid grid-cols-3 gap-1.5 mt-3 text-center">
+                        <div class="mini-stat">
+                          <span class="block text-[10px] text-slate-400">
+                            Rent
+                          </span>
+                          ₹{{ '{:,.0f}'.format(s.total_rent) }}
+                        </div>
+
+                        <div class="mini-stat">
+                          <span class="block text-[10px] text-slate-400">
+                            Paid
+                          </span>
+                          ₹{{ '{:,.0f}'.format(s.amount_paid) }}
+                        </div>
+
+                        <div
+                          class="mini-stat {{ 'text-danger' if s.balance > 0 else 'text-success' }}"
+                        >
+                          <span class="block text-[10px] text-slate-400">
+                            Balance
+                          </span>
+                          ₹{{ '{:,.0f}'.format(s.balance) }}
+                        </div>
+                      </div>
+
+                      <div class="flex gap-2 mt-3">
+                        <a
+                          href="{{ url_for('student_payment_details', student_id=s.id) }}"
+                          class="btn-primary flex-1 text-center text-sm py-2 flex items-center justify-center gap-1.5"
+                        >
+                          <i class="fa-solid fa-indian-rupee-sign"></i>
+                          Payments
+                        </a>
+
+                        <a
+                          href="{{ url_for('edit_student', student_id=s.id) }}"
+                          class="btn-edit flex-1"
+                        >
+                          <i class="fa-solid fa-pen"></i>
+                          Edit
+                        </a>
+
+                        <button
+                          type="button"
+                          class="btn-delete flex-1"
+                          data-delete-url="{{ url_for('delete_student', student_id=s.id) }}"
+                          data-student-name="{{ s.name }}"
+                          onclick="openDeleteModal(this.dataset.deleteUrl, this.dataset.studentName)"
+                        >
+                          <i class="fa-solid fa-trash"></i>
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  {% endfor %}
                 {% endif %}
-                <div class="flex-1 min-w-0">
-                  <h4 class="font-semibold text-slate-800 break-words">{{ s.name }}</h4>
-                  <p class="text-xs text-slate-500"><i class="fa-solid fa-phone text-[10px] mr-1"></i><a href="tel:{{ s.contact }}" class="hover:underline">{{ s.contact }}</a></p>
-                  <p class="text-xs text-slate-500"><i class="fa-solid fa-users text-[10px] mr-1"></i>Sharing: {{ s.sharing }}</p>
-                  {% if s.date_of_join %}
-                  <p class="text-xs text-slate-500"><i class="fa-solid fa-calendar-plus text-[10px] mr-1"></i>Joined: {{ s.date_of_join|pretty_date }}</p>
-                  {% endif %}
-                  {% if s.payment_date %}
-                  <p class="text-xs text-slate-500 leading-relaxed">
-                    <i class="fa-solid fa-calendar-check text-[10px] mr-1"></i>Paid: {{ s.payment_date|pretty_date }}{% if s.payment_mode %} &bull; {{ s.payment_mode }}{% endif %}{% if s.paid_to %} &bull; to {{ s.paid_to }}{% endif %}{% if s.cash_amount %} &bull; cash ₹{{ '{:,.0f}'.format(s.cash_amount) }}{% endif %}
-                    {% if s.receipt_filename %}
-                    <a href="#" class="text-primary font-semibold ml-1 inline-block py-1 px-1.5 rounded bg-primary/10"
-                       data-receipt-url="{{ photo_url(s.receipt_filename) }}"
-                       data-receipt-name="{{ s.name }} - receipt"
-                       onclick="openPhotoModal(this.dataset.receiptUrl, this.dataset.receiptName); return false;">Receipt</a>
-                    {% endif %}
-                  </p>
-                  {% endif %}
-                  {% if s.note %}
-                  <p class="text-xs text-primary bg-primary/10 rounded px-1.5 py-0.5 mt-1 inline-block max-w-full break-words">
-                    <i class="fa-solid fa-tag text-[10px] mr-1"></i>{{ s.note }}
-                  </p>
-                  {% endif %}
-                </div>
-              </div>
-              <div class="grid grid-cols-3 gap-1.5 mt-3 text-center">
-                <div class="mini-stat"><span class="block text-[10px] text-slate-400">Rent</span>₹{{ '{:,.0f}'.format(s.total_rent) }}</div>
-                <div class="mini-stat"><span class="block text-[10px] text-slate-400">Paid</span>₹{{ '{:,.0f}'.format(s.amount_paid) }}</div>
-                <div class="mini-stat {{ 'text-danger' if s.balance > 0 else 'text-success' }}">
-                  <span class="block text-[10px] text-slate-400">Balance</span>₹{{ '{:,.0f}'.format(s.balance) }}
-                </div>
-              </div>
-              <div class="flex gap-2 mt-3">
-                <a href="{{ url_for('student_payment_details', student_id=s.id) }}" class="btn-primary flex-1 text-center text-sm py-2 flex items-center justify-center gap-1.5">
-                  <i class="fa-solid fa-indian-rupee-sign"></i> Payments
-                </a>
-                <a href="{{ url_for('edit_student', student_id=s.id) }}" class="btn-edit flex-1">
-                  <i class="fa-solid fa-pen"></i> Edit
-                </a>
-                <button type="button" class="btn-delete flex-1"
-                        data-delete-url="{{ url_for('delete_student', student_id=s.id) }}"
-                        data-student-name="{{ s.name }}"
-                        onclick="openDeleteModal(this.dataset.deleteUrl, this.dataset.studentName)">
-                  <i class="fa-solid fa-trash"></i> Delete
-                </button>
               </div>
             </div>
-            {% endfor %}
-            {% endif %}
           </div>
-        </div>
+        {% endfor %}
       </div>
-      {% endfor %}
-    </div>
-  </section>
+    </section>
   {% endfor %}
 </div>
 
-<!-- FLOATING ADD STUDENT (phones only) -->
-<a href="{{ url_for('add_student') }}" class="admin-fab btn-primary rounded-full w-14 h-14 flex items-center justify-center text-xl shadow-lg" aria-label="Add Student">
+<!-- FLOATING ADD STUDENT BUTTON -->
+<a
+  href="{{ url_for('add_student') }}"
+  class="admin-fab btn-primary rounded-full w-14 h-14 flex items-center justify-center text-xl shadow-lg"
+  aria-label="Add Student"
+>
   <i class="fa-solid fa-user-plus"></i>
 </a>
 
 <!-- DELETE CONFIRMATION MODAL -->
 <div id="deleteModal" class="modal-overlay hidden">
   <div class="modal-box animate-pop">
-    <div class="w-14 h-14 rounded-full bg-red-50 text-danger text-2xl flex items-center justify-center mx-auto mb-4">
+    <div
+      class="w-14 h-14 rounded-full bg-red-50 text-danger text-2xl flex items-center justify-center mx-auto mb-4"
+    >
       <i class="fa-solid fa-triangle-exclamation"></i>
     </div>
-    <h3 class="text-lg font-bold text-center text-slate-800 mb-1">Delete Student?</h3>
+
+    <h3 class="text-lg font-bold text-center text-slate-800 mb-1">
+      Delete Student?
+    </h3>
+
     <p class="text-sm text-slate-500 text-center mb-6">
-      Are you sure you want to delete <span id="deleteStudentName" class="font-semibold text-slate-700"></span>? This action cannot be undone.
+      Are you sure you want to delete
+      <span
+        id="deleteStudentName"
+        class="font-semibold text-slate-700"
+      ></span>?
+      This action cannot be undone.
     </p>
-    <form id="deleteForm" method="POST" onsubmit="var b=this.querySelector('button[type=submit]'); b.disabled=true; b.textContent='Deleting...';">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <form
+      id="deleteForm"
+      method="POST"
+      onsubmit="var b=this.querySelector('button[type=submit]'); b.disabled=true; b.textContent='Deleting...';"
+    >
+      <input
+        type="hidden"
+        name="csrf_token"
+        value="{{ csrf_token() }}"
+      >
+
       <div class="flex gap-3">
-        <button type="button" onclick="closeModal('deleteModal')" class="btn-outline flex-1 py-2.5">Cancel</button>
-        <button type="submit" class="btn-danger flex-1 py-2.5">Delete</button>
+        <button
+          type="button"
+          onclick="closeModal('deleteModal')"
+          class="btn-outline flex-1 py-2.5"
+        >Cancel</button>
+
+        <button
+          type="submit"
+          class="btn-danger flex-1 py-2.5"
+        >Delete</button>
       </div>
     </form>
   </div>
@@ -298,28 +1009,78 @@
 <!-- PHOTO MODAL -->
 <div id="photoModal" class="modal-overlay hidden">
   <div class="modal-box modal-box-photo animate-pop">
-    <button type="button" onclick="closeModal('photoModal')" class="modal-close" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
-    <img id="photoModalImg" src="" alt="" class="w-full h-auto rounded-xl">
-    <p id="photoModalName" class="text-center font-semibold text-slate-700 mt-3"></p>
+    <button
+      type="button"
+      onclick="closeModal('photoModal')"
+      class="modal-close"
+      aria-label="Close"
+    >
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+
+    <img
+      id="photoModalImg"
+      src=""
+      alt=""
+      class="w-full h-auto rounded-xl"
+    >
+
+    <p
+      id="photoModalName"
+      class="text-center font-semibold text-slate-700 mt-3"
+    ></p>
   </div>
 </div>
 
 <!-- IMPORT EXCEL MODAL -->
 <div id="importModal" class="modal-overlay hidden">
   <div class="modal-box animate-pop">
-    <div class="w-14 h-14 rounded-full bg-green-50 text-success text-2xl flex items-center justify-center mx-auto mb-4">
+    <div
+      class="w-14 h-14 rounded-full bg-green-50 text-success text-2xl flex items-center justify-center mx-auto mb-4"
+    >
       <i class="fa-solid fa-file-arrow-up"></i>
     </div>
-    <h3 class="text-lg font-bold text-center text-slate-800 mb-1">Import Students from Excel</h3>
+
+    <h3 class="text-lg font-bold text-center text-slate-800 mb-1">
+      Import Students from Excel
+    </h3>
+
     <p class="text-sm text-slate-500 text-center mb-5">
-      Columns required: Hostel, Room Number, Sharing, Name, Contact, Total Rent, Amount Paid.
+      Columns required: Hostel, Room Number, Sharing, Name, Contact,
+      Total Rent, Amount Paid.
     </p>
-    <form method="POST" action="{{ url_for('import_excel') }}" enctype="multipart/form-data" onsubmit="var b=this.querySelector('button[type=submit]'); b.disabled=true; b.textContent='Importing...';">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="file" name="excel_file" accept=".xlsx" required class="form-input mb-4">
+
+    <form
+      method="POST"
+      action="{{ url_for('import_excel') }}"
+      enctype="multipart/form-data"
+      onsubmit="var b=this.querySelector('button[type=submit]'); b.disabled=true; b.textContent='Importing...';"
+    >
+      <input
+        type="hidden"
+        name="csrf_token"
+        value="{{ csrf_token() }}"
+      >
+
+      <input
+        type="file"
+        name="excel_file"
+        accept=".xlsx"
+        required
+        class="form-input mb-4"
+      >
+
       <div class="flex gap-3">
-        <button type="button" onclick="closeModal('importModal')" class="btn-outline flex-1 py-2.5">Cancel</button>
-        <button type="submit" class="btn-primary flex-1 py-2.5">Import</button>
+        <button
+          type="button"
+          onclick="closeModal('importModal')"
+          class="btn-outline flex-1 py-2.5"
+        >Cancel</button>
+
+        <button
+          type="submit"
+          class="btn-primary flex-1 py-2.5"
+        >Import</button>
       </div>
     </form>
   </div>
@@ -328,21 +1089,46 @@
 <!-- PDF MODAL -->
 <div id="pdfModal" class="modal-overlay hidden">
   <div class="modal-box animate-pop">
-    <div class="w-14 h-14 rounded-full bg-red-50 text-danger text-2xl flex items-center justify-center mx-auto mb-4">
+    <div
+      class="w-14 h-14 rounded-full bg-red-50 text-danger text-2xl flex items-center justify-center mx-auto mb-4"
+    >
       <i class="fa-solid fa-file-pdf"></i>
     </div>
-    <h3 class="text-lg font-bold text-center text-slate-800 mb-5">Generate PDF Report</h3>
+
+    <h3 class="text-lg font-bold text-center text-slate-800 mb-5">
+      Generate PDF Report
+    </h3>
+
     <div class="flex flex-col gap-3">
-      <a href="{{ url_for('pdf_old') }}" class="btn-outline py-3 flex items-center justify-center gap-2">
-        <i class="fa-solid fa-house"></i> OLD HOSTEL PDF
+      <a
+        href="{{ url_for('pdf_old') }}"
+        class="btn-outline py-3 flex items-center justify-center gap-2"
+      >
+        <i class="fa-solid fa-house"></i>
+        OLD HOSTEL PDF
       </a>
-      <a href="{{ url_for('pdf_new') }}" class="btn-outline py-3 flex items-center justify-center gap-2">
-        <i class="fa-solid fa-city"></i> NEW HOSTEL PDF
+
+      <a
+        href="{{ url_for('pdf_new') }}"
+        class="btn-outline py-3 flex items-center justify-center gap-2"
+      >
+        <i class="fa-solid fa-city"></i>
+        NEW HOSTEL PDF
       </a>
-      <a href="{{ url_for('pdf_complete') }}" class="btn-primary py-3 flex items-center justify-center gap-2">
-        <i class="fa-solid fa-book"></i> COMPLETE HOSTEL PDF
+
+      <a
+        href="{{ url_for('pdf_complete') }}"
+        class="btn-primary py-3 flex items-center justify-center gap-2"
+      >
+        <i class="fa-solid fa-book"></i>
+        COMPLETE HOSTEL PDF
       </a>
-      <button type="button" onclick="closeModal('pdfModal')" class="btn-outline py-2.5 mt-1">Cancel</button>
+
+      <button
+        type="button"
+        onclick="closeModal('pdfModal')"
+        class="btn-outline py-2.5 mt-1"
+      >Cancel</button>
     </div>
   </div>
 </div>
@@ -353,13 +1139,79 @@
 
 {% block extra_scripts %}
 <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  var openAi = function () { if (window.openAdminBot) window.openAdminBot('assistant'); };
+  var openAi = function () {
+    if (window.openAdminBot) {
+      window.openAdminBot('assistant');
+    }
+  };
+
   var card = document.getElementById('adminAiBtn');
-  if (card) card.addEventListener('click', openAi);
-  var side = document.getElementById('sbAiBtn');       // sidebar entry: open the bot right here on the dashboard
-  if (side) side.addEventListener('click', function (e) { e.preventDefault(); openAi(); });
+
+  if (card) {
+    card.addEventListener('click', openAi);
+  }
+
+  var side = document.getElementById('sbAiBtn');
+
+  if (side) {
+    side.addEventListener('click', function (e) {
+      e.preventDefault();
+      openAi();
+    });
+  }
+
+  // Animated numbers on the summary cards
+  var reduce = window.matchMedia &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (!reduce) {
+    document.querySelectorAll('.tile-value[data-count]').forEach(function (el) {
+      var end = Number(el.dataset.count) || 0;
+      var pre = el.dataset.prefix || '';
+      var t0 = null;
+      var dur = 900;
+
+      if (!end) return;
+
+      function step(ts) {
+        if (!t0) t0 = ts;
+
+        var k = Math.min((ts - t0) / dur, 1);
+        var v = Math.round(
+          end * (1 - Math.pow(1 - k, 3))
+        );
+
+        el.textContent = pre + v.toLocaleString('en-IN');
+
+        if (k < 1) {
+          requestAnimationFrame(step);
+        }
+      }
+
+      requestAnimationFrame(step);
+    });
+  }
+
+  // Pause the hostel scene when it is off screen or the tab is hidden.
+  var hero = document.getElementById('hostelHero');
+
+  if (hero && 'IntersectionObserver' in window) {
+    var visible = true;
+
+    var sync = function () {
+      hero.classList.toggle('paused', !visible || document.hidden);
+    };
+
+    new IntersectionObserver(function (entries) {
+      visible = entries[0].isIntersecting;
+      sync();
+    }).observe(hero);
+
+    document.addEventListener('visibilitychange', sync);
+  }
 });
 </script>
 {% endblock %}

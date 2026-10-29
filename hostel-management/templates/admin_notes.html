@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% block title %}Notes — Hostel Management System{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto animate-slide-up">
+
+  <div class="flex items-center gap-3 mb-5">
+    <a href="{{ url_for('admin_dashboard') }}" class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-primary transition shrink-0">
+      <i class="fa-solid fa-arrow-left"></i>
+    </a>
+    <div class="min-w-0">
+      <h1 class="text-2xl font-bold text-slate-800">Notes</h1>
+      <p class="text-slate-500 text-sm">Your own notes. Only the admin sees them. Delete All Data never removes them.</p>
+    </div>
+  </div>
+
+  <form method="POST" class="card p-4 mb-5 space-y-3" autocomplete="off">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="add">
+    <input type="text" name="title" maxlength="120" placeholder="Title (optional)" class="form-input w-full">
+    <textarea name="body" rows="4" maxlength="5000" placeholder="Write a note… e.g. Change Ravi's rent back to ₹6,000 after November" class="form-input w-full"></textarea>
+    <button type="submit" class="btn-primary w-full py-2.5"><i class="fa-solid fa-plus mr-1"></i> Add note</button>
+  </form>
+
+  {% if not notes %}
+  <div class="card p-8 text-center">
+    <i class="fa-solid fa-note-sticky text-3xl text-amber-400 mb-2"></i>
+    <p class="text-slate-500 text-sm">No notes yet.</p>
+  </div>
+  {% endif %}
+
+  <div class="space-y-3">
+    {% for n in notes %}
+    <div class="card p-4 border-l-4 {{ 'border-amber-400' if n.pinned else 'border-slate-200' }}" id="note-{{ n.id }}">
+      {% if edit_id == n.id %}
+      <form method="POST" class="space-y-2" autocomplete="off">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="edit">
+        <input type="hidden" name="id" value="{{ n.id }}">
+        <input type="text" name="title" maxlength="120" value="{{ n.title }}" placeholder="Title (optional)" class="form-input w-full">
+        <textarea name="body" rows="5" maxlength="5000" class="form-input w-full">{{ n.body }}</textarea>
+        <div class="flex gap-2">
+          <a href="{{ url_for('admin_notes') }}#note-{{ n.id }}" class="btn-outline flex-1 text-center py-2 text-sm">Cancel</a>
+          <button type="submit" class="btn-primary flex-1 py-2 text-sm"><i class="fa-solid fa-floppy-disk mr-1"></i> Save</button>
+        </div>
+      </form>
+      {% else %}
+      <div class="flex justify-between items-start gap-3">
+        <div class="min-w-0">
+          {% if n.title %}<h3 class="font-bold text-slate-800 break-words">{% if n.pinned %}<i class="fa-solid fa-thumbtack text-amber-500 mr-1"></i>{% endif %}{{ n.title }}</h3>{% endif %}
+          <p class="text-sm text-slate-700 whitespace-pre-line break-words mt-0.5">{% if n.pinned and not n.title %}<i class="fa-solid fa-thumbtack text-amber-500 mr-1"></i>{% endif %}{{ n.body }}</p>
+          <p class="text-[11px] text-slate-400 mt-2">{{ n.updated_at[:10]|pretty_date }} {{ n.updated_at[11:16] }}</p>
+        </div>
+        <div class="flex gap-1 shrink-0">
+          <form method="POST"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="pin"><input type="hidden" name="id" value="{{ n.id }}">
+            <button type="submit" class="w-9 h-9 rounded-lg border border-slate-200 {{ 'text-amber-500' if n.pinned else 'text-slate-400' }} hover:bg-amber-50" title="{{ 'Unpin' if n.pinned else 'Pin to top' }}"><i class="fa-solid fa-thumbtack"></i></button></form>
+          <a href="{{ url_for('admin_notes', edit=n.id) }}#note-{{ n.id }}" class="w-9 h-9 rounded-lg border border-slate-200 text-primary hover:bg-blue-50 flex items-center justify-center" title="Edit"><i class="fa-solid fa-pen"></i></a>
+          <form method="POST" onsubmit="return confirm('Delete this note?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="{{ n.id }}">
+            <button type="submit" class="w-9 h-9 rounded-lg border border-red-200 text-danger hover:bg-red-50" title="Delete"><i class="fa-solid fa-trash"></i></button></form>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

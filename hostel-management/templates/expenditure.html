@@ -1,0 +1,226 @@
+{% extends 'base.html' %}
+
+{% block title %}Expenditure — Hostel Management System{% endblock %}
+
+{% block content %}
+{% set money = '{:,.0f}' %}
+<div class="max-w-3xl mx-auto animate-slide-up">
+
+  <!-- Page Header -->
+  <div class="flex items-center gap-3 mb-5">
+    <a href="{{ url_for('admin_dashboard') }}"
+       class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-primary transition shrink-0">
+      <i class="fa-solid fa-arrow-left"></i>
+    </a>
+    <div class="min-w-0">
+      <h1 class="text-2xl font-bold text-slate-800">Expenditure</h1>
+      <p class="text-slate-500 text-sm">Money spent in {{ label }} (Canteen, Hostel, Home) and canteen income.</p>
+    </div>
+  </div>
+
+  <!-- Month Filters -->
+  <div class="grid grid-cols-3 gap-2 mb-5">
+    <a href="{{ url_for('expenditure', month=this_key) }}"
+       class="text-center py-3 rounded-xl font-bold text-sm {{ 'bg-primary text-white' if key == this_key else 'bg-white border border-slate-200 text-slate-600' }}">
+      This Month
+    </a>
+    <a href="{{ url_for('expenditure', month=last_key) }}"
+       class="text-center py-3 rounded-xl font-bold text-sm {{ 'bg-primary text-white' if key == last_key else 'bg-white border border-slate-200 text-slate-600' }}">
+      Last Month
+    </a>
+    <form method="GET" action="{{ url_for('expenditure') }}">
+      <input type="month" name="month" value="{{ key }}" onchange="this.form.submit()"
+             class="form-input w-full h-full text-sm text-center {{ 'border-primary' if key not in (this_key, last_key) }}"
+             aria-label="Pick a month">
+    </form>
+  </div>
+
+  <!-- Totals -->
+  <div class="grid grid-cols-2 gap-2 mb-4 text-center">
+    <div class="card p-4 border-l-4 border-danger">
+      <div class="text-[11px] text-slate-400"><i class="fa-solid fa-arrow-up mr-1"></i>Total expenditure — {{ label }}</div>
+      <div class="text-2xl font-extrabold text-danger">₹{{ money.format(s.total_expense) }}</div>
+    </div>
+    <div class="card p-4">
+      <div class="text-[11px] text-slate-400"><i class="fa-solid fa-utensils mr-1"></i>Canteen income</div>
+      <div class="text-2xl font-extrabold text-slate-800">₹{{ money.format(s.canteen_income) }}</div>
+      <div class="text-[10px] text-slate-400">entered by you</div>
+    </div>
+  </div>
+
+  <!-- Expenditure by category -->
+  <h2 class="font-bold text-slate-700 mb-2">Expenditure by category</h2>
+  <div class="grid grid-cols-3 gap-2 mb-4 text-center">
+    {% for c, icon in [('Canteen', 'fa-utensils'), ('Hostel', 'fa-building'), ('Home', 'fa-house')] %}
+    <div class="card p-3">
+      <div class="text-[11px] text-slate-400"><i class="fa-solid {{ icon }} mr-1"></i>{{ c }}</div>
+      <div class="font-bold text-danger">₹{{ money.format(s.cat_totals[c]) }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Canteen profit / loss -->
+  <div class="card p-3 mb-6 text-center">
+    {% set net = s.canteen_net %}
+    <div class="text-[11px] text-slate-400">Canteen {{ 'profit' if net >= 0 else 'loss' }}</div>
+    <div class="font-bold {{ 'text-success' if net >= 0 else 'text-danger' }}">{{ '' if net >= 0 else '−' }}₹{{ money.format(net|abs) }}</div>
+    <div class="text-[10px] text-slate-400">₹{{ money.format(s.canteen_income) }} in − ₹{{ money.format(s.cat_totals['Canteen']) }} out</div>
+  </div>
+
+  <!-- Add expense -->
+  <form method="POST" class="card p-5 mb-4 space-y-3" autocomplete="off" id="expenseForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="add_expense">
+    <h2 class="font-bold text-slate-700"><i class="fa-solid fa-receipt mr-1 text-primary"></i>Add expenditure</h2>
+
+    <div>
+      <span class="form-label">Category</span>
+      <div class="grid grid-cols-3 gap-2">
+        {% for c in categories %}
+        <label class="flex items-center justify-center gap-2 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 cursor-pointer has-[:checked]:bg-primary has-[:checked]:text-white has-[:checked]:border-primary">
+          <input type="radio" name="category" value="{{ c }}" class="sr-only" {{ 'checked' if loop.first }} required>{{ c }}
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <label class="block text-sm font-semibold text-slate-600">Item
+      <input type="text" name="item" maxlength="120" required placeholder="e.g. Rice, Electricity bill, Groceries" class="form-input w-full mt-1"></label>
+
+    <div class="grid grid-cols-3 gap-2">
+      <label class="block text-sm font-semibold text-slate-600">Qty
+        <input type="number" name="qty" id="exQty" min="0.01" step="0.01" value="1" required class="form-input w-full mt-1"></label>
+      <label class="block text-sm font-semibold text-slate-600">Price (₹)
+        <input type="number" name="price" id="exPrice" min="0.01" step="0.01" required class="form-input w-full mt-1"></label>
+      <div class="text-sm font-semibold text-slate-600">Total
+        <div id="exTotal" class="form-input w-full mt-1 bg-slate-50 font-bold text-slate-800">₹0</div></div>
+    </div>
+
+    <label class="block text-sm font-semibold text-slate-600">Date
+      <input type="date" name="date" required max="{{ today_iso }}" value="{{ default_date }}" class="form-input w-full mt-1"></label>
+
+    <button type="submit" class="btn-primary w-full py-3"><i class="fa-solid fa-plus mr-1"></i> Add expense</button>
+  </form>
+
+  <!-- Add canteen income -->
+  <form method="POST" class="card p-5 mb-6 space-y-3" autocomplete="off">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="add_canteen_income">
+    <h2 class="font-bold text-slate-700"><i class="fa-solid fa-utensils mr-1 text-success"></i>Add canteen income</h2>
+    <div class="grid grid-cols-2 gap-2">
+      <label class="block text-sm font-semibold text-slate-600">Amount (₹)
+        <input type="number" name="amount" min="1" step="1" required class="form-input w-full mt-1"></label>
+      <label class="block text-sm font-semibold text-slate-600">Date
+        <input type="date" name="date" required max="{{ today_iso }}" value="{{ default_date }}" class="form-input w-full mt-1"></label>
+    </div>
+    <label class="block text-sm font-semibold text-slate-600">Note (optional)
+      <input type="text" name="note" maxlength="120" placeholder="e.g. Snacks sale, outsider meals" class="form-input w-full mt-1"></label>
+    <button type="submit" class="btn-primary w-full py-3" style="background:#059669"><i class="fa-solid fa-plus mr-1"></i> Add canteen income</button>
+  </form>
+
+  <!-- Daily expenditure -->
+  <h2 class="font-bold text-slate-700 mb-2">Daily expenditure — {{ label }}</h2>
+  {% if daily %}
+  <div class="space-y-3 mb-6">
+    {% for day in daily %}
+    <div class="card p-0 overflow-hidden">
+      <div class="flex items-center justify-between px-4 py-2.5 bg-slate-50 border-b border-slate-100">
+        <div class="font-semibold text-slate-700 text-sm">{{ day.date|pretty_date }}</div>
+        <div class="text-sm">Daily total <b class="text-danger">₹{{ money.format(day.total) }}</b></div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-[11px] text-slate-400 text-left">
+              <th class="px-3 py-1.5 font-semibold">Category</th>
+              <th class="px-3 py-1.5 font-semibold">Item</th>
+              <th class="px-3 py-1.5 font-semibold text-right">Qty</th>
+              <th class="px-3 py-1.5 font-semibold text-right">Price</th>
+              <th class="px-3 py-1.5 font-semibold text-right">Total</th>
+              <th class="px-2 py-1.5"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for e in day.rows %}
+            <tr class="border-t border-slate-100">
+              <td class="px-3 py-2 text-xs font-semibold text-slate-500">{{ e.category }}</td>
+              <td class="px-3 py-2 text-slate-800">{{ e.item }}</td>
+              <td class="px-3 py-2 text-right text-slate-600">{{ '{:,.2f}'.format(e.qty).rstrip('0').rstrip('.') }}</td>
+              <td class="px-3 py-2 text-right text-slate-600">₹{{ '{:,.2f}'.format(e.price).rstrip('0').rstrip('.') }}</td>
+              <td class="px-3 py-2 text-right font-bold text-slate-800">₹{{ money.format(e.total) }}</td>
+              <td class="px-2 py-2 text-right">
+                <form method="POST" class="confirm-delete" data-msg="Delete expense '{{ e.item }}' (₹{{ money.format(e.total) }})?">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="action" value="delete_expense">
+                  <input type="hidden" name="id" value="{{ e.id }}">
+                  <input type="hidden" name="month" value="{{ key }}">
+                  <button type="submit" class="w-8 h-8 rounded-lg border border-red-200 text-danger hover:bg-red-50" aria-label="Delete expense">
+                    <i class="fa-solid fa-trash text-xs"></i></button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="px-4 py-2 text-[11px] text-slate-400 border-t border-slate-100">
+        {% for c in categories if day.cats[c] %}{{ c }} ₹{{ money.format(day.cats[c]) }}{% if not loop.last %} &bull; {% endif %}{% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card p-6 text-center mb-6"><p class="text-slate-500 text-sm">No expenditure added for {{ label }} yet.</p></div>
+  {% endif %}
+
+  <!-- Canteen income entries -->
+  <h2 class="font-bold text-slate-700 mb-2">Canteen income — {{ label }}</h2>
+  {% if canteen_rows %}
+  <div class="space-y-2">
+    {% for r in canteen_rows %}
+    <div class="card p-3 flex items-center gap-3">
+      <div class="min-w-0 flex-1">
+        <p class="font-semibold text-slate-800">{{ r.income_date|pretty_date }}</p>
+        {% if r.note %}<p class="text-xs text-slate-500 truncate">{{ r.note }}</p>{% endif %}
+      </div>
+      <div class="font-bold text-success shrink-0">₹{{ money.format(r.amount) }}</div>
+      <form method="POST" class="confirm-delete shrink-0" data-msg="Delete this canteen income of ₹{{ money.format(r.amount) }}?">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="delete_canteen_income">
+        <input type="hidden" name="id" value="{{ r.id }}">
+        <input type="hidden" name="month" value="{{ key }}">
+        <button type="submit" class="w-9 h-9 rounded-lg border border-red-200 text-danger hover:bg-red-50" aria-label="Delete canteen income">
+          <i class="fa-solid fa-trash text-xs"></i></button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card p-6 text-center"><p class="text-slate-500 text-sm">No canteen income added for {{ label }} yet.</p></div>
+  {% endif %}
+
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const qty = document.getElementById('exQty');
+  const price = document.getElementById('exPrice');
+  const total = document.getElementById('exTotal');
+  function updateTotal() {
+    const t = (parseFloat(qty.value) || 0) * (parseFloat(price.value) || 0);
+    total.textContent = '₹' + t.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+  }
+  qty.addEventListener('input', updateTotal);
+  price.addEventListener('input', updateTotal);
+  updateTotal();
+
+  document.querySelectorAll('.confirm-delete').forEach(function (form) {
+    form.addEventListener('submit', function (event) {
+      if (!window.confirm((form.dataset.msg || 'Delete this entry?') + ' This cannot be undone.')) {
+        event.preventDefault();
+      }
+    });
+  });
+});
+</script>
+{% endblock %}

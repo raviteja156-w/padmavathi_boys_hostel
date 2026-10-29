@@ -185,3 +185,17 @@ DATABASE_PATH=
 ## 📄 License
 
 Built for internal hostel administration use. Adapt freely.
+
+---
+
+## Rent rules (current version)
+
+- **Due day = day of the joined date**, every month (joined on the 31st → last day of shorter months).
+  The student is in the **Due List** from that day until he pays, and under **Tomorrow** the day before.
+  Money paid *before* the due day counts for the previous month (no advance payments).
+- **Paid / Balance** everywhere = the student's current rent month. There is no month-end reset and no income page.
+- **Delete All Data** (sidebar): fully paid students lose only their payment details; students with a balance get it
+  added to their Total Rent with an **Old balance** tag. Each run can be **Reverted**; **Permanently delete**
+  removes the saved copy and receipt images from the database.
+- **Expenditure** and **Notes** are their own pages.
+- On first start, any amount typed directly on a student (not as a payment) is moved once into the payments table.

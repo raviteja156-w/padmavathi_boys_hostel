@@ -25,9 +25,9 @@
     {% if c.card == 'rent' %}
       Add up the <b>monthly rent of every student who is in the app now</b>. Deleted students are not included.
     {% elif c.card == 'paid' %}
-      Add up the payments you pressed <b>Confirm</b> on during <b>{{ c.month_label }}</b>. A student only marked as paid on their record, or a payment still waiting for confirmation, is <b>not</b> counted.
+      Add up what every student paid for his <b>current rent month</b> (from his due day, the day of his joined date). Money paid before the due day belongs to the previous month. Payments still waiting for confirmation are <b>not</b> counted.
     {% elif c.card == 'due' %}
-      For every student: <b>monthly rent − payments confirmed in {{ c.month_label }}</b> (never below ₹0). Then add up what is left.
+      For every student: <b>total rent − paid for his current rent month</b> (never below ₹0). Then add up what is left.
     {% elif c.card == 'students' %}
       Count every student who is in the app now (Old Hostel + New Hostel + Hall).
     {% else %}
@@ -92,7 +92,7 @@
   {% if c.card == 'paid' and c.not_counted %}
   <div class="card p-4 mb-4 border-l-4 border-amber-400">
     <p class="font-bold text-amber-700 text-sm">Marked as paid but NOT counted ({{ c.not_counted|length }})</p>
-    <p class="text-xs text-slate-500 mt-1">These students have an amount on their record that is more than the payments you confirmed in {{ c.month_label }}. Open Paid (Unconfirmed) to check them.</p>
+    <p class="text-xs text-slate-500 mt-1">These students have an amount on their record that is more than the payments you confirmed in {{ c.month_label }}. </p>
     <div class="mt-2">
       {% for n in c.not_counted %}
       <div class="flex justify-between gap-3 py-1.5 border-t border-slate-100 text-sm first:border-0">

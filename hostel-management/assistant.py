@@ -571,9 +571,6 @@ ADMIN_KB = [
     {'kw': ['confirm payment', "today's payments", 'todays payments', 'pending payment', 'payments awaiting', 'confirm a payment', 'చెల్లింపును నిర్ధారించ', 'పెండింగ్ చెల్లింపు'],
      'en': ['Student payments wait for you in <b>Today\'s Payments</b>:', 'Open <b>Today\'s Payments</b> from the dashboard.', 'Use <b>VIEW PROOF</b> to check the receipt, then tap <b>CONFIRM PAYMENT</b>. Only then do the student\'s paid amount and balance change.'],
      'te': ['విద్యార్థుల చెల్లింపులు <b>Today\'s Payments</b> లో మీ కోసం ఉంటాయి:', 'డ్యాష్‌బోర్డ్ నుండి <b>Today\'s Payments</b> తెరవండి.', '<b>VIEW PROOF</b> తో రసీదు చూసి <b>CONFIRM PAYMENT</b> నొక్కండి. అప్పుడే విద్యార్థి చెల్లించిన మొత్తం, బ్యాలెన్స్ మారతాయి.']},
-    {'kw': ['unconfirmed', 'paid not confirmed', 'marked paid'],
-     'en': ['<b>Paid (Unconfirmed)</b> lists students marked as paid this month without an admin-confirmed payment. You can view the receipt, <b>EDIT</b>, or <b>DELETE</b> from there.'],
-     'te': ['<b>Paid (Unconfirmed)</b> ఈ నెలలో అడ్మిన్ నిర్ధారణ లేకుండా చెల్లించినట్లు గుర్తించిన విద్యార్థులను చూపిస్తుంది. అక్కడ రసీదు చూడవచ్చు, <b>EDIT</b> లేదా <b>DELETE</b> చేయవచ్చు.']},
     {'kw': ['payment settings', 'qr code', 'upload qr', 'payment number', 'phonepe', 'పేమెంట్ సెట్టింగ్స్'],
      'en': ['<b>Payment Settings</b> lets you set, for each hostel, the QR code (JPG/PNG), the payment/PhonePe number and the account name. Students see the details of their own hostel on their dashboard.'],
      'te': ['<b>Payment Settings</b> లో ప్రతి హాస్టల్‌కు QR కోడ్ (JPG/PNG), పేమెంట్/ఫోన్‌పే నంబర్, అకౌంట్ పేరు సెట్ చేయవచ్చు. విద్యార్థులు తమ హాస్టల్ వివరాలను డ్యాష్‌బోర్డ్‌లో చూస్తారు.']},
@@ -587,7 +584,7 @@ ADMIN_KB = [
      'en': ['Voice: tap the <b>mic</b> button, pick <b>EN</b> or <b>తె</b> for the language you will speak, and say your command. It is typed into the chat and processed like a normal message. Tap the <b>speaker</b> button to have replies read aloud.', 'Voice needs a browser with speech support (Chrome or Edge work best). Telugu speech needs a Telugu voice installed on the device.'],
      'te': ['వాయిస్: <b>mic</b> బటన్ నొక్కి, మీరు మాట్లాడే భాషగా <b>EN</b> లేదా <b>తె</b> ఎంచుకుని మీ కమాండ్ చెప్పండి. అది చాట్‌లో టైప్ అయి సాధారణ సందేశంలా ప్రాసెస్ అవుతుంది. సమాధానాలు వినడానికి <b>speaker</b> బటన్ నొక్కండి.', 'వాయిస్‌కు స్పీచ్ సపోర్ట్ ఉన్న బ్రౌజర్ కావాలి (Chrome లేదా Edge మంచివి). తెలుగు మాట్లాడటానికి/వినడానికి పరికరంలో తెలుగు వాయిస్ ఉండాలి.']},
     {'kw': ['what can you do', 'help', 'commands', 'how to use', 'examples', 'సహాయం', 'ఏమి చేయగలవు'],
-     'en': ['I can answer in English or Telugu. Try:', '"How many vacant rooms are available?"', '"Who is in room 2 Old Hostel?"', '"Show details of Manohar"', '"Total balance due"', '"Shift Manohar from room 2 Old Hostel to room 3 Old Hostel" (I will ask you to confirm before changing anything)'],
+     'en': ['I can answer questions about the app and do actions for you. I always show what will change and <b>wait for your Yes</b>.', 'Questions: "Who is in room 2 Old Hostel?", "Show details of Manohar", "Total balance due", "How many vacant beds?", "How does the Due List work?"', 'Actions: "Shift Manohar from room 2 Old Hostel to room 3 Old Hostel", "Delete Ravi", "Restore Ajay", "Delete payment of Ravi", "Delete all data".'],
      'te': ['నేను ఇంగ్లీష్ లేదా తెలుగులో సమాధానం ఇస్తాను. ప్రయత్నించండి:', '"ఎన్ని గదులు ఖాళీగా ఉన్నాయి?"', '"ఓల్డ్ హాస్టల్ రూమ్ 2 లో ఎవరు ఉన్నారు?"', '"మనోహర్ వివరాలు చూపించు"', '"మొత్తం బాకీ ఎంత?"', '"మనోహర్ ను ఓల్డ్ హాస్టల్ రూమ్ 2 నుండి రూమ్ 3 కి మార్చండి" (ఏదైనా మార్చే ముందు నిర్ధారణ అడుగుతాను)']},
 ]
 
@@ -602,27 +599,33 @@ _NEW_KB = [
     {'kw': ['delete payment', 'delete a payment', 'delete the payment', 'remove payment', 'remove a payment', 'wrong payment', 'payment wrong', 'paid zero', 'clear payment', 'reset payment', 'undo payment', 'చెల్లింపు తొలగ', 'చెల్లింపు డిలీట్'],
      'en': ['To delete one student\'s payment: open <b>This Month Payments</b> and tap <b>Delete this payment (Paid becomes ₹0)</b> on their card. You are asked to confirm.', 'Their Paid goes to ₹0 and the balance becomes the full rent.', 'You can also tell me: "delete payment of Ravi". I show what will change and wait for your confirmation.', 'The old <b>Delete (already noted)</b> button only hides the payment from the list; the money stays counted.']},
     {'kw': ['reset all', 'delete all payments', 'delete all payment', 'all payment details', 'everyone paid zero', 'clear all payments', 'reset payments', 'అన్ని చెల్లింపులు', 'అందరి చెల్లింపులు'],
-     'en': ['<b>Delete All Payment Details</b> (sidebar, red) sets every student\'s Paid back to ₹0 and removes all payment records and receipts students uploaded.', 'It shows how many students and how much money will be removed and asks you to type <b>DELETE</b>.', 'Students, rents, rooms, deleted students and guests are not touched. It cannot be undone.']},
+     'en': ['<b>Delete All Data</b> (sidebar, red) frees space. Students who paid completely: their payment details are deleted. Students with a balance: their payment details are deleted and the <b>balance is added to their Total Rent</b> with an <b>Old balance</b> tag.', 'Deleted: amount paid, payment date, mode, cash amount, paid to, receipt images and notes. Kept: name, contact, room, sharing, rent, joined date and photo.', 'It shows what will happen and asks you to type <b>DELETE</b>. Afterwards you can <b>Revert</b> it. The data leaves the database only when you press <b>Permanently delete</b>.']},
     {'kw': ['month end', 'new month', 'next month', 'first of the month', 'monthly reset', 'month reset', 'start new month', 'నెల చివర', 'కొత్త నెల'],
-     'en': ['Nothing is deleted automatically at month end.', 'From 12:00 AM on the 1st, every time you open the admin area it asks: <b>"Can I delete last month\'s payment details?"</b>', '<b>Yes</b> saves a copy to payment history and sets everyone\'s Paid to ₹0. <b>No</b> keeps everything and it asks again next time.', 'Until you say Yes, last month\'s paid amounts stay on the students, so answer it before recording new rent.']},
+     'en': ["There is no month end any more. Each student's rent month starts on his own due day (the day of his joined date).", 'On that day his Paid goes back to ₹0 by itself and he appears in the Due List until he pays. Nothing is deleted at month end.', 'To free space, use <b>Delete All Data</b> whenever you want.']},
     {'kw': ['this month payments', 'month payments', 'swipe', 'payments list', 'ఈ నెల చెల్లింపులు'],
-     'en': ['<b>This Month Payments</b> shows one card per student who has paid this month: rent, paid, balance, paid to, mode and date.', 'Swipe or use the arrows to move between students.', '<b>Delete (already noted)</b> hides a card (see the Deleted tab, you can restore it). <b>Delete this payment</b> really removes the payment (Paid becomes ₹0).']},
+     'en': ['<b>This Month Payments</b> shows one card per student who has paid for his current rent month (from his due day): rent, paid, balance, paid to, mode and date.', 'Use the <b>filter</b> at the top to find a student by name, room or phone, or pick one hostel. Swipe or use the arrows to move between cards.', '<b>Delete (already noted)</b> hides a card (Deleted tab, you can restore it). <b>Delete this payment</b> really removes the payment (Paid becomes ₹0).']},
     {'kw': ['due list', 'who has to pay', 'who owes', 'overdue', 'defaulter', 'due day', 'due date', 'coming up', 'upcoming', 'బాకీ జాబితా', 'డ్యూ లిస్ట్'],
-     'en': ['<b>Due List</b> follows each student\'s <b>joining day</b>: rent falls due on that day every month (31 becomes 30 in a 30-day month).', 'A student is listed from their due day until they pay it. The day before, they show under <b>Tomorrow</b>, with a Call button.', 'Only the joined date decides the due day. The payment date is used only for the monthly income. A student who has paid never stays in the Due List.', 'Example: joined 30 Oct. His next due date is 30 Nov: he is under Tomorrow on 29 Nov and in the Due List on 30 Nov. Joined 31 Oct: due 30 Nov, because November has no 31st.']},
+     'en': ["<b>Due List</b> follows each student's <b>joined date</b> only: rent falls due on that day every month (31 becomes 30 in a 30-day month).", 'On his due day every student is in the Due List until he pays. The day before, he shows under <b>Tomorrow</b>, with a Call button.', 'Money paid before the due day counts for the previous month, so it never hides him on his due day.', 'Example: joined 30 Sep. He is under Tomorrow on 29 Oct and in the Due List on 30 Oct; again on 29 Nov / 30 Nov, and so on.', 'A student with an <b>Old balance</b> tag (from Delete All Data) stays in the Due List until that old balance is paid.']},
     {'kw': ['monthly income', 'this month income', 'last month income', 'income', 'how much collected', 'how much received', 'collection', 'ఆదాయం', 'వసూలు'],
-     'en': ['<b>All Payments & Income</b> (sidebar, or the buttons on This Month Payments) shows the money actually <b>received</b> in a month, with every payment listed so you can edit or delete it.', 'Choose <b>This Month</b> or <b>Last Month</b>. It includes payments of deleted students and splits Online and Cash.', 'You can also ask me: "How much did we collect this month?"']},
+     'en': ['The income pages were removed. The app now only tracks rent: who paid for his current rent month and who is due.', 'See <b>This Month Payments</b> for payments and <b>Due List</b> for who has to pay. Expenses are on the <b>Expenditure</b> page.']},
     {'kw': ['calculation', 'how is total', 'total rent calculated', 'how total rent', 'how total paid', 'how balance due', 'dashboard card', 'tap card', 'click card', 'how the numbers', 'లెక్క', 'మొత్తం ఎలా'],
-     'en': ['Every card on the dashboard opens a <b>calculation sheet</b> when you tap it (Total Students, Old Hostel, New Hostel, Total Rent to Receive, Total Paid, Balance Due).', 'The sheet lists the students behind the number, room by room, with the addition written out: each room total, each building total and the final total.', '<b>Total Rent</b> = monthly rent of every student now in the app. <b>Total Paid</b> = payments you confirmed this month. <b>Balance Due</b> = rent minus confirmed payments, per student.', 'It also shows students marked as paid but not confirmed (they are not counted in Total Paid).']},
+     'en': ['Every card on the dashboard opens a <b>calculation sheet</b> when you tap it (Total Students, Old Hostel, New Hostel, Total Rent to Receive, Total Paid, Balance Due).', 'The sheet lists the students behind the number, room by room, with the addition written out.', '<b>Total Rent</b> = total rent of every student now in the app. <b>Total Paid</b> = what each student paid for his current rent month. <b>Balance Due</b> = rent minus that, per student.']},
     {'kw': ['edit payment', 'change payment', 'change the payment', 'move payment', 'counted in', 'last month payment', 'make it last month', 'this month payment', 'change month', 'edit a payment'],
-     'en': ['Open <b>All Payments & Income</b> (sidebar), or tap <b>Edit payment / change month</b> on a card in This Month Payments.', 'Tap the pencil on a payment to change its amount, date, how it was paid, who received it, and <b>which month it counts in</b>: normal (month of the date), This month, or Last month.', 'Choosing Last month only moves it into last month\'s income. The real payment date and the Due List do not change. You can also delete a payment there.']},
+     'en': ['Open the student (<b>Payments</b> button on his card, or <b>Edit payment</b> in This Month Payments).', 'Under <b>All payments</b>, tap <b>Edit</b> on a payment to change its amount, date, how it was paid or who received it, or <b>Delete</b> it.', 'There is no "change month" any more: a payment counts for the rent month its date falls in (from the student\'s due day).']},
     {'kw': ['record payment', 'add payment', 'receive payment', 'mark paid', 'cash payment', 'enter payment', 'చెల్లింపు నమోదు'],
      'en': ['To record a payment you received yourself: open the student (dashboard or Due List) and tap <b>Edit / Record Payment</b>.', 'Enter amount paid, date, mode (Online / Cash / Online + Cash), who received it, and the receipt if you have one. Save.', 'When a student submits a payment from their own page it appears in <b>Today\'s Payments</b> and counts only after you press <b>Confirm</b>.']},
     {'kw': ['how do students pay', 'student pay', 'students pay', 'student submit', 'upload receipt', 'proof', 'విద్యార్థులు ఎలా చెల్లి'],
      'en': ['Students open the Payments page, enter their mobile number, see their own dues and the QR / number of their hostel, pay, and submit the amount with a receipt photo.', 'You see it in <b>Today\'s Payments</b>. Check <b>VIEW PROOF</b> and press <b>Confirm</b>; only then it is added to their Paid.']},
     {'kw': ['change rent', 'edit rent', 'total rent', 'rent amount', 'part month rent', 'అద్దె మార్చ'],
      'en': ['To change a student\'s rent: <b>Edit</b> the student and change Total Rent. For a few days only, use menu <b>3) Calculate Per-Day Rent</b>, which can save the part-month rent for you.']},
+    {'kw': ['notes', 'note', 'my notes', 'admin notes', 'write a note', 'నోట్స్'],
+     'en': ['<b>Notes</b> (sidebar) is your own notebook: add a note with a title, edit it, pin it to the top, or delete it.', 'Delete All Data never removes notes. Use it, for example, to remember whose rent to change back after an old balance is paid.']},
+    {'kw': ['expenditure', 'expense', 'expenses', 'spent', 'canteen', 'ఖర్చు'],
+     'en': ['<b>Expenditure</b> (sidebar) records money spent (Canteen, Hostel, Home) and canteen income, day by day.', 'Pick This Month, Last Month or any month to see the totals.']},
+    {'kw': ['old balance', 'balance tag', 'tag', 'revert', 'undo delete', 'permanently delete', 'restore data'],
+     'en': ['<b>Old balance</b> tag: when Delete All Data runs, a student\'s unpaid balance is added to his Total Rent and shown as a tag. He stays in the Due List for that old balance.', 'Change his Total Rent back yourself when you want (Edit student), and set the tag to 0 there to remove it.', '<b>Revert</b>: on the Delete All Data page, the latest delete can be reverted (payments, notes and rents come back). <b>Permanently delete</b> removes it from the database for good.']},
     {'kw': ['what is this app', 'about this app', 'what can this app do', 'features', 'overview', 'అప్లికేషన్ గురించి'],
-     'en': ['This app manages the hostel: students and rooms (Old Hostel, New Hostel and the Hall), rent and payments, due list, paused beds, vacancies, guests and deleted students.', 'Sidebar: Dashboard, Today\'s Payments, This Month Payments, Due List, Paid (Unconfirmed), Deleted Students, Guests, Pause Bed, Delete All Payment Details, Payment Settings, Add Student.', 'Ask me about any of them, or tell me an action like "restore Ajay" or "delete payment of Ravi".']},
+     'en': ['This app manages the hostel: students and rooms (Old Hostel, New Hostel and the Hall), rent and payments, due list, paused beds, vacancies, guests, expenditure, notes and deleted students.', "Sidebar: Dashboard, Today's Payments, This Month Payments, Due List, Expenditure, Notes, Deleted Students, Guests, Delete All Data, Pause Bed, Payment Settings, Add Student.", 'Ask me about any of them, or tell me an action like "restore Ajay" or "delete payment of Ravi".']},
     {'kw': ['what can you do', 'help', 'commands', 'how to use', 'examples', 'సహాయం', 'ఏమి చేయగలవు'],
      'en': ['I can answer questions about the app and do actions for you. I always show what will change and <b>wait for your Yes</b>.', 'Questions: "Who is in room 2 Old Hostel?", "Show details of Manohar", "Total balance due", "How many vacant beds?", "How does the Due List work?"', 'Actions: "Shift Manohar from room 2 Old Hostel to room 3 Old Hostel", "Delete Ravi", "Restore Ajay", "Delete payment of Ravi", "Delete all payment details".']},
 ]
@@ -631,16 +634,16 @@ _NEW_KB_TE = {
     'deleted students': ['<b>Deleted Students</b> లో మీరు తొలగించిన వారందరూ వారి అద్దె, చెల్లింపుతో ఉంటారు.', '<b>Restore</b> నొక్కితే పాత గదిలో తిరిగి చేరుతారు. గది నిండి ఉంటే ముందు ఒక బెడ్ ఖాళీ చేయాలి.', 'నెల మారితే పాత చెల్లింపు వివరాలు తిరిగి రావు (Paid ₹0 నుండి మొదలవుతుంది).', 'నాకు కూడా చెప్పవచ్చు: "Ajay ని రీస్టోర్ చేయి".'],
     'guest': ['<b>Guests</b> కొన్ని రోజులు మాత్రమే ఉండేవారి కోసం:', '<b>Guests</b> తెరిచి <b>Add a guest</b> నొక్కి పేరు, రోజులు, రోజు రేటు ఇవ్వండి. మొత్తం ఆటోమేటిక్‌గా వస్తుంది.', 'ఇప్పుడు చెల్లించినది నమోదు చేయవచ్చు, మిగిలినది తర్వాత తీసుకోవచ్చు, రోజులు పెంచవచ్చు, చెక్ అవుట్ లేదా డిలీట్ చేయవచ్చు.', 'గెస్ట్‌ల మొత్తాలు విద్యార్థుల మొత్తం అద్దె/చెల్లింపులో కలవవు.'],
     'delete payment': ['ఒక విద్యార్థి చెల్లింపు తొలగించడానికి: <b>This Month Payments</b> లో వారి కార్డ్‌పై <b>Delete this payment</b> నొక్కండి. నిర్ధారణ అడుగుతుంది.', 'వారి Paid ₹0 అవుతుంది, బ్యాలెన్స్ పూర్తి అద్దె అవుతుంది.', 'నాకు కూడా చెప్పవచ్చు: "Ravi చెల్లింపు డిలీట్ చేయి". మార్పు చూపించి మీ నిర్ధారణ కోసం ఆగుతాను.', 'పాత <b>Delete (already noted)</b> బటన్ జాబితా నుండి మాత్రమే దాచుతుంది; డబ్బు లెక్కలోనే ఉంటుంది.'],
-    'reset all': ['<b>Delete All Payment Details</b> (సైడ్‌బార్, ఎరుపు) అందరి Paid ని ₹0 చేసి, విద్యార్థులు అప్‌లోడ్ చేసిన అన్ని చెల్లింపు రికార్డులు, రసీదులు తొలగిస్తుంది.', 'ఎంతమంది, ఎంత మొత్తం తొలగుతుందో చూపి <b>DELETE</b> అని టైప్ చేయమంటుంది.', 'విద్యార్థులు, అద్దెలు, గదులు, తొలగించిన విద్యార్థులు, గెస్ట్‌లు మారవు. తిరిగి తెచ్చుకోలేరు.'],
-    'month end': ['నెల చివర ఏదీ ఆటోమేటిక్‌గా తొలగదు.', '1వ తేదీ 12:00 AM నుండి అడ్మిన్ ఏరియా తెరిచిన ప్రతిసారీ అడుగుతుంది: <b>"గత నెల చెల్లింపు వివరాలు డిలీట్ చేయవచ్చా?"</b>', '<b>Yes</b> అంటే కాపీ హిస్టరీలో సేవ్ అవుతుంది, అందరి Paid ₹0 అవుతుంది. <b>No</b> అంటే ఏమీ మారదు, మళ్లీ అడుగుతుంది.', 'Yes అనే వరకు గత నెల చెల్లింపులు విద్యార్థులపైనే ఉంటాయి.'],
-    'this month payments': ['<b>This Month Payments</b> ఈ నెల చెల్లించిన ప్రతి విద్యార్థికి ఒక కార్డ్ చూపిస్తుంది.', 'స్వైప్ చేయండి లేదా బాణాలు వాడండి.', '<b>Delete (already noted)</b> కార్డ్‌ను దాచుతుంది (Deleted ట్యాబ్‌లో రీస్టోర్ చేయవచ్చు). <b>Delete this payment</b> చెల్లింపును నిజంగా తొలగిస్తుంది (Paid ₹0).'],
-    'due list': ['<b>Due List</b> ప్రతి విద్యార్థి <b>జాయిన్ అయిన రోజు</b> ప్రకారం నడుస్తుంది: ప్రతి నెలా ఆ రోజున అద్దె గడువు వస్తుంది (30 రోజుల నెలలో 31 అంటే 30).', 'గడువు రోజు నుండి చెల్లించే వరకు జాబితాలో ఉంటారు. ముందు రోజు <b>Tomorrow</b> లో Call బటన్‌తో కనిపిస్తారు.', 'గడువు రోజును జాయిన్ తేదీ మాత్రమే నిర్ణయిస్తుంది. చెల్లింపు తేదీ నెలవారీ ఆదాయానికి మాత్రమే. చెల్లించిన విద్యార్థి Due List లో ఉండడు.'],
-    'edit payment': ['<b>All Payments & Income</b> (సైడ్‌బార్) తెరవండి, లేదా This Month Payments లోని కార్డ్‌పై <b>Edit payment / change month</b> నొక్కండి.', 'చెల్లింపుపై పెన్సిల్ నొక్కి మొత్తం, తేదీ, చెల్లించిన విధానం, ఎవరు తీసుకున్నారు, మరియు <b>ఏ నెల ఆదాయంలో లెక్కించాలో</b> మార్చవచ్చు: సాధారణం, ఈ నెల, లేదా గత నెల.', 'గత నెల ఎంచుకుంటే గత నెల ఆదాయంలోకి మాత్రమే మారుతుంది. అసలు చెల్లింపు తేదీ, డ్యూ లిస్ట్ మారవు. అక్కడే చెల్లింపును డిలీట్ కూడా చేయవచ్చు.'],
-    'monthly income': ['<b>Monthly Income</b> (సైడ్‌బార్) ఒక నెలలో నిజంగా <b>అందిన</b> డబ్బును చెల్లింపు తేదీ ప్రకారం చూపిస్తుంది.', '<b>This Month</b> లేదా <b>Last Month</b> ఎంచుకోండి. తొలగించిన విద్యార్థుల చెల్లింపులు కూడా కలుస్తాయి; Online, Cash వేరుగా చూపిస్తుంది.', 'నన్ను కూడా అడగవచ్చు: "ఈ నెల ఎంత వసూలైంది?"'],
+    'reset all': ['<b>Delete All Data</b> (సైడ్\u200cబార్, ఎరుపు) స్థలం ఖాళీ చేస్తుంది. పూర్తిగా చెల్లించినవారి చెల్లింపు వివరాలు తొలగుతాయి. బాకీ ఉన్నవారి వివరాలు తొలగి, <b>బాకీ వారి Total Rent లో కలుస్తుంది</b>, <b>Old balance</b> ట్యాగ్ కనిపిస్తుంది.', 'తొలగేవి: చెల్లించిన మొత్తం, తేదీ, విధానం, క్యాష్, ఎవరికి, రసీదు ఫోటోలు, నోట్స్. ఉండేవి: పేరు, ఫోన్, గది, షేరింగ్, అద్దె, జాయిన్ తేదీ, ఫోటో.', '<b>DELETE</b> అని టైప్ చేయమంటుంది. తర్వాత <b>Revert</b> చేయవచ్చు. <b>Permanently delete</b> నొక్కినప్పుడే డేటాబేస్ నుండి పూర్తిగా పోతుంది.'],
+    'month end': ['ఇప్పుడు నెల చివర అనేది లేదు. ప్రతి విద్యార్థి అద్దె నెల అతని జాయిన్ తేదీ రోజున మొదలవుతుంది.', 'ఆ రోజు అతని Paid ₹0 అవుతుంది, చెల్లించే వరకు Due List లో ఉంటాడు. నెల చివర ఏదీ తొలగదు.', 'స్థలం ఖాళీ చేయాలంటే ఎప్పుడైనా <b>Delete All Data</b> వాడండి.'],
+    'this month payments': ['<b>This Month Payments</b> ప్రస్తుత అద్దె నెలకు (గడువు రోజు నుండి) చెల్లించిన ప్రతి విద్యార్థికి ఒక కార్డ్ చూపిస్తుంది.', 'పైన ఉన్న <b>ఫిల్టర్</b>\u200cతో పేరు, గది లేదా ఫోన్ ద్వారా వెతకవచ్చు, లేదా ఒక హాస్టల్ ఎంచుకోవచ్చు. స్వైప్ చేయండి లేదా బాణాలు వాడండి.', '<b>Delete (already noted)</b> కార్డ్\u200cను దాచుతుంది (Deleted ట్యాబ్\u200cలో రీస్టోర్ చేయవచ్చు). <b>Delete this payment</b> చెల్లింపును నిజంగా తొలగిస్తుంది (Paid ₹0).'],
+    'due list': ['<b>Due List</b> విద్యార్థి <b>జాయిన్ తేదీ</b> ప్రకారం మాత్రమే నడుస్తుంది: ప్రతి నెలా ఆ రోజున అద్దె గడువు (30 రోజుల నెలలో 31 అంటే 30).', 'గడువు రోజున ప్రతి విద్యార్థి చెల్లించే వరకు Due List లో ఉంటాడు. ముందు రోజు <b>Tomorrow</b> లో Call బటన్\u200cతో కనిపిస్తాడు.', 'గడువు రోజుకు ముందు చెల్లించిన డబ్బు గత నెల అద్దెకే లెక్క.', 'ఉదా: 30 Sep న జాయిన్. 29 Oct న Tomorrow లో, 30 Oct న Due List లో; మళ్లీ 29 Nov / 30 Nov.'],
+    'edit payment': ['విద్యార్థిని తెరవండి (కార్డ్\u200cపై <b>Payments</b>, లేదా This Month Payments లో <b>Edit payment</b>).', '<b>All payments</b> కింద చెల్లింపుపై <b>Edit</b> నొక్కి మొత్తం, తేదీ, విధానం, ఎవరు తీసుకున్నారు మార్చవచ్చు, లేదా <b>Delete</b> చేయవచ్చు.'],
+    'monthly income': ['ఆదాయం పేజీలు తీసేశాం. ఇప్పుడు యాప్ అద్దె మాత్రమే చూస్తుంది: ఎవరు చెల్లించారు, ఎవరు బాకీ.', 'చెల్లింపులకు <b>This Month Payments</b>, బాకీకి <b>Due List</b>, ఖర్చులకు <b>Expenditure</b> చూడండి.'],
     'record payment': ['మీరు స్వయంగా తీసుకున్న చెల్లింపు నమోదు చేయడానికి: విద్యార్థిని తెరిచి <b>Edit / Record Payment</b> నొక్కండి.', 'మొత్తం, తేదీ, విధానం (Online / Cash / Online + Cash), ఎవరు తీసుకున్నారు, రసీదు ఇచ్చి సేవ్ చేయండి.', 'విద్యార్థి స్వయంగా పంపిన చెల్లింపు <b>Today\'s Payments</b> లో కనిపిస్తుంది; <b>Confirm</b> నొక్కాకే లెక్కలోకి వస్తుంది.'],
     'how do students pay': ['విద్యార్థులు Payments పేజీలో మొబైల్ నంబర్ ఇచ్చి, తమ బాకీ, తమ హాస్టల్ QR / నంబర్ చూసి చెల్లించి, రసీదు ఫోటోతో మొత్తం పంపుతారు.', 'అది <b>Today\'s Payments</b> లో కనిపిస్తుంది. <b>VIEW PROOF</b> చూసి <b>Confirm</b> నొక్కితేనే వారి Paid లో కలుస్తుంది.'],
     'change rent': ['అద్దె మార్చడానికి: విద్యార్థిని <b>Edit</b> చేసి Total Rent మార్చండి. కొన్ని రోజులకే అయితే మెనూ <b>3) Calculate Per-Day Rent</b> వాడండి.'],
-    'what is this app': ['ఈ యాప్ హాస్టల్‌ను నిర్వహిస్తుంది: విద్యార్థులు, గదులు (ఓల్డ్, న్యూ హాస్టల్, హాల్), అద్దె, చెల్లింపులు, డ్యూ లిస్ట్, పాజ్ బెడ్, ఖాళీలు, గెస్ట్‌లు, తొలగించిన విద్యార్థులు.', 'ఏదైనా అడగండి, లేదా "Ajay ని రీస్టోర్ చేయి" లాంటి పని చెప్పండి.'],
+    'what is this app': ['ఈ యాప్ హాస్టల్\u200cను నిర్వహిస్తుంది: విద్యార్థులు, గదులు (ఓల్డ్, న్యూ హాస్టల్, హాల్), అద్దె, చెల్లింపులు, డ్యూ లిస్ట్, పాజ్ బెడ్, ఖాళీలు, గెస్ట్\u200cలు, ఖర్చులు, నోట్స్, తొలగించిన విద్యార్థులు.', 'ఏదైనా అడగండి, లేదా "Ajay ని రీస్టోర్ చేయి" లాంటి పని చెప్పండి.'],
     'what can you do': ['నేను యాప్ గురించి సమాధానాలు ఇస్తాను, పనులు కూడా చేస్తాను. ఏం మారుతుందో చూపి <b>మీ Yes కోసం ఆగుతాను</b>.', 'ప్రశ్నలు: "ఓల్డ్ హాస్టల్ రూమ్ 2 లో ఎవరు ఉన్నారు?", "మొత్తం బాకీ", "ఎన్ని బెడ్‌లు ఖాళీ?"', 'పనులు: "Manohar ను రూమ్ 3 కి మార్చు", "Ravi ని డిలీట్ చేయి", "Ajay ని రీస్టోర్ చేయి", "Ravi చెల్లింపు డిలీట్ చేయి".'],
 }
 for _e in _NEW_KB:
@@ -760,8 +763,8 @@ def _ans_totals(db, ctx, lang, tokens, raw):
                                f"<b>{stats['total']}</b> students in total: Old Hostel {stats['old_count']}, New Hostel {stats['new_count']}.",
                                f"మొత్తం <b>{stats['total']}</b> మంది విద్యార్థులు: ఓల్డ్ హాస్టల్ {stats['old_count']}, న్యూ హాస్టల్ {stats['new_count']}."))
     return _reply(lang, tr(lang,
-                           f"Total rent to receive {rupee(stats['total_rent'])}; paid (confirmed this month) {rupee(stats['total_paid'])}; balance due <b>{rupee(stats['total_balance'])}</b>.",
-                           f"స్వీకరించాల్సిన మొత్తం అద్దె {rupee(stats['total_rent'])}; ఈ నెల నిర్ధారణ అయిన చెల్లింపులు {rupee(stats['total_paid'])}; బాకీ <b>{rupee(stats['total_balance'])}</b>."))
+                           f"Total rent to receive {rupee(stats['total_rent'])}; paid (current rent month) {rupee(stats['total_paid'])}; balance due <b>{rupee(stats['total_balance'])}</b>.",
+                           f"స్వీకరించాల్సిన మొత్తం అద్దె {rupee(stats['total_rent'])}; ప్రస్తుత అద్దె నెల చెల్లింపులు {rupee(stats['total_paid'])}; బాకీ <b>{rupee(stats['total_balance'])}</b>."))
 
 
 # ---- shifting a resident -------------------------------------------------
@@ -978,23 +981,23 @@ def _do_clear_payment(db, ctx, lang, pending):
                            f"పూర్తయింది ✅ {escape(name)} చెల్లింపు {rupee(amount)} డిలీట్ అయింది. Paid ఇప్పుడు ₹0."))
 
 
-# -- delete ALL payment details
+# -- Delete All Data
 def _reset_all_preview(db, ctx, lang):
     c = ctx['reset_counts'](db)
-    if not c['students'] and not c['records']:
-        return _reply(lang, escape(tr(lang, 'There are no payment details to delete.', 'తొలగించడానికి చెల్లింపు వివరాలు ఏవీ లేవు.')))
-    en = (f"⚠ Delete <b>ALL</b> payment details? <b>{c['students']}</b> student(s) go back to <b>Paid ₹0</b> ({rupee(c['amount'])} removed) and "
-          f"<b>{c['records']}</b> payment record(s)/receipts are deleted"
-          + (f" (including {c['pending']} not yet confirmed)" if c['pending'] else '') + ". This cannot be undone.")
-    te = (f"⚠ <b>అన్ని</b> చెల్లింపు వివరాలు డిలీట్ చేయాలా? <b>{c['students']}</b> మంది <b>Paid ₹0</b> అవుతారు ({rupee(c['amount'])} తొలగుతుంది), "
-          f"<b>{c['records']}</b> చెల్లింపు రికార్డులు/రసీదులు తొలగుతాయి. ఇది తిరిగి తేలేరు.")
-    return _confirm_reply(lang, 'reset_all', {}, en, te, 'Yes, delete everything', 'అవును, అన్నీ డిలీట్')
+    if not c['students']:
+        return _reply(lang, escape(tr(lang, 'There is nothing to delete.', 'తొలగించడానికి ఏమీ లేదు.')))
+    en = (f"⚠ <b>Delete All Data</b>? <b>{c['full']}</b> fully paid student(s) are cleared; <b>{c['carry']}</b> student(s) with a balance "
+          f"get it added to their Total Rent ({rupee(c['carry_total'])} in total, with an Old balance tag). "
+          f"<b>{c['records']}</b> payment record(s) and {c['images']} image(s) are removed. You can Revert it from the Delete All Data page.")
+    te = (f"⚠ <b>Delete All Data</b> చేయాలా? పూర్తిగా చెల్లించిన <b>{c['full']}</b> మంది వివరాలు తొలగుతాయి; బాకీ ఉన్న <b>{c['carry']}</b> మంది బాకీ "
+          f"({rupee(c['carry_total'])}) వారి Total Rent లో కలుస్తుంది. <b>{c['records']}</b> రికార్డులు, {c['images']} ఫోటోలు తొలగుతాయి. Delete All Data పేజీలో Revert చేయవచ్చు.")
+    return _confirm_reply(lang, 'reset_all', {}, en, te, 'Yes, delete all data', 'అవును, డిలీట్ చేయి')
 
 
 def _do_reset_all(db, ctx, lang, pending):
     c = ctx['do_reset_all_payments'](db)
-    return _reply(lang, tr(lang, f"Done ✅ {c['students']} student(s) are now Paid ₹0 ({rupee(c['amount'])} removed) and {c['records']} payment record(s) were deleted.",
-                           f"పూర్తయింది ✅ {c['students']} మంది Paid ₹0 అయ్యారు ({rupee(c['amount'])} తొలగింది), {c['records']} రికార్డులు డిలీట్ అయ్యాయి."))
+    return _reply(lang, tr(lang, f"Done ✅ {c['full']} fully paid student(s) cleared, {c['carry']} balance(s) ({rupee(c['carry_total'])}) added to Total Rent, {c['records']} payment record(s) removed. You can still Revert it on the Delete All Data page.",
+                           f"పూర్తయింది ✅ {c['full']} మంది క్లియర్, {c['carry']} మంది బాకీ ({rupee(c['carry_total'])}) Total Rent లో కలిసింది, {c['records']} రికార్డులు తొలగాయి. Delete All Data పేజీలో Revert చేయవచ్చు."))
 
 
 _EXEC = {'shift': lambda db, ctx, lang, p: _do_shift(db, ctx, lang, p),
@@ -1115,12 +1118,14 @@ def admin_reply(db, ctx, payload):
             return _handle_student_action(db, ctx, lang, 'restore', deleted_rows, tokens,
                                           'Which deleted student should I restore? Say the name, or open Deleted Students.',
                                           'ఏ తొలగించిన విద్యార్థిని రీస్టోర్ చేయాలి? పేరు చెప్పండి.')
+        if has_clear and wants_all and 'data' in tokens:
+            return _reset_all_preview(db, ctx, lang)
         if has_pay and has_clear:
             if _action_matches(students, tokens):
                 return _handle_student_action(db, ctx, lang, 'clear_payment', students, tokens, '', '')
             if wants_all:
                 return _reset_all_preview(db, ctx, lang)
-            return _reply(lang, escape(tr(lang, 'Whose payment should I delete? Say the student name, or say "delete all payment details".',
+            return _reply(lang, escape(tr(lang, 'Whose payment should I delete? Say the student name, or say "delete all data".',
                                           'ఎవరి చెల్లింపు డిలీట్ చేయాలి? విద్యార్థి పేరు చెప్పండి, లేదా "అన్ని చెల్లింపు వివరాలు డిలీట్" అనండి.')))
 
     mentions = parse_locations(tokens)
@@ -1141,23 +1146,6 @@ def admin_reply(db, ctx, payload):
     hostel_words = {h for h in (_hostel_of(t) for t in tokens) if h}
     only_hostel = next(iter(hostel_words)) if len(hostel_words) == 1 else None
     asks_vacancy = any(k in joined for k in ('vacan', 'empty', 'free', 'available')) or 'ఖాళీ' in raw
-
-    # Income questions ("how much did we collect this month?") are answered from live data.
-    income_words = ('income' in tokens or 'collected' in tokens or 'collect' in tokens or 'received' in tokens
-                    or 'collection' in tokens or 'ఆదాయం' in raw or 'వసూలు' in raw)
-    asks_amount = ('how much' in joined or 'total' in tokens or 'this month' in joined or 'last month' in joined
-                   or 'so far' in joined or 'ఎంత' in raw)
-    explains = any(t in tokens for t in ('work', 'works', 'where', 'open', 'see', 'find', 'use', 'what'))
-    if income_words and asks_amount and not explains and ctx.get('month_income'):
-        cur, prev = ctx['month_income'](db, 'this'), ctx['month_income'](db, 'last')
-        which_last = 'last' in tokens or 'previous' in tokens or 'గత' in raw
-        m = prev if which_last else cur
-        return _reply(lang, tr(lang,
-                               f"Received in <b>{m['label']}</b>: <b>{rupee(m['total'])}</b> from {m['count']} payment(s) (Online {rupee(m['online'])}, Cash {rupee(m['cash'])}). "
-                               f"{'This month so far: ' + rupee(cur['total']) + '.' if which_last else 'Last month: ' + rupee(prev['total']) + '.'} "
-                               "Open <b>Monthly Income</b> in the sidebar for the full list.",
-                               f"<b>{m['label']}</b> లో అందినది: <b>{rupee(m['total'])}</b> ({m['count']} చెల్లింపులు; Online {rupee(m['online'])}, Cash {rupee(m['cash'])}). "
-                               f"{'ఈ నెల ఇప్పటివరకు: ' + rupee(cur['total']) if which_last else 'గత నెల: ' + rupee(prev['total'])}. పూర్తి జాబితాకు సైడ్‌బార్‌లో <b>Monthly Income</b> తెరవండి."))
 
     # Feature / how-to questions (including per-day rent rates) are answered from the admin knowledge base.
     kb = _admin_kb_reply(message, lang, ctx)

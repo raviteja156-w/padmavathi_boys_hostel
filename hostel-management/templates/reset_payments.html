@@ -1,36 +1,102 @@
 {% extends 'base.html' %}
-{% block title %}Delete All Payment Details — Hostel Management System{% endblock %}
+{% block title %}Delete All Data — Hostel Management System{% endblock %}
 {% block content %}
-<div class="max-w-xl mx-auto animate-slide-up">
+{% set money = '{:,.0f}' %}
+<div class="max-w-2xl mx-auto animate-slide-up">
 
   <div class="flex items-center gap-3 mb-5">
     <a href="{{ url_for('admin_dashboard') }}" class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-primary transition shrink-0">
       <i class="fa-solid fa-arrow-left"></i>
     </a>
     <div class="min-w-0">
-      <h1 class="text-2xl font-bold text-slate-800">Delete All Payment Details</h1>
-      <p class="text-slate-500 text-sm">Every student's paid status goes back to ₹0.</p>
+      <h1 class="text-2xl font-bold text-slate-800">Delete All Data</h1>
+      <p class="text-slate-500 text-sm">Frees space: removes payment details and keeps only the base details needed to collect rent.
+        {% if cleared_on %}Last run: {{ cleared_on|pretty_date }}.{% endif %}</p>
     </div>
   </div>
 
+  <!-- What will happen -->
   <div class="card p-5 border-l-4 border-danger">
-    <p class="font-bold text-danger"><i class="fa-solid fa-triangle-exclamation mr-1"></i> This cannot be undone</p>
+    <p class="font-bold text-slate-800"><i class="fa-solid fa-list-check mr-1 text-danger"></i> What happens</p>
     <ul class="mt-3 text-sm text-slate-700 space-y-2">
-      <li><i class="fa-solid fa-user-check text-slate-400 mr-2"></i><b>{{ counts.students }}</b> student(s) with payments will become <b>Paid ₹0</b> (₹{{ '{:,.0f}'.format(counts.amount) }} removed). Their balance becomes the full rent.</li>
-      <li><i class="fa-solid fa-receipt text-slate-400 mr-2"></i><b>{{ counts.records }}</b> payment record(s) and uploaded receipts will be deleted{% if counts.pending %} (including <b>{{ counts.pending }}</b> still waiting for confirmation){% endif %}.</li>
-      <li><i class="fa-solid fa-lock text-slate-400 mr-2"></i>Students, rooms, rents, deleted students and guests are <b>not</b> touched.</li>
+      <li><i class="fa-solid fa-circle-check text-success mr-2"></i><b>{{ p.full|length }}</b> student(s) paid completely: their payment details are deleted.</li>
+      <li><i class="fa-solid fa-tag text-violet-600 mr-2"></i><b>{{ p.carry|length }}</b> student(s) have a balance (₹{{ money.format(p.carry_total) }} in total): their payment details are deleted, the
+        <b>balance is added to their Total Rent</b> and an <b>Old balance</b> tag is shown on them. They stay in the Due List for that old balance.</li>
+      <li><i class="fa-solid fa-trash-can text-slate-400 mr-2"></i>Deleted: amount paid, payment date, payment mode, cash amount, paid to, receipt images and notes
+        &mdash; {{ p.payments }} payment record(s), {{ p.images }} image(s){% if p.history %}, {{ p.history }} old monthly record(s){% endif %}.</li>
+      <li><i class="fa-solid fa-lock text-slate-400 mr-2"></i>Kept: name, contact, hostel, room, sharing, total rent, joined date, photo{% if p.pending %}, and the {{ p.pending }} payment(s) still waiting for your confirmation{% endif %}. Deleted students, guests and expenditure are not touched.</li>
+      <li><i class="fa-solid fa-rotate-left text-primary mr-2"></i>You can <b>Revert</b> afterwards. The data is really removed from the database only when you press <b>Permanently delete</b>.</li>
     </ul>
 
-    {% if counts.students == 0 and counts.records == 0 %}
-    <p class="mt-4 text-sm text-slate-500">There are no payment details to delete.</p>
+    {% if p.carry %}
+    <details class="mt-4">
+      <summary class="text-sm font-semibold text-primary cursor-pointer">See the {{ p.carry|length }} student(s) whose balance moves into Total Rent</summary>
+      <div class="mt-2 divide-y divide-slate-100 text-sm">
+        {% for c in p.carry %}
+        <div class="flex justify-between gap-3 py-2">
+          <div class="min-w-0"><div class="font-semibold text-slate-800 truncate">{{ c.name }}</div><div class="text-[11px] text-slate-400">{{ c.hostel }} &bull; {{ c.room }}</div></div>
+          <div class="text-right shrink-0"><div class="text-violet-700 font-bold">+₹{{ money.format(c.owed) }}</div><div class="text-[11px] text-slate-500">Rent ₹{{ money.format(c.rent) }} → ₹{{ money.format(c.new_rent) }}</div></div>
+        </div>
+        {% endfor %}
+      </div>
+    </details>
+    {% endif %}
+
+    {% if not p.full and not p.carry %}
+    <p class="mt-4 text-sm text-slate-500">There are no students to clear.</p>
     {% else %}
-    <form method="POST" action="{{ url_for('reset_payments_confirm') }}" class="mt-5" autocomplete="off">
+    <form method="POST" action="{{ url_for('reset_payments_confirm') }}" class="mt-5" autocomplete="off"
+          onsubmit="return confirm('Delete all payment data now? You can revert it from the list below.');">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <label class="text-sm font-semibold text-slate-600">Type <b>DELETE</b> to confirm
         <input type="text" name="confirm_text" required class="form-input w-full mt-1" placeholder="DELETE" autocapitalize="characters"></label>
-      <button type="submit" class="w-full mt-3 py-3 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700"><i class="fa-solid fa-eraser mr-1"></i> Delete all payment details</button>
+      <button type="submit" class="w-full mt-3 py-3 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700"><i class="fa-solid fa-eraser mr-1"></i> Delete all data</button>
     </form>
     {% endif %}
+  </div>
+
+  <!-- Earlier deletes -->
+  <h2 class="font-bold text-slate-700 mt-8 mb-2"><i class="fa-solid fa-clock-rotate-left mr-1 text-primary"></i>Deleted data</h2>
+  {% if not cleanups %}
+  <div class="card p-6 text-center text-sm text-slate-500">Nothing deleted yet.</div>
+  {% endif %}
+  <div class="space-y-3">
+    {% for c in cleanups %}
+    <div class="card p-4 border-l-4 {{ 'border-amber-400' if c.status == 'DELETED' else 'border-slate-300' }}">
+      <div class="flex justify-between items-start gap-3">
+        <div class="min-w-0">
+          <div class="font-bold text-slate-800">{{ c.created_at[:10]|pretty_date }} <span class="text-xs font-normal text-slate-400">{{ c.created_at[11:16] }}{% if c.created_by %} &bull; by {{ c.created_by }}{% endif %}</span></div>
+          <div class="text-xs text-slate-500 mt-1">
+            {{ c.summary.full or 0 }} fully paid cleared &bull; {{ c.summary.carried or 0 }} balance(s) moved to rent (₹{{ money.format(c.summary.carry_total or 0) }})
+            &bull; {{ c.summary.payments or 0 }} payment record(s), {{ c.summary.images or 0 }} image(s)
+          </div>
+        </div>
+        <span class="shrink-0 text-[11px] font-bold px-2 py-1 rounded-full
+          {{ 'bg-amber-100 text-amber-700' if c.status == 'DELETED' else ('bg-blue-100 text-blue-700' if c.status == 'REVERTED' else 'bg-slate-100 text-slate-500') }}">
+          {{ {'DELETED': 'Can be reverted', 'REVERTED': 'Reverted', 'PURGED': 'Permanently deleted'}[c.status] }}
+        </span>
+      </div>
+      {% if c.status == 'DELETED' %}
+      <div class="grid sm:grid-cols-2 gap-2 mt-3">
+        {% if c.can_revert %}
+        <form method="POST" action="{{ url_for('cleanup_revert', cleanup_id=c.id) }}"
+              onsubmit="return confirm('Put back everything this delete removed? Payments, notes and rents go back to how they were.');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn-outline w-full py-2.5 text-sm"><i class="fa-solid fa-rotate-left mr-1"></i> Revert</button>
+        </form>
+        {% else %}
+        <p class="text-[11px] text-slate-400 self-center">Revert the newer delete first to revert this one.</p>
+        {% endif %}
+        <form method="POST" action="{{ url_for('cleanup_purge', cleanup_id=c.id) }}" class="flex gap-2"
+              onsubmit="return confirm('Permanently delete this data? It can NOT be reverted after this.');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="text" name="confirm_text" required class="form-input py-2 text-sm w-24" placeholder="DELETE" autocapitalize="characters" aria-label="Type DELETE">
+          <button type="submit" class="flex-1 py-2.5 rounded-xl bg-red-600 text-white font-semibold text-sm hover:bg-red-700"><i class="fa-solid fa-fire mr-1"></i> Permanently delete</button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
   </div>
 </div>
 {% endblock %}

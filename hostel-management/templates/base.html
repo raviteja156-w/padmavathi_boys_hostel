@@ -279,11 +279,12 @@
             <a href="{{ url_for('due_list') }}" class="sb-link {{ 'active' if request.endpoint == 'due_list' }}">
                 <i class="fa-solid fa-calendar-days fa-fw"></i> Due List
             </a>
-            <a href="{{ url_for('paid_unconfirmed') }}" class="sb-link {{ 'active' if request.endpoint == 'paid_unconfirmed' }}">
-                <i class="fa-solid fa-user-check fa-fw"></i> Paid (Unconfirmed)
+            <a href="{{ url_for('expenditure') }}" class="sb-link {{ 'active' if request.endpoint == 'expenditure' }}">
+                <i class="fa-solid fa-receipt fa-fw"></i> Expenditure
             </a>
-            <a href="{{ url_for('income') }}" class="sb-link {{ 'active' if request.endpoint == 'income' }}">
-                <i class="fa-solid fa-chart-line fa-fw"></i> All Payments &amp; Income
+            <a href="{{ url_for('admin_notes') }}" class="sb-link {{ 'active' if request.endpoint == 'admin_notes' }}">
+                <i class="fa-solid fa-note-sticky fa-fw"></i> Notes
+                {% if nav.get('notes') %}<span class="sb-count" style="background:#CA8A04">{{ nav.notes }}</span>{% endif %}
             </a>
             <a href="{{ url_for('deleted_students') }}" class="sb-link {{ 'active' if request.endpoint == 'deleted_students' }}">
                 <i class="fa-solid fa-user-slash fa-fw"></i> Deleted Students
@@ -294,7 +295,8 @@
                 {% if nav.get('guests') %}<span class="sb-count" style="background:#0F766E">{{ nav.guests }}</span>{% endif %}
             </a>
             <a href="{{ url_for('reset_payments') }}" class="sb-link {{ 'active' if request.endpoint == 'reset_payments' }}" style="color:#B91C1C">
-                <i class="fa-solid fa-eraser fa-fw" style="color:#B91C1C"></i> Delete All Payment Details
+                <i class="fa-solid fa-eraser fa-fw" style="color:#B91C1C"></i> Delete All Data
+                {% if nav.get('trash') %}<span class="sb-count" style="background:#DC2626" title="Deleted data you can still revert">{{ nav.trash }}</span>{% endif %}
             </a>
             <a href="{{ url_for('pause_bed') }}" class="sb-link {{ 'active' if request.endpoint == 'pause_bed' }}">
                 <i class="fa-solid fa-bed-pulse fa-fw"></i> Pause Bed
@@ -380,7 +382,6 @@
     </script>
     {% endif %}
 
-    {% if is_admin_area and request.method == 'GET' %}{% include '_month_end_prompt.html' %}{% endif %}
 
     {% block extra_scripts %}{% endblock %}
 
