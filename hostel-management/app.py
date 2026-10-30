@@ -1163,15 +1163,16 @@ def confirmed_payments(db, student_ids=None):
     return out
 
 
-# ONE-TIME OCTOBER 2026 FIX: for rent months that started between 1 and 29 Oct 2026, every payment made in
-# October counts (that money was really paid for that month). Due dates from 30 Oct 2026 onwards follow the strict
-# joining-date rule ("money paid before the due day is last month's rent").
+# ONE-TIME OCTOBER 2026 FIX: rent months that started between 1 and 29 Oct 2026 count every payment made in
+# October (the app had no joining-date rule before). The STRICT joining-date rule ("money paid before the due day
+# is last month's rent") applies to every due date from 30 Oct 2026 (today) onwards.
 HANDOVER_START = date(2026, 10, 1)
-HANDOVER_LAST_DUE = date(2026, 10, 29)
+STRICT_RULE_FROM = date(2026, 10, 30)
 
 
 def _in_handover(d):
-    return d is not None and HANDOVER_START <= d <= HANDOVER_LAST_DUE
+    """True for a rent month that started 1-29 Oct 2026 (counted the calendar way)."""
+    return d is not None and HANDOVER_START <= d < STRICT_RULE_FROM
 
 
 def rent_state(student, pays, today, cleared):
@@ -3521,6 +3522,72 @@ def admin_record_payment(student_id):
     sync_rent(db, [student_id])
     flash(f"₹{v['amount']:,.0f} recorded for {st['name']}.", 'success')
     return back
+
+
+def hostel_room_data(db):
+    """Every hostel -> every room (in order, empty rooms too) -> every student with rent / paid / balance and the
+    payments counted in his current rent month. Same numbers as the dashboard cards."""
+    states = {st['id']: (st, s) for st, s in all_rent_states(db)}
+    out = []
+    for hostel in HOSTELS:
+        rooms = []
+        for rn in rooms_for_hostel(hostel):
+            studs = []
+            for st, s in sorted((v for v in states.values() if v[0]['hostel'] == hostel and v[0]['room_number'] == rn),
+                                key=lambda v: (v[0]['name'] or '').lower()):
+                studs.append({
+                    'id': st['id'], 'name': st['name'], 'contact': st.get('contact') or '',
+                    'rent': round(float(st.get('total_rent') or 0), 2),
+                    'paid': round(float(st.get('amount_paid') or 0), 2),
+                    'balance': round(float(st.get('balance') or 0), 2),
+                    'joined': pretty_date(st.get('date_of_join')) or '',
+                    'due_day': parse_iso_date(st.get('date_of_join')).day if parse_iso_date(st.get('date_of_join')) else None,
+                    'next_due': pretty_date(s['next_due'].isoformat()) if s.get('next_due') else '',
+                    'month_from': pretty_date(s['window_start'].isoformat()) if s.get('window_start') else '',
+                    'status': s.get('status') or ('paid' if (st.get('balance') or 0) <= 0.005 else ''),
+                    'old_balance': round(float(st.get('old_balance') or 0), 2),
+                    'payments': [{'date': pretty_date(p_['date'].isoformat()), 'amount': round(float(p_['amount'] or 0), 2),
+                                  'mode': p_.get('payment_mode') or 'Online', 'paid_to': p_.get('paid_to') or '',
+                                  'cash': round(float(p_.get('cash_amount') or 0), 2),
+                                  'receipt': photo_url(p_.get('proof_filename')) or ''} for p_ in s['counted']],
+                })
+            rooms.append({'room': rn, 'label': room_label(rn), 'sharing': studs and max(
+                              (states[x['id']][0].get('sharing') or 0) for x in studs) or None,
+                          'students': studs,
+                          'rent': round(sum(x['rent'] for x in studs), 2), 'paid': round(sum(x['paid'] for x in studs), 2),
+                          'balance': round(sum(x['balance'] for x in studs), 2)})
+        out.append({'hostel': hostel, 'rooms': rooms,
+                    'rent': round(sum(r['rent'] for r in rooms), 2), 'paid': round(sum(r['paid'] for r in rooms), 2),
+                    'balance': round(sum(r['balance'] for r in rooms), 2),
+                    'students': sum(len(r['students']) for r in rooms)})
+    return out
+
+
+@app.route('/admin/hostel-calculator')
+@login_required
+def hostel_calculator():
+    """Pick a hostel, go room by room (Next / Previous), tap a name for his payments, and add amounts in the
+    calculator at the bottom. The calculator keeps its value when you switch hostel."""
+    db = get_db()
+    return render_template('hostel_calculator.html', data=hostel_room_data(db), today=pretty_date(today_ist().isoformat()))
+
+
+@app.route('/admin/how-cards-work')
+@login_required
+def how_cards_work():
+    """Animated explainer (Telugu) of Total Rent / Total Paid / Balance Due, drawn from today's live numbers."""
+    db = get_db()
+    data = hostel_room_data(db)
+    rooms = {h['hostel']: {r['label']: [[s['name'], s['rent'], s['paid'], s['balance']] for s in r['students']]
+                           for r in h['rooms']} for h in data}
+    return render_template('cards_explained_frame.html', rooms=rooms, today=today_ist().strftime('%d %b %Y'))
+
+
+@app.route('/admin/how-cards-work/page')
+@login_required
+def how_cards_work_page():
+    """The explainer inside the admin layout (the animation runs in a frame so its styles stay separate)."""
+    return render_template('cards_explained.html')
 
 
 @app.route('/admin/calculation/<card>')

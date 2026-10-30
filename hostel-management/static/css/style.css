@@ -673,3 +673,13 @@ table { max-width: 100%; }
   .dash-blobs span, .hostel-hero *, .hostel-hero .wave { animation: none !important; }
   .walker { transform: translate(120px, 240px); } .rider { transform: translate(560px, 246px) scaleX(-1); }
 }
+
+/* Telugu text anywhere in the app: a proper Telugu font (only used for Telugu letters). */
+@font-face { font-family: 'AppTelugu'; src: url('../fonts/noto-sans-telugu-telugu-400-normal.woff2') format('woff2'); font-weight: 400; font-display: swap; unicode-range: U+0C00-0C7F, U+200C-200D, U+25CC; }
+@font-face { font-family: 'AppTelugu'; src: url('../fonts/noto-sans-telugu-telugu-700-normal.woff2') format('woff2'); font-weight: 600 700; font-display: swap; unicode-range: U+0C00-0C7F, U+200C-200D, U+25CC; }
+@font-face { font-family: 'AppTelugu'; src: url('../fonts/noto-sans-telugu-telugu-800-normal.woff2') format('woff2'); font-weight: 800 900; font-display: swap; unicode-range: U+0C00-0C7F, U+200C-200D, U+25CC; }
+body, body.font-sans { font-family: Inter, AppTelugu, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+
+/* window flicker delays for the dashboard hostel scene (kept here so the template has no CSS inside Jinja) */
+.wo0{animation-delay:0.00s} .wo1{animation-delay:0.45s} .wo2{animation-delay:0.90s} .wo3{animation-delay:1.35s} .wo4{animation-delay:1.80s} .wo5{animation-delay:2.25s} .wo6{animation-delay:2.70s} .wo7{animation-delay:3.15s} .wo8{animation-delay:3.60s} .wo9{animation-delay:4.05s} .wo10{animation-delay:4.50s} .wo11{animation-delay:4.95s}
+.wn0{animation-delay:0.20s} .wn1{animation-delay:0.57s} .wn2{animation-delay:0.94s} .wn3{animation-delay:1.31s} .wn4{animation-delay:1.68s} .wn5{animation-delay:2.05s} .wn6{animation-delay:2.42s} .wn7{animation-delay:2.79s} .wn8{animation-delay:3.16s} .wn9{animation-delay:3.53s} .wn10{animation-delay:3.90s} .wn11{animation-delay:4.27s} .wn12{animation-delay:4.64s} .wn13{animation-delay:5.01s} .wn14{animation-delay:5.38s} .wn15{animation-delay:5.75s} .wn16{animation-delay:6.12s} .wn17{animation-delay:6.49s} .wn18{animation-delay:6.86s} .wn19{animation-delay:7.23s}

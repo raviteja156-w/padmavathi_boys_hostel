@@ -1,0 +1,437 @@
+{% extends 'base.html' %}
+{% block title %}Hostel Calculator — Hostel Management System{% endblock %}
+{% block content %}
+<style>
+  /* Fills the screen under the navbar: rooms on top, calculator at the bottom. */
+  main { padding-bottom: 0 !important; }
+  .hc { display: flex; flex-direction: column; height: calc(100dvh - 4rem - 2rem); min-height: 520px; max-width: 980px; margin: 0 auto; gap: .6rem; }
+  @supports not (height: 100dvh) { .hc { height: calc(100vh - 6rem); } }
+  .hc-bar { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+  .seg { display: flex; background: #E2E8F0; border-radius: 14px; padding: 4px; flex: 1; min-width: 220px; }
+  .seg button { flex: 1; border: 0; background: transparent; padding: .55rem .4rem; border-radius: 10px; font-weight: 800; color: #475569; font-size: .9rem; min-height: 40px; }
+  .seg button.on { background: #fff; color: #1E3A8A; box-shadow: 0 2px 8px rgba(15,23,42,.12); }
+  .top { flex: 1 1 55%; min-height: 0; display: flex; flex-direction: column; background: #fff; border: 1px solid #E2E8F0; border-radius: 20px; overflow: hidden; box-shadow: 0 6px 18px rgba(15,23,42,.06); }
+  .room-head { display: flex; align-items: center; gap: .5rem; padding: .65rem .75rem; background: linear-gradient(135deg,#1E3A8A,#2563EB); color: #fff; }
+  .room-head .nav { width: 44px; height: 44px; border-radius: 12px; border: 0; background: rgba(255,255,255,.18); color: #fff; font-size: 1.1rem; flex-shrink: 0; }
+  .room-head .nav:disabled { opacity: .35; }
+  .room-title { flex: 1; text-align: center; min-width: 0; }
+  .room-title b { display: block; font-size: 1.1rem; line-height: 1.2; }
+  .room-title span { font-size: .75rem; color: #BFDBFE; }
+  .room-body { flex: 1; overflow-y: auto; padding: .6rem; -webkit-overflow-scrolling: touch; }
+  .sum3 { display: grid; grid-template-columns: repeat(3,1fr); gap: .4rem; margin-bottom: .55rem; }
+  .sum3 div { background: #F8FAFC; border-radius: 12px; padding: .4rem .3rem; text-align: center; font-weight: 800; font-size: .95rem; }
+  .sum3 small { display: block; font-size: .65rem; color: #64748B; font-weight: 700; }
+  .stu { display: flex; align-items: center; gap: .5rem; padding: .55rem .6rem; border: 1px solid #E2E8F0; border-radius: 14px; margin-bottom: .45rem; }
+  .stu .who { flex: 1; min-width: 0; text-align: left; background: none; border: 0; padding: 0; }
+  .stu .who b { display: block; color: #0F172A; font-size: .95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-decoration: underline; text-decoration-color: #CBD5E1; text-underline-offset: 3px; }
+  .stu .who span { font-size: .72rem; color: #64748B; }
+  .addbtn { border: 0; border-radius: 12px; padding: .45rem .6rem; font-weight: 800; font-size: .85rem; min-height: 40px; white-space: nowrap; }
+  .add-paid { background: #DCFCE7; color: #166534; }
+  .add-paid.done { background: #16A34A; color: #fff; }
+  .add-room { width: 100%; background: #1E3A8A; color: #fff; margin-top: .2rem; min-height: 46px; }
+  .add-room.done { background: #16A34A; }
+  .pill { display: inline-block; font-size: .62rem; font-weight: 800; border-radius: 999px; padding: .05rem .4rem; margin-left: .25rem; vertical-align: middle; }
+  .p-due { background: #FEE2E2; color: #B91C1C; } .p-ok { background: #DCFCE7; color: #166534; } .p-tom { background: #FEF3C7; color: #92400E; }
+  .dots { display: flex; gap: 4px; justify-content: center; padding: .35rem 0 .5rem; flex-wrap: wrap; }
+  .dots i { width: 8px; height: 8px; border-radius: 50%; background: #CBD5E1; display: block; }
+  .dots i.on { background: #1E3A8A; width: 18px; border-radius: 6px; } .dots i.added { background: #16A34A; }
+  /* calculator */
+  .calc { flex: 0 0 auto; background: #0F172A; border-radius: 20px; padding: .6rem; color: #fff; box-shadow: 0 10px 26px rgba(15,23,42,.25); }
+  .screen { background: #020617; border-radius: 14px; padding: .45rem .7rem; text-align: right; position: relative; }
+  .expr { font-size: .8rem; color: #94A3B8; min-height: 1.1rem; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+  .expr::-webkit-scrollbar { display: none; }
+  .res { font-size: 1.9rem; font-weight: 900; line-height: 1.15; font-variant-numeric: tabular-nums; overflow-x: auto; white-space: nowrap; }
+  .res.err { color: #FCA5A5; font-size: 1.1rem; }
+  .tools { display: flex; gap: .35rem; margin: .45rem 0; }
+  .tools button { flex: 1; border: 0; border-radius: 10px; padding: .4rem; background: #1E293B; color: #CBD5E1; font-size: .78rem; font-weight: 700; min-height: 36px; }
+  .keys { display: grid; grid-template-columns: repeat(4,1fr); gap: .35rem; }
+  .keys button { border: 0; border-radius: 12px; font-size: 1.25rem; font-weight: 800; min-height: 48px; background: #1E293B; color: #fff; touch-action: manipulation; }
+  .keys button:active { transform: scale(.96); filter: brightness(1.3); }
+  .keys .op { background: #334155; color: #93C5FD; } .keys .eq { background: #2563EB; } .keys .c { background: #7F1D1D; color: #FECACA; }
+  @media (max-width: 640px) { .keys button { min-height: 42px; font-size: 1.15rem; } .keys { gap: .3rem; } .res { font-size: 1.6rem; } .tools { margin: .35rem 0; } .tools button { min-height: 32px; padding: .3rem; } .calc { padding: .5rem; } }
+  @media (max-height: 700px) { .keys button { min-height: 38px; font-size: 1.05rem; } .res { font-size: 1.4rem; } }
+  .calc.mini .keys, .calc.mini .tools { display: none; }
+  .fold { position: absolute; left: .5rem; top: .45rem; border: 0; background: #1E293B; color: #CBD5E1; border-radius: 10px; padding: .3rem .6rem; font-size: .75rem; font-weight: 700; min-height: 32px; }
+  @media (min-width: 900px) { .keys button { min-height: 52px; } }
+  /* sheets */
+  .sheet-bg { position: fixed; inset: 0; background: rgba(15,23,42,.55); z-index: 80; display: none; align-items: flex-end; justify-content: center; }
+  .sheet-bg.open { display: flex; }
+  .sheet { background: #fff; width: 100%; max-width: 560px; max-height: 85dvh; overflow-y: auto; border-radius: 22px 22px 0 0; padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom,0px)); animation: shUp .22s ease-out; }
+  @media (min-width: 640px) { .sheet-bg { align-items: center; } .sheet { border-radius: 22px; } }
+  @keyframes shUp { from { transform: translateY(40px); opacity: 0; } }
+  .kv { display: grid; grid-template-columns: repeat(3,1fr); gap: .4rem; }
+  .kv div { background: #F1F5F9; border-radius: 12px; padding: .5rem; text-align: center; font-weight: 800; }
+  .kv small { display: block; font-size: .65rem; color: #64748B; }
+  .payrow { border: 1px solid #E2E8F0; border-radius: 12px; padding: .55rem .7rem; margin-top: .45rem; font-size: .85rem; }
+  .tape-row { display: flex; justify-content: space-between; gap: .6rem; padding: .45rem 0; border-bottom: 1px dashed #E2E8F0; font-size: .85rem; }
+  .picker { max-width: 640px; margin: 1.5rem auto; }
+  .pick { display: block; width: 100%; text-align: left; border: 2px solid #E2E8F0; background: #fff; border-radius: 20px; padding: 1.1rem 1.2rem; margin-bottom: .8rem; transition: border-color .15s, transform .15s; }
+  .pick:hover { border-color: #3B82F6; transform: translateY(-2px); }
+</style>
+
+<!-- STEP 1: choose the hostel -->
+<div id="hcPicker" class="picker animate-slide-up">
+  <h1 class="text-2xl font-extrabold text-slate-800">Hostel Calculator</h1>
+  <p class="text-slate-500 text-sm mb-4">Choose a hostel. Rooms appear on top, one by one; the calculator stays at the bottom. Today: {{ today }}.</p>
+  {% for h in data %}
+  <button type="button" class="pick" data-hostel="{{ loop.index0 }}">
+    <div class="flex items-center gap-3">
+      <span class="ico {{ 'ico-amber' if loop.index0 == 0 else 'ico-blue' }}"><i class="fa-solid {{ 'fa-house' if loop.index0 == 0 else 'fa-city' }}"></i></span>
+      <div class="min-w-0 flex-1">
+        <div class="font-extrabold text-lg text-slate-800">{{ h.hostel }}</div>
+        <div class="text-xs text-slate-500">{{ h.rooms|length }} rooms &bull; {{ h.students }} students &bull; Paid ₹{{ '{:,.0f}'.format(h.paid) }} of ₹{{ '{:,.0f}'.format(h.rent) }}</div>
+      </div>
+      <i class="fa-solid fa-chevron-right text-slate-400"></i>
+    </div>
+  </button>
+  {% endfor %}
+</div>
+
+<!-- STEP 2: rooms on top, calculator at the bottom -->
+<div id="hc" class="hc hidden">
+  <div class="hc-bar">
+    <div class="seg" role="tablist" aria-label="Hostel">
+      {% for h in data %}<button type="button" data-hostel="{{ loop.index0 }}">{{ h.hostel }}</button>{% endfor %}
+    </div>
+    <button type="button" id="summaryBtn" class="btn-outline px-3 py-2 text-xs" style="min-height:40px"><i class="fa-solid fa-list-check mr-1"></i>Summary</button>
+  </div>
+
+  <section class="top" id="topPanel">
+    <div class="room-head">
+      <button type="button" class="nav" id="prevRoom" aria-label="Previous room"><i class="fa-solid fa-chevron-left"></i></button>
+      <div class="room-title"><b id="roomTitle"></b><span id="roomSub"></span></div>
+      <button type="button" class="nav" id="nextRoom" aria-label="Next room"><i class="fa-solid fa-chevron-right"></i></button>
+    </div>
+    <div class="dots" id="dots"></div>
+    <div class="room-body" id="roomBody"></div>
+  </section>
+
+  <section class="calc" aria-label="Calculator">
+    <div class="screen">
+      <button type="button" class="fold" id="foldBtn" aria-label="Hide or show the keypad"><i class="fa-solid fa-chevron-down"></i> Keys</button>
+      <div class="expr" id="calcExpr" style="padding-left:5.2rem">&nbsp;</div>
+      <div class="res" id="calcRes">0</div>
+    </div>
+    <div class="tools">
+      <button type="button" id="undoBtn"><i class="fa-solid fa-rotate-left"></i> Undo add</button>
+      <button type="button" id="tapeBtn"><i class="fa-solid fa-receipt"></i> List (<span id="tapeCount">0</span>)</button>
+      <button type="button" id="copyBtn"><i class="fa-regular fa-copy"></i> Copy</button>
+    </div>
+    <div class="keys">
+      <button type="button" class="c" data-k="C">C</button><button type="button" class="op" data-k="BS"><i class="fa-solid fa-delete-left"></i></button><button type="button" class="op" data-k="/">÷</button><button type="button" class="op" data-k="*">×</button>
+      <button type="button" data-k="7">7</button><button type="button" data-k="8">8</button><button type="button" data-k="9">9</button><button type="button" class="op" data-k="-">−</button>
+      <button type="button" data-k="4">4</button><button type="button" data-k="5">5</button><button type="button" data-k="6">6</button><button type="button" class="op" data-k="+">+</button>
+      <button type="button" data-k="1">1</button><button type="button" data-k="2">2</button><button type="button" data-k="3">3</button><button type="button" class="eq" data-k="=" style="grid-row:span 2">=</button>
+      <button type="button" data-k="00">00</button><button type="button" data-k="0">0</button><button type="button" data-k=".">.</button>
+    </div>
+  </section>
+</div>
+
+<!-- student payment details -->
+<div class="sheet-bg" id="stuSheet" role="dialog" aria-modal="true"><div class="sheet" id="stuSheetBody"></div></div>
+<!-- added list / hostel summary -->
+<div class="sheet-bg" id="infoSheet" role="dialog" aria-modal="true"><div class="sheet" id="infoSheetBody"></div></div>
+
+<script type="application/json" id="hcData">{{ data|tojson }}</script>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+  var DATA = JSON.parse(document.getElementById('hcData').textContent);
+  var KEY = 'hostelCalc.v1';
+  var DETAILS_URL = "{{ url_for('student_payment_details', student_id=0) }}";
+
+  /* ---------- money helpers: everything is done in whole paise (integers), never floating rupees ---------- */
+  function toPaise(str) {
+    var s = String(str).trim();
+    if (!/^\d*\.?\d*$/.test(s) || s === '' || s === '.') return null;
+    var parts = s.split('.');
+    var rup = parts[0] ? parseInt(parts[0], 10) : 0;
+    var frac = ((parts[1] || '') + '00').slice(0, 2);
+    var extra = (parts[1] || '').length > 2 && parseInt(parts[1][2], 10) >= 5 ? 1 : 0;
+    return rup * 100 + parseInt(frac, 10) + extra;
+  }
+  function inr(paise) {
+    var neg = paise < 0; paise = Math.abs(paise);
+    var r = Math.floor(paise / 100), p = paise % 100;
+    var s = r.toLocaleString('en-IN') + (p ? '.' + String(p).padStart(2, '0') : '');
+    return (neg ? '−' : '') + '₹' + s;
+  }
+  function rupeesToPaise(n) { return Math.round(Number(n || 0) * 100); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+
+  /* ---------- state (kept in this browser so a refresh never loses the total) ---------- */
+  var st = { hostel: null, room: [0, 0], parts: [], added: {} };
+  try { var saved = JSON.parse(localStorage.getItem(KEY) || 'null'); if (saved && Array.isArray(saved.parts)) st = Object.assign(st, saved); } catch (e) {}
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
+
+  /* The expression is a list of parts. A part is either an operator ('+','-','*','/') or a number typed /
+     added. Added numbers remember where they came from (shown in the List). */
+  function exprText() {
+    return st.parts.map(function (p) { return p.op ? { '+': ' + ', '-': ' − ', '*': ' × ', '/': ' ÷ ' }[p.op] : (p.text || ''); }).join('');
+  }
+  // Evaluates with normal maths order (× ÷ before + −). Works on integer paise. Returns {ok, value} or {ok:false}.
+  function evaluate(parts) {
+    var nums = [], ops = [];
+    var list = parts.slice();
+    while (list.length && list[list.length - 1].op) list.pop();      // ignore a trailing operator
+    if (!list.length) return { ok: true, value: 0 };
+    var sign = 1, expectNum = true;
+    for (var i = 0; i < list.length; i++) {
+      var p = list[i];
+      if (expectNum) {
+        if (p.op === '-' ) { sign = -sign; continue; }
+        if (p.op) return { ok: false };
+        var v = p.paise != null ? p.paise : toPaise(p.text);
+        if (v == null) return { ok: false };
+        nums.push(sign * v); sign = 1; expectNum = false;
+      } else {
+        if (!p.op) return { ok: false };
+        ops.push(p.op); expectNum = true;
+      }
+    }
+    // first × and ÷
+    var n2 = [nums[0]], o2 = [];
+    for (var j = 0; j < ops.length; j++) {
+      var a = n2.pop(), b = nums[j + 1];
+      if (ops[j] === '*') n2.push(Math.round(a * b / 100));
+      else if (ops[j] === '/') { if (b === 0) return { ok: false, div0: true }; n2.push(Math.round(a * 100 / b)); }
+      else { n2.push(a); n2.push(b); o2.push(ops[j]); }
+    }
+    var total = n2[0];
+    for (var k = 0; k < o2.length; k++) total = o2[k] === '+' ? total + n2[k + 1] : total - n2[k + 1];
+    if (!isFinite(total) || Math.abs(total) > 9e15) return { ok: false };
+    return { ok: true, value: total };
+  }
+  function last() { return st.parts[st.parts.length - 1]; }
+  function pressKey(k) {
+    var l = last();
+    if (k === 'C') { st.parts = []; st.added = {}; }
+    else if (k === 'BS') {
+      if (!l) {}
+      else if (l.op || l.source) st.parts.pop();
+      else { l.text = l.text.slice(0, -1); if (!l.text) st.parts.pop(); }
+    }
+    else if ('+-*/'.indexOf(k) > -1) {
+      if (l && l.op) { if (k === '-' && l.op !== '-' && (l.op === '*' || l.op === '/')) st.parts.push({ op: '-' }); else l.op = k; }
+      else if (!l) { if (k === '-') st.parts.push({ op: '-' }); }
+      else st.parts.push({ op: k });
+    }
+    else if (k === '=') {
+      var r = evaluate(st.parts);
+      if (r.ok) st.parts = r.value === 0 ? [] : (r.value < 0 ? [{ op: '-' }, { text: paiseText(-r.value) }] : [{ text: paiseText(r.value) }]);
+    }
+    else { // digits, 00, .
+      if (l && !l.op && !l.source) {
+        if (k === '.' && l.text.indexOf('.') > -1) return;
+        if (l.text.indexOf('.') > -1 && l.text.split('.')[1].length >= 2 && k !== '.') return;   // max 2 decimals
+        if (l.text.replace('.', '').length >= 12) return;
+        l.text = (l.text === '0' && k !== '.') ? k.replace(/^0+(?=\d)/, '') || '0' : l.text + k;
+      } else {
+        if (l && !l.op) st.parts.push({ op: '+' });            // typing right after an added amount starts a new + number
+        st.parts.push({ text: k === '.' ? '0.' : (k === '00' ? '0' : k) });
+      }
+    }
+    render(); save();
+  }
+  function paiseText(p) { return (p / 100).toFixed(p % 100 ? 2 : 0); }
+  function addAmount(paise, label, key) {
+    if (paise <= 0) { toast('Nothing to add (₹0)'); return; }
+    if (st.parts.length && !last().op) st.parts.push({ op: '+' });
+    st.parts.push({ text: paiseText(paise), paise: paise, source: label, key: key });
+    if (key) st.added[key] = true;
+    render(); save();
+    toast('+ ' + inr(paise) + ' added');
+  }
+  function undoAdd() {
+    for (var i = st.parts.length - 1; i >= 0; i--) {
+      if (st.parts[i].source) {
+        var key = st.parts[i].key;
+        st.parts.splice(i, 1);
+        if (st.parts[i - 1] && st.parts[i - 1].op) st.parts.splice(i - 1, 1);   // drop the + in front
+        if (st.parts[0] && st.parts[0].op === '+') st.parts.shift();
+        if (key) delete st.added[key];
+        render(); save(); toast('Last added amount removed'); return;
+      }
+    }
+    toast('No added amount to undo');
+  }
+
+  /* ---------- rooms ---------- */
+  function H() { return DATA[st.hostel]; }
+  function roomIdx() { return Math.max(0, Math.min(st.room[st.hostel] || 0, H().rooms.length - 1)); }
+  function roomKey(h, i) { return 'r:' + h + ':' + i; }
+  function stuKey(id) { return 's:' + id; }
+  function statusPill(s) {
+    if (s.status === 'due' || s.status === 'old') return '<span class="pill p-due">DUE</span>';
+    if (s.status === 'tomorrow') return '<span class="pill p-tom">TOMORROW</span>';
+    if (s.balance <= 0.005) return '<span class="pill p-ok">PAID</span>';
+    return '';
+  }
+  function renderRoom(dir) {
+    var h = H(), i = roomIdx(), r = h.rooms[i];
+    document.getElementById('roomTitle').textContent = h.hostel + ' • ' + r.label;
+    document.getElementById('roomSub').textContent = 'Room ' + (i + 1) + ' of ' + h.rooms.length + ' • ' + r.students.length + (r.sharing ? '/' + r.sharing : '') + ' students';
+    document.getElementById('prevRoom').disabled = i === 0;
+    document.getElementById('nextRoom').disabled = i === h.rooms.length - 1;
+    var dots = '';
+    for (var d = 0; d < h.rooms.length; d++) dots += '<i class="' + (d === i ? 'on' : '') + (st.added[roomKey(st.hostel, d)] ? ' added' : '') + '"></i>';
+    document.getElementById('dots').innerHTML = dots;
+    var html = '<div class="sum3"><div><small>Rent</small>' + inr(rupeesToPaise(r.rent)) + '</div><div class="text-green-700"><small>Paid</small>' + inr(rupeesToPaise(r.paid)) +
+               '</div><div class="' + (r.balance > 0 ? 'text-red-600' : 'text-slate-700') + '"><small>Balance</small>' + inr(rupeesToPaise(r.balance)) + '</div></div>';
+    if (!r.students.length) html += '<p class="text-center text-slate-400 text-sm py-6"><i class="fa-regular fa-circle-xmark mr-1"></i>No students in this room</p>';
+    r.students.forEach(function (s) {
+      var done = st.added[stuKey(s.id)] || st.added[roomKey(st.hostel, i)];
+      html += '<div class="stu"><button type="button" class="who" data-stu="' + s.id + '"><b>' + esc(s.name) + statusPill(s) + '</b>' +
+              '<span>Rent ' + inr(rupeesToPaise(s.rent)) + ' • Bal ' + inr(rupeesToPaise(s.balance)) + (s.due_day ? ' • due day ' + s.due_day : '') + '</span></button>' +
+              '<button type="button" class="addbtn add-paid' + (done ? ' done' : '') + '" data-add="' + s.id + '"' + (done ? ' title="Already added"' : '') + '>' +
+              (done ? '<i class="fa-solid fa-check"></i> ' : '+ ') + inr(rupeesToPaise(s.paid)) + '</button></div>';
+    });
+    if (r.students.length) {
+      var rdone = st.added[roomKey(st.hostel, i)];
+      html += '<button type="button" class="addbtn add-room' + (rdone ? ' done' : '') + '" id="addRoomBtn">' +
+              (rdone ? '<i class="fa-solid fa-check"></i> Room added: ' : '<i class="fa-solid fa-plus"></i> Add whole room paid: ') + inr(rupeesToPaise(r.paid)) + '</button>';
+    }
+    if (i === h.rooms.length - 1) html += '<button type="button" class="addbtn w-full mt-2" style="background:#F1F5F9;color:#1E3A8A;min-height:44px" id="endSummary"><i class="fa-solid fa-flag-checkered mr-1"></i> Last room — check hostel total</button>';
+    var body = document.getElementById('roomBody');
+    body.innerHTML = html; body.scrollTop = 0;
+    if (dir) { body.style.transition = 'none'; body.style.transform = 'translateX(' + (dir * 30) + 'px)'; body.style.opacity = '.3';
+      requestAnimationFrame(function () { body.style.transition = 'transform .2s, opacity .2s'; body.style.transform = ''; body.style.opacity = ''; }); }
+  }
+  function render() {
+    document.getElementById('calcExpr').innerHTML = esc(exprText()) || '&nbsp;';
+    var r = evaluate(st.parts), res = document.getElementById('calcRes');
+    if (r.ok) { res.textContent = inr(r.value); res.classList.remove('err'); }
+    else { res.textContent = r.div0 ? 'Cannot divide by 0' : 'Check the sum'; res.classList.add('err'); }
+    document.getElementById('tapeCount').textContent = st.parts.filter(function (p) { return p.source; }).length;
+    var ex = document.getElementById('calcExpr'); ex.scrollLeft = ex.scrollWidth;
+    if (st.hostel != null) renderRoom(0);
+  }
+  function go(step) {
+    var n = roomIdx() + step;
+    if (n < 0 || n >= H().rooms.length) { toast(step > 0 ? 'This is the last room' : 'This is the first room'); return; }
+    st.room[st.hostel] = n; save(); renderRoom(step);
+  }
+  function chooseHostel(h) {
+    st.hostel = h; save();
+    document.getElementById('hcPicker').classList.add('hidden');
+    document.getElementById('hc').classList.remove('hidden');
+    document.querySelectorAll('.seg button').forEach(function (b) { b.classList.toggle('on', Number(b.dataset.hostel) === h); });
+    render();
+  }
+  function findStudent(id) {
+    for (var a = 0; a < DATA.length; a++) for (var b = 0; b < DATA[a].rooms.length; b++)
+      for (var c = 0; c < DATA[a].rooms[b].students.length; c++) if (DATA[a].rooms[b].students[c].id === id) return { s: DATA[a].rooms[b].students[c], room: DATA[a].rooms[b], hostel: DATA[a].hostel, h: a, r: b };
+    return null;
+  }
+
+  /* ---------- sheets ---------- */
+  function openSheet(id, html) { document.getElementById(id + 'Body').innerHTML = html; document.getElementById(id).classList.add('open'); }
+  function closeSheets() { document.querySelectorAll('.sheet-bg').forEach(function (x) { x.classList.remove('open'); }); }
+  function showStudent(id) {
+    var f = findStudent(id); if (!f) return; var s = f.s;
+    var pays = s.payments.length ? s.payments.map(function (p) {
+      return '<div class="payrow"><div class="flex justify-between font-bold"><span>' + esc(p.date) + '</span><span class="text-green-700">' + inr(rupeesToPaise(p.amount)) + '</span></div>' +
+             '<div class="text-xs text-slate-500 mt-0.5">' + esc(p.mode) + (p.cash ? ' (cash ' + inr(rupeesToPaise(p.cash)) + ')' : '') + (p.paid_to ? ' • to ' + esc(p.paid_to) : '') +
+             (p.receipt ? ' • <a class="text-primary font-semibold underline" target="_blank" rel="noopener" href="' + esc(p.receipt) + '">Receipt</a>' : '') + '</div></div>';
+    }).join('') : '<p class="text-sm text-slate-500 mt-2">No payment in his current rent month.</p>';
+    openSheet('stuSheet',
+      '<div class="flex justify-between items-start gap-2"><div class="min-w-0"><h3 class="text-lg font-extrabold text-slate-800">' + esc(s.name) + statusPill(s) + '</h3>' +
+      '<p class="text-xs text-slate-500">' + esc(f.hostel) + ' • ' + esc(f.room.label) + (s.contact ? ' • <a class="text-primary" href="tel:' + esc(s.contact) + '">' + esc(s.contact) + '</a>' : '') + '</p></div>' +
+      '<button type="button" class="w-10 h-10 rounded-xl bg-slate-100 text-slate-500 shrink-0" data-close aria-label="Close"><i class="fa-solid fa-xmark"></i></button></div>' +
+      '<div class="kv mt-3"><div><small>Rent</small>' + inr(rupeesToPaise(s.rent)) + '</div><div class="text-green-700"><small>Paid</small>' + inr(rupeesToPaise(s.paid)) + '</div><div class="' + (s.balance > 0 ? 'text-red-600' : '') + '"><small>Balance</small>' + inr(rupeesToPaise(s.balance)) + '</div></div>' +
+      '<div class="text-xs text-slate-600 mt-3 leading-relaxed">' + (s.joined ? 'Joined <b>' + esc(s.joined) + '</b> • rent due on day <b>' + s.due_day + '</b> every month<br>' : '<b class="text-red-600">No joined date set</b><br>') +
+      (s.month_from ? 'Current rent month from <b>' + esc(s.month_from) + '</b>' : '') + (s.next_due ? ' • next due <b>' + esc(s.next_due) + '</b>' : '') +
+      (s.old_balance > 0 ? '<br><span class="text-violet-700 font-bold">Old balance ' + inr(rupeesToPaise(s.old_balance)) + ' added to rent</span>' : '') + '</div>' +
+      '<h4 class="font-bold text-slate-700 mt-4">Payments counted in this rent month</h4>' + pays +
+      '<div class="grid grid-cols-2 gap-2 mt-4"><button type="button" class="btn-primary py-3" data-add="' + s.id + '"><i class="fa-solid fa-plus mr-1"></i>Add ' + inr(rupeesToPaise(s.paid)) + '</button>' +
+      '<a class="btn-outline py-3 text-center" href="' + DETAILS_URL.replace('/0/', '/' + s.id + '/') + '"><i class="fa-solid fa-pen mr-1"></i>Payments page</a></div>');
+  }
+  function showSummary() {
+    var r = evaluate(st.parts);
+    var rows = DATA.map(function (h, hi) {
+      var addedRooms = h.rooms.filter(function (rm, ri) { return st.added[roomKey(hi, ri)]; }).length;
+      return '<div class="payrow"><div class="flex justify-between font-extrabold text-slate-800"><span>' + esc(h.hostel) + '</span><span class="text-green-700">' + inr(rupeesToPaise(h.paid)) + '</span></div>' +
+             '<div class="text-xs text-slate-500">App: rent ' + inr(rupeesToPaise(h.rent)) + ' − paid ' + inr(rupeesToPaise(h.paid)) + ' = balance ' + inr(rupeesToPaise(h.balance)) + ' • rooms added: ' + addedRooms + '/' + h.rooms.length + '</div></div>';
+    }).join('');
+    var both = DATA.reduce(function (a, h) { return a + rupeesToPaise(h.paid); }, 0);
+    var calc = r.ok ? r.value : null;
+    var match = function (target, label) {
+      if (calc == null) return '';
+      var diff = calc - target;
+      return '<div class="payrow ' + (diff === 0 ? 'bg-green-50 border-green-300' : 'bg-amber-50 border-amber-300') + '"><b>' + label + ':</b> ' +
+             (diff === 0 ? '<span class="text-green-700 font-extrabold">✓ matches the calculator</span>' : 'calculator is ' + inr(Math.abs(diff)) + (diff > 0 ? ' more' : ' less')) + '</div>';
+    };
+    var tape = st.parts.filter(function (p) { return p.source; }).map(function (p) {
+      return '<div class="tape-row"><span class="text-slate-600">' + esc(p.source) + '</span><b class="text-green-700">+' + inr(p.paise) + '</b></div>'; }).join('') ||
+      '<p class="text-sm text-slate-500">Nothing added from the rooms yet.</p>';
+    openSheet('infoSheet',
+      '<div class="flex justify-between items-center"><h3 class="text-lg font-extrabold text-slate-800">Totals check</h3><button type="button" class="w-10 h-10 rounded-xl bg-slate-100 text-slate-500" data-close aria-label="Close"><i class="fa-solid fa-xmark"></i></button></div>' +
+      '<div class="payrow bg-slate-900 text-white" style="border-color:#0F172A"><div class="text-xs text-slate-300">Calculator now</div><div class="text-2xl font-extrabold">' + (calc == null ? '—' : inr(calc)) + '</div></div>' +
+      rows + '<div class="payrow"><div class="flex justify-between font-extrabold"><span>Both hostels (Total Paid card)</span><span class="text-green-700">' + inr(both) + '</span></div></div>' +
+      (st.hostel != null ? match(rupeesToPaise(DATA[st.hostel].paid), DATA[st.hostel].hostel + ' paid') : '') + match(both, 'Both hostels paid') +
+      '<h4 class="font-bold text-slate-700 mt-4 mb-1">Amounts added (' + st.parts.filter(function (p) { return p.source; }).length + ')</h4>' + tape);
+  }
+
+  /* ---------- toast ---------- */
+  var tEl;
+  function toast(msg) {
+    if (!tEl) { tEl = document.createElement('div'); tEl.style.cssText = 'position:fixed;left:50%;top:74px;transform:translateX(-50%);z-index:90;background:#0F172A;color:#fff;padding:.55rem 1rem;border-radius:999px;font-weight:700;font-size:.85rem;box-shadow:0 8px 20px rgba(0,0,0,.25);transition:opacity .25s;pointer-events:none'; document.body.appendChild(tEl); }
+    tEl.textContent = msg; tEl.style.opacity = '1'; clearTimeout(tEl._h); tEl._h = setTimeout(function () { tEl.style.opacity = '0'; }, 1400);
+  }
+
+  /* ---------- events ---------- */
+  document.querySelectorAll('.pick').forEach(function (b) { b.addEventListener('click', function () { chooseHostel(Number(b.dataset.hostel)); }); });
+  document.querySelectorAll('.seg button').forEach(function (b) { b.addEventListener('click', function () { chooseHostel(Number(b.dataset.hostel)); toast(b.textContent + ' — calculator kept'); }); });
+  document.getElementById('prevRoom').addEventListener('click', function () { go(-1); });
+  document.getElementById('nextRoom').addEventListener('click', function () { go(1); });
+  document.querySelectorAll('.keys button').forEach(function (b) { b.addEventListener('click', function () { pressKey(b.dataset.k); }); });
+  document.getElementById('undoBtn').addEventListener('click', undoAdd);
+  var calcEl = document.querySelector('.calc'), foldBtn = document.getElementById('foldBtn');
+  function setFold(m) { calcEl.classList.toggle('mini', m); foldBtn.innerHTML = m ? '<i class="fa-solid fa-chevron-up"></i> Keys' : '<i class="fa-solid fa-chevron-down"></i> Keys';
+    try { localStorage.setItem(KEY + '.mini', m ? '1' : ''); } catch (e) {} }
+  foldBtn.addEventListener('click', function () { setFold(!calcEl.classList.contains('mini')); });
+  try { if (localStorage.getItem(KEY + '.mini')) setFold(true); } catch (e) {}
+  document.getElementById('tapeBtn').addEventListener('click', showSummary);
+  document.getElementById('summaryBtn').addEventListener('click', showSummary);
+  document.getElementById('copyBtn').addEventListener('click', function () {
+    var r = evaluate(st.parts); if (!r.ok) return toast('Nothing to copy');
+    var txt = paiseText(r.value);
+    try { navigator.clipboard.writeText(txt).then(function () { toast('Copied ' + inr(r.value)); }, function () { toast(txt); }); } catch (e) { toast(txt); }
+  });
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest('[data-add]');
+    if (a) { var f = findStudent(Number(a.dataset.add)); if (f) {
+      if (st.added[stuKey(f.s.id)] || st.added[roomKey(f.h, f.r)]) { if (!confirm(f.s.name + ' is already added. Add again?')) return; }
+      addAmount(rupeesToPaise(f.s.paid), f.hostel + ' ' + f.room.label + ' • ' + f.s.name, stuKey(f.s.id)); closeSheets(); } return; }
+    var w = e.target.closest('[data-stu]'); if (w) { showStudent(Number(w.dataset.stu)); return; }
+    if (e.target.closest('#addRoomBtn')) {
+      var h = H(), i = roomIdx(), rm = h.rooms[i];
+      var already = st.added[roomKey(st.hostel, i)] || rm.students.some(function (s) { return st.added[stuKey(s.id)]; });
+      if (already && !confirm('Some or all of this room is already added. Add the whole room again?')) return;
+      addAmount(rupeesToPaise(rm.paid), h.hostel + ' ' + rm.label + ' (whole room)', roomKey(st.hostel, i));
+      return; }
+    if (e.target.closest('#endSummary')) { showSummary(); return; }
+    if (e.target.closest('[data-close]') || e.target.classList.contains('sheet-bg')) closeSheets();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (document.querySelector('.sheet-bg.open')) { if (e.key === 'Escape') closeSheets(); return; }
+    if (st.hostel == null || e.target.closest('input,textarea,select')) return;
+    var map = { 'Enter': '=', 'Backspace': 'BS', 'Escape': 'C', 'Delete': 'C', 'x': '*', 'X': '*' };
+    var k = map[e.key] || e.key;
+    if (/^[0-9.+\-*/=]$/.test(k) || k === 'BS' || k === 'C') { e.preventDefault(); pressKey(k); }
+    else if (e.key === 'ArrowRight') go(1); else if (e.key === 'ArrowLeft') go(-1);
+  });
+  var sx = null, sy = null, tp = document.getElementById('roomBody');
+  tp.addEventListener('touchstart', function (e) { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
+  tp.addEventListener('touchend', function (e) {
+    if (sx === null) return; var dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy; sx = null;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.4) go(dx < 0 ? 1 : -1);
+  });
+
+  // Old added-marks that point to students / rooms that no longer exist are dropped.
+  if (st.hostel != null && DATA[st.hostel]) chooseHostel(st.hostel); else { st.hostel = null; render(); }
+})();
+</script>
+{% endblock %}
