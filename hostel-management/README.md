@@ -199,3 +199,29 @@ Built for internal hostel administration use. Adapt freely.
   removes the saved copy and receipt images from the database.
 - **Expenditure** and **Notes** are their own pages.
 - On first start, any amount typed directly on a student (not as a payment) is moved once into the payments table.
+
+
+---
+
+## 🤖 AI agent (Groq) + Profit / Loss
+
+**Set up:** add `GROQ_API_KEY` (and optionally `GROQ_MODEL`, `AI_AGENT_MODE`) to your environment / Render dashboard — see `.env.example`.
+No key = the AI is off and the original rule-based assistant works exactly as before.
+
+**Test the connection:** log in as admin and open `/admin/api/ai/status?ping=1`.
+
+**What the agent does** (`agent.py`): the admin assistant (bottom-right bot on the admin dashboard) now understands free-form English / Telugu.
+It calls small read-only tools (dashboard numbers, profit/loss, due list, vacancy, rooms, students, payments, expenses, guests,
+paused beds, notes, app guides), reads the live results and answers. It can also *propose* changes — shift / delete / restore a student,
+delete a payment, Delete All Data, add an expense, add canteen income — but every change still shows the same **Yes / Cancel** card and
+only runs after you press Yes. It never writes SQL, never sees passwords/keys, and student phone numbers reach the model masked (last 4 digits).
+
+**Modes** (`AI_AGENT_MODE`): `first` (default: AI answers first, rules are the safety net if Groq is down or rate-limited),
+`fallback` (rules first, AI only for sentences the rules don't understand), `off`.
+
+**Profit / Loss** (`profit.py`, page: `/admin/profit-loss`, also in the sidebar and linked from Expenditure):
+- Hostel profit = rent collected (confirmed payments dated in the month) + guest income − expenses marked *Hostel*
+- Canteen profit = canteen income − expenses marked *Canteen*
+- Overall profit = Hostel + Canteen; "after Home spending" also subtracts *Home* expenses
+- Rent income also reads the backup copies kept by *Delete All Data* (each payment counted once), so past months stay correct
+  until a backup is permanently deleted.

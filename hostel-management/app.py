@@ -4189,6 +4189,29 @@ def api_students():
 
 
 # --------------------------------------------------------------------------
+# PROFIT / LOSS PAGE + GROQ AI AGENT  (profit.py, agent.py)
+# These only ADD to the app: no existing rule, route or calculation above is changed.
+# --------------------------------------------------------------------------
+
+import profit
+import agent
+
+_ai_ctx = {
+    'get_db': get_db, 'login_required': login_required, 'admin_api_required': admin_api_required,
+    'today_ist': today_ist, 'parse_iso_date': parse_iso_date, 'pay_date': _pay_date, 'cycle_label': cycle_label,
+    'HOSTELS': HOSTELS, 'rooms_for_hostel': rooms_for_hostel, 'room_label': room_label,
+    'room_occupancy': room_occupancy, 'check_capacity': check_capacity,
+    'get_dashboard_stats': get_dashboard_stats, 'get_due_and_upcoming': get_due_and_upcoming, 'get_pauses': get_pauses,
+    'EXPENSE_CATEGORIES': EXPENSE_CATEGORIES, 'daily_rate': daily_rent_for_sharing,
+    'do_delete_student': do_delete_student, 'do_restore_deleted': do_restore_deleted,
+    'do_clear_student_payment': do_clear_student_payment, 'do_reset_all_payments': do_reset_all_payments,
+    'reset_counts': reset_counts,
+}
+profit.register(app, _ai_ctx)
+agent.install(app, _ai_ctx)
+
+
+# --------------------------------------------------------------------------
 # ERROR HANDLERS
 # --------------------------------------------------------------------------
 

@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+
+{% block title %}Profit / Loss — Hostel Management System{% endblock %}
+
+{% block content %}
+{% set money = '{:,.0f}' %}
+{% macro amt(v) %}{{ '' if v >= 0 else '−' }}₹{{ money.format(v|abs) }}{% endmacro %}
+<div class="max-w-3xl mx-auto animate-slide-up">
+
+  <!-- Header -->
+  <div class="flex items-center gap-3 mb-5">
+    <a href="{{ url_for('expenditure') }}"
+       class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-primary transition shrink-0">
+      <i class="fa-solid fa-arrow-left"></i>
+    </a>
+    <div class="min-w-0">
+      <h1 class="text-2xl font-bold text-slate-800">Profit / Loss</h1>
+      <p class="text-slate-500 text-sm">Hostel, Canteen and Overall for {{ r.label }}.</p>
+    </div>
+  </div>
+
+  <!-- Month filters -->
+  <div class="grid grid-cols-3 gap-2 mb-5">
+    <a href="{{ url_for('profit_loss', month=this_key) }}"
+       class="text-center py-3 rounded-xl font-bold text-sm {{ 'bg-primary text-white' if key == this_key else 'bg-white border border-slate-200 text-slate-600' }}">This Month</a>
+    <a href="{{ url_for('profit_loss', month=last_key) }}"
+       class="text-center py-3 rounded-xl font-bold text-sm {{ 'bg-primary text-white' if key == last_key else 'bg-white border border-slate-200 text-slate-600' }}">Last Month</a>
+    <form method="GET" action="{{ url_for('profit_loss') }}">
+      <input type="month" name="month" value="{{ key }}" onchange="this.form.submit()"
+             class="form-input w-full h-full text-sm text-center {{ 'border-primary' if key not in (this_key, last_key) }}"
+             aria-label="Pick a month">
+    </form>
+  </div>
+
+  <!-- OVERALL -->
+  <div class="card p-5 mb-4 text-center border-l-4 {{ 'border-success' if r.overall_net >= 0 else 'border-danger' }}">
+    <div class="text-[11px] text-slate-400"><i class="fa-solid fa-scale-balanced mr-1"></i>Overall {{ 'profit' if r.overall_net >= 0 else 'loss' }} · {{ r.label }}</div>
+    <div class="text-3xl font-extrabold {{ 'text-success' if r.overall_net >= 0 else 'text-danger' }}">{{ amt(r.overall_net) }}</div>
+    <div class="text-[11px] text-slate-400 mt-1">Hostel {{ amt(r.hostel_net) }} + Canteen {{ amt(r.canteen_net) }}</div>
+    <div class="mt-3 pt-3 border-t border-slate-100 text-sm">
+      <span class="text-slate-500">After Home spending (₹{{ money.format(r.home_expense) }}):</span>
+      <b class="{{ 'text-success' if r.overall_after_home >= 0 else 'text-danger' }}">{{ amt(r.overall_after_home) }}</b>
+    </div>
+  </div>
+
+  <!-- HOSTEL + CANTEEN -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+    <div class="card p-4">
+      <div class="flex items-center justify-between mb-2">
+        <div class="font-bold text-slate-700"><i class="fa-solid fa-building mr-1 text-primary"></i>Hostel</div>
+        <div class="font-extrabold {{ 'text-success' if r.hostel_net >= 0 else 'text-danger' }}">{{ amt(r.hostel_net) }}</div>
+      </div>
+      <div class="text-sm space-y-1">
+        <div class="flex justify-between"><span class="text-slate-500">Rent collected</span><b>₹{{ money.format(r.rent_total) }}</b></div>
+        <div class="flex justify-between pl-3 text-xs text-slate-400"><span>Old Hostel</span><span>₹{{ money.format(r.rent_old) }}</span></div>
+        <div class="flex justify-between pl-3 text-xs text-slate-400"><span>New Hostel</span><span>₹{{ money.format(r.rent_new) }}</span></div>
+        <div class="flex justify-between pl-3 text-xs text-slate-400"><span>Cash / Online</span><span>₹{{ money.format(r.rent_cash) }} / ₹{{ money.format(r.rent_online) }}</span></div>
+        <div class="flex justify-between"><span class="text-slate-500">Guest income</span><b>₹{{ money.format(r.guest_income) }}</b></div>
+        <div class="flex justify-between"><span class="text-slate-500">Hostel expenses</span><b class="text-danger">₹{{ money.format(r.hostel_expense) }}</b></div>
+      </div>
+    </div>
+    <div class="card p-4">
+      <div class="flex items-center justify-between mb-2">
+        <div class="font-bold text-slate-700"><i class="fa-solid fa-utensils mr-1 text-primary"></i>Canteen</div>
+        <div class="font-extrabold {{ 'text-success' if r.canteen_net >= 0 else 'text-danger' }}">{{ amt(r.canteen_net) }}</div>
+      </div>
+      <div class="text-sm space-y-1">
+        <div class="flex justify-between"><span class="text-slate-500">Canteen income</span><b>₹{{ money.format(r.canteen_income) }}</b></div>
+        <div class="flex justify-between"><span class="text-slate-500">Canteen expenses</span><b class="text-danger">₹{{ money.format(r.canteen_expense) }}</b></div>
+      </div>
+      <a href="{{ url_for('expenditure', month=key) }}" class="inline-block mt-3 text-xs font-bold text-primary">Add / see entries →</a>
+    </div>
+  </div>
+
+  <!-- Totals line -->
+  <div class="grid grid-cols-3 gap-2 mb-6 text-center">
+    <div class="card p-3"><div class="text-[11px] text-slate-400">Total income</div><div class="font-bold text-slate-800">₹{{ money.format(r.total_income) }}</div></div>
+    <div class="card p-3"><div class="text-[11px] text-slate-400">Total expenses</div><div class="font-bold text-danger">₹{{ money.format(r.total_expense) }}</div></div>
+    <div class="card p-3"><div class="text-[11px] text-slate-400">Payments counted</div><div class="font-bold text-slate-800">{{ r.payments_count }}</div></div>
+  </div>
+
+  <!-- 6-month trend -->
+  <h2 class="font-bold text-slate-700 mb-2">Last 6 months</h2>
+  <div class="card p-0 mb-6 overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="text-left text-[11px] text-slate-400 border-b border-slate-100">
+          <th class="p-3">Month</th><th class="p-3 text-right">Hostel</th><th class="p-3 text-right">Canteen</th><th class="p-3 text-right">Overall</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in rows|reverse %}
+        <tr class="border-b border-slate-50 {{ 'bg-slate-50' if m.key == key }}">
+          <td class="p-3"><a class="font-bold text-slate-700" href="{{ url_for('profit_loss', month=m.key) }}">{{ m.label }}</a></td>
+          <td class="p-3 text-right {{ 'text-success' if m.hostel_net >= 0 else 'text-danger' }}">{{ amt(m.hostel_net) }}</td>
+          <td class="p-3 text-right {{ 'text-success' if m.canteen_net >= 0 else 'text-danger' }}">{{ amt(m.canteen_net) }}</td>
+          <td class="p-3 text-right font-bold {{ 'text-success' if m.overall_net >= 0 else 'text-danger' }}">{{ amt(m.overall_net) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- All time -->
+  <div class="card p-4 mb-4 text-center">
+    <div class="text-[11px] text-slate-400">{{ allt.label }}</div>
+    <div class="text-2xl font-extrabold {{ 'text-success' if allt.overall_net >= 0 else 'text-danger' }}">{{ amt(allt.overall_net) }}</div>
+    <div class="text-[11px] text-slate-400">Overall {{ 'profit' if allt.overall_net >= 0 else 'loss' }} · Hostel {{ amt(allt.hostel_net) }} · Canteen {{ amt(allt.canteen_net) }} · after Home {{ amt(allt.overall_after_home) }}</div>
+  </div>
+
+  <!-- How it is calculated -->
+  <div class="card p-4 text-xs text-slate-500 leading-relaxed">
+    <b class="text-slate-700">How this is calculated</b>
+    <ul class="list-disc ml-5 mt-1 space-y-0.5">
+      <li><b>Hostel</b> = rent collected (confirmed payments dated in the month) + guest payments − expenses marked <i>Hostel</i>.</li>
+      <li><b>Canteen</b> = canteen income − expenses marked <i>Canteen</i>.</li>
+      <li><b>Overall</b> = Hostel + Canteen. <i>Home</i> expenses are shown separately under “After Home spending”.</li>
+      <li>Expenses are not tagged Old / New, so the Old / New split is shown for rent collected only.</li>
+    </ul>
+    {% if purged %}
+    <p class="mt-2 text-amber-600"><i class="fa-solid fa-triangle-exclamation mr-1"></i>{{ purged }} Delete All Data backup(s) were permanently deleted — the rent that was in them can no longer be counted in older months.</p>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

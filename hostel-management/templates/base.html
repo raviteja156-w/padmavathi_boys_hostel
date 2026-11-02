@@ -288,6 +288,9 @@
             <a href="{{ url_for('expenditure') }}" class="sb-link {{ 'active' if request.endpoint == 'expenditure' }}">
                 <i class="fa-solid fa-receipt fa-fw"></i> Expenditure
             </a>
+            <a href="{{ url_for('profit_loss') }}" class="sb-link {{ 'active' if request.endpoint == 'profit_loss' }}">
+                <i class="fa-solid fa-chart-line fa-fw"></i> Profit / Loss
+            </a>
             <a href="{{ url_for('admin_notes') }}" class="sb-link {{ 'active' if request.endpoint == 'admin_notes' }}">
                 <i class="fa-solid fa-note-sticky fa-fw"></i> Notes
                 {% if nav.get('notes') %}<span class="sb-count" style="background:#CA8A04">{{ nav.notes }}</span>{% endif %}

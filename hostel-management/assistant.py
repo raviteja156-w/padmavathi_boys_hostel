@@ -134,6 +134,12 @@ def rupee(n):
 # ==========================================================================
 
 def _llm_json(system, user):
+    if (os.environ.get('GROQ_API_KEY') or '').strip():      # Groq (agent.py) is used when its key is set
+        try:
+            import agent
+            return agent.groq_json(system, user)
+        except Exception:
+            return None
     key = (os.environ.get('ANTHROPIC_API_KEY') or '').strip()
     if not key:
         return None
@@ -1102,6 +1108,16 @@ def admin_reply(db, ctx, payload):
         return _reply(lang, escape(tr(lang, "I can't show passwords, keys or configuration details. I can help with hostel data and features.",
                                       'పాస్‌వర్డ్‌లు, కీలు లేదా కాన్ఫిగరేషన్ వివరాలను నేను చూపించలేను. హాస్టల్ డేటా, ఫీచర్లలో సహాయం చేయగలను.')))
 
+    # --- AI agent (Groq, agent.py). Returns None when it is off / unavailable, so every rule below works exactly as before. ---
+    try:
+        import agent as _agent
+        if _agent.mode() == 'first':
+            _ai = _agent.reply(db, ctx, lang, message)
+            if _ai:
+                return _ai
+    except Exception:
+        pass
+
     students = [dict(r) for r in db.execute('SELECT * FROM students').fetchall()]
 
     # --- actions that change data (never for questions such as "how do I delete a student?") ---
@@ -1170,6 +1186,16 @@ def admin_reply(db, ctx, payload):
         return _ans_students(lang, matches)
     if totals_kw:
         return _ans_totals(db, ctx, lang, tokens, raw)
+
+    # AI agent in 'fallback' mode: only reached when none of the rules above understood the sentence.
+    try:
+        import agent as _agent
+        if _agent.mode() == 'fallback':
+            _ai = _agent.reply(db, ctx, lang, message)
+            if _ai:
+                return _ai
+    except Exception:
+        pass
 
     # Optional LLM: only maps the sentence to the same structured intents used above.
     intent = _llm_admin_intent(message)

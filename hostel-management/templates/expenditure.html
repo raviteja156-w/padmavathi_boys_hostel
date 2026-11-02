@@ -67,6 +67,10 @@
     <div class="text-[10px] text-slate-400">₹{{ money.format(s.canteen_income) }} in − ₹{{ money.format(s.cat_totals['Canteen']) }} out</div>
   </div>
 
+  <a href="{{ url_for('profit_loss', month=key) }}" class="card p-3 mb-6 flex items-center justify-between text-sm font-bold text-primary">
+    <span><i class="fa-solid fa-chart-line mr-2"></i>See Hostel + Overall Profit / Loss</span><i class="fa-solid fa-arrow-right"></i>
+  </a>
+
   <!-- Add expense -->
   <form method="POST" class="card p-5 mb-4 space-y-3" autocomplete="off" id="expenseForm">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
