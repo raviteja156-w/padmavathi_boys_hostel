@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% from '_icons.html' import icon %}
+{% from '_ui.html' import state_badge, meter %}
+{% block title %}My hours{% endblock %}
+{% block content %}
+<div class="page-head"><div><div class="eyebrow">{{ icon('clock', 14, 'a-tick') }} Last 30 days</div><h1>My <span class="grad">hours</span></h1>
+  <p class="muted">Counted from your first sign-in. Hours = sign-in to sign-out, minus pauses.</p></div></div>
+<div class="stats">
+  <div class="stat" style="--tint: var(--cyan)"><span class="card-ic t-cyan">{{ icon('clock', 18, 'a-tick') }}</span><strong>{{ total|hm }}</strong><span>Total hours</span></div>
+  <div class="stat" style="--tint: var(--green)"><span class="card-ic t-green">{{ icon('award', 18, 'a-beat') }}</span><strong>{{ reached }}<small>/{{ rows|length }}</small></strong><span>Days on target</span></div>
+  <div class="stat" style="--tint: var(--violet)"><span class="card-ic t-violet">{{ icon('target', 18, 'a-pulse') }}</span><strong>{{ target|hm }}</strong><span>Daily target</span></div>
+</div>
+<section class="card">
+  <div class="table-wrap"><table class="rt">
+    <thead><tr><th>Date</th><th>Logged in</th><th>Logged out</th><th>Hours</th><th>Status</th></tr></thead>
+    <tbody>{% for r in rows %}<tr>
+      <td class="lead" data-label="Date"><b>{{ r.date.strftime('%a, %d %b') }}</b></td>
+      <td data-label="Logged in">{{ r.day.first_in|ltime }}</td>
+      <td data-label="Logged out">{% if r.day.active %}<span class="badge st8-working"><span class="live"></span> Now</span>{% else %}{{ r.day.last_out|ltime }}{% endif %}</td>
+      <td data-label="Hours"><span class="hours">{{ r.minutes|hm }}</span>{{ meter(r.minutes, target) }}</td>
+      <td data-label="Status">{{ state_badge('reached' if r.met else r.state, 'Reached' if r.met else r.label) }}</td>
+    </tr>{% else %}<tr><td colspan="5" class="empty">No hours recorded yet.</td></tr>{% endfor %}</tbody></table></div>
+</section>
+{% endblock %}

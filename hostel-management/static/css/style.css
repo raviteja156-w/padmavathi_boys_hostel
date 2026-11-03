@@ -717,12 +717,12 @@ body, body.font-sans { font-family: Inter, AppTelugu, system-ui, -apple-system, 
 /* summary tiles: bold gradients that slowly drift, white text, glass icon */
 .dash-v3 .tile { color: #fff !important; border: 0 !important; background-size: 220% 220% !important; animation: tileGrad 9s ease infinite;
   box-shadow: 0 12px 24px -10px var(--tg, rgba(59,130,246,.6)) !important; backdrop-filter: none; overflow: hidden; }
-.dash-v3 .tile.tone-blue   { background-image: linear-gradient(135deg,#2563EB,#38BDF8,#6366F1) !important; --tg: rgba(37,99,235,.65); }
-.dash-v3 .tile.tone-amber  { background-image: linear-gradient(135deg,#F59E0B,#FB923C,#F97316) !important; --tg: rgba(249,115,22,.65); }
-.dash-v3 .tile.tone-indigo { background-image: linear-gradient(135deg,#4F46E5,#A855F7,#6366F1) !important; --tg: rgba(99,102,241,.65); }
-.dash-v3 .tile.tone-teal   { background-image: linear-gradient(135deg,#0D9488,#2DD4BF,#06B6D4) !important; --tg: rgba(13,148,136,.65); }
-.dash-v3 .tile.tone-green  { background-image: linear-gradient(135deg,#16A34A,#4ADE80,#10B981) !important; --tg: rgba(22,163,74,.65); }
-.dash-v3 .tile.tone-red    { background-image: linear-gradient(135deg,#DC2626,#FB7185,#F43F5E) !important; --tg: rgba(225,29,72,.65); }
+.dash-v3 .tile.tone-blue   { background-image:none !important; --tg: rgba(59,130,246,.45); }
+.dash-v3 .tile.tone-amber  { background-image:none !important; --tg: rgba(59,130,246,.45); }
+.dash-v3 .tile.tone-indigo { background-image:none !important; --tg: rgba(59,130,246,.45); }
+.dash-v3 .tile.tone-teal   { background-image:none !important; --tg: rgba(59,130,246,.45); }
+.dash-v3 .tile.tone-green  { background-image:none !important; --tg: rgba(59,130,246,.45); }
+.dash-v3 .tile.tone-red    { background-image:none !important; --tg: rgba(59,130,246,.45); }
 .dash-v3 .tile::before { background: rgba(255,255,255,.55) !important; }
 .dash-v3 .tile::after { background: #fff !important; opacity: .13 !important; }
 .dash-v3 .tile .tile-value { color: #fff !important; text-shadow: 0 2px 10px rgba(0,0,0,.18); }

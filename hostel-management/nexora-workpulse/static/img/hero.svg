@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 360" fill="none">
+<defs>
+<linearGradient id="a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8b5cf6"/><stop offset=".55" stop-color="#ec4899"/><stop offset="1" stop-color="#f97316"/></linearGradient>
+<linearGradient id="b" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#22d3ee"/><stop offset="1" stop-color="#3b82f6"/></linearGradient>
+<linearGradient id="c" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#10b981"/><stop offset="1" stop-color="#22d3ee"/></linearGradient>
+<linearGradient id="win" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1c1f4a"/><stop offset="1" stop-color="#11132f"/></linearGradient>
+<filter id="glow"><feGaussianBlur stdDeviation="8"/></filter>
+</defs>
+<style>
+.f1{animation:f 6s ease-in-out infinite}.f2{animation:f 7s ease-in-out -2s infinite}.f3{animation:f 5s ease-in-out -1s infinite}
+@keyframes f{50%{transform:translateY(-10px)}}
+.bar{transform-origin:bottom;transform-box:fill-box;animation:g 2.4s ease-in-out infinite alternate}
+.bar:nth-of-type(2){animation-delay:-.6s}.bar:nth-of-type(3){animation-delay:-1.2s}.bar:nth-of-type(4){animation-delay:-1.8s}
+@keyframes g{from{transform:scaleY(.45)}to{transform:scaleY(1)}}
+.ring{stroke-dasharray:220;stroke-dashoffset:220;animation:r 3s ease-out forwards infinite alternate}
+@keyframes r{to{stroke-dashoffset:40}}
+.hand{transform-origin:388px 92px;animation:s 4s linear infinite}@keyframes s{to{transform:rotate(360deg)}}
+.dot{animation:p 1.6s ease-in-out infinite}@keyframes p{50%{opacity:.25}}
+.line{stroke-dasharray:6 8;animation:d 1.2s linear infinite}@keyframes d{to{stroke-dashoffset:-28}}
+</style>
+<circle cx="240" cy="190" r="140" fill="url(#a)" opacity=".18" filter="url(#glow)"/>
+<g class="f1">
+<rect x="70" y="70" width="290" height="210" rx="22" fill="url(#win)" stroke="#ffffff22"/>
+<circle cx="96" cy="94" r="6" fill="#f43f5e"/><circle cx="116" cy="94" r="6" fill="#f59e0b"/><circle cx="136" cy="94" r="6" fill="#10b981"/>
+<rect x="92" y="122" width="120" height="12" rx="6" fill="#ffffff26"/><rect x="92" y="142" width="80" height="10" rx="5" fill="#ffffff14"/>
+<g><rect class="bar" x="96" y="180" width="26" height="76" rx="7" fill="url(#a)"/><rect class="bar" x="132" y="200" width="26" height="56" rx="7" fill="url(#b)"/><rect class="bar" x="168" y="170" width="26" height="86" rx="7" fill="url(#c)"/><rect class="bar" x="204" y="190" width="26" height="66" rx="7" fill="url(#a)"/></g>
+<circle cx="296" cy="200" r="42" stroke="#ffffff1a" stroke-width="12"/>
+<circle class="ring" cx="296" cy="200" r="42" stroke="url(#c)" stroke-width="12" stroke-linecap="round" transform="rotate(-90 296 200)"/>
+<text x="296" y="206" text-anchor="middle" font-family="Arial" font-weight="700" font-size="17" fill="#fff">4h</text>
+</g>
+<g class="f2">
+<circle cx="388" cy="92" r="44" fill="#141737" stroke="url(#b)" stroke-width="4"/>
+<line class="hand" x1="388" y1="92" x2="388" y2="62" stroke="#22d3ee" stroke-width="4" stroke-linecap="round"/>
+<circle cx="388" cy="92" r="5" fill="#fff"/>
+<rect x="380" y="38" width="16" height="10" rx="3" fill="url(#b)"/>
+</g>
+<g class="f3">
+<rect x="330" y="236" width="128" height="88" rx="18" fill="#141737" stroke="#ffffff22"/>
+<circle cx="358" cy="262" r="8" fill="#8b5cf6"/><circle cx="358" cy="300" r="8" fill="#ec4899"/><circle cx="428" cy="281" r="8" fill="#10b981"/>
+<path class="line" d="M358 270v22M366 300c34 0 54-4 54-19" stroke="#ffffffaa" stroke-width="3" stroke-linecap="round"/>
+<text x="384" y="266" font-family="Arial" font-size="11" fill="#c4b5fd">merge</text>
+</g>
+<g class="f3"><rect x="22" y="230" width="96" height="58" rx="16" fill="#141737" stroke="#ffffff22"/>
+<circle cx="46" cy="259" r="12" fill="url(#c)"/><path d="M40 259l4 4 8-8" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="64" y="250" width="40" height="7" rx="3.5" fill="#ffffff40"/><rect x="64" y="262" width="28" height="6" rx="3" fill="#ffffff20"/></g>
+<circle class="dot" cx="60" cy="60" r="5" fill="#f97316"/><circle class="dot" cx="440" cy="190" r="4" fill="#22d3ee" style="animation-delay:-.6s"/><circle class="dot" cx="250" cy="330" r="4" fill="#ec4899" style="animation-delay:-1s"/>
+</svg>

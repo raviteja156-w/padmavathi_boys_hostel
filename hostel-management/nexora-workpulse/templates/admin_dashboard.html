@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% from '_icons.html' import icon %}
+{% from '_ui.html' import csrf, avatar, state_badge, meter, skill_chips %}
+{% block title %}Admin dashboard{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <div class="eyebrow">{{ icon('calendar', 14, 'a-float') }} {{ today|ldate }}</div>
+    <h1>Today at a <span class="grad">glance</span></h1>
+    <p class="muted">Who signed in, how many hours, and whether they reached the {{ target|hm }} target.</p>
+    <div class="chips">
+      <a class="btn btn-primary" href="{{ url_for('web.task_new') }}">{{ icon('plus', 17) }} POST A TASK</a>
+      <a class="btn btn-ghost" href="{{ url_for('web.reports') }}">{{ icon('calendar', 16) }} Daily records</a>
+    </div>
+  </div>
+  <img class="hero-art" src="{{ url_for('static', filename='img/hero.svg') }}" alt="Animated team dashboard illustration" width="320" height="240">
+</section>
+
+{% include '_observed.html' %}
+
+<div class="stats">
+  <div class="stat" style="--tint: var(--violet)"><span class="card-ic t-violet">{{ icon('users', 18, 'a-float') }}</span><strong>{{ stats.members }}</strong><span>Team members</span></div>
+  <div class="stat" style="--tint: var(--cyan);animation-delay:.05s"><span class="card-ic t-cyan">{{ icon('zap', 18, 'a-pulse') }}</span><strong>{{ stats.working }}</strong><span>Signed in now</span></div>
+  <div class="stat" style="--tint: var(--green);animation-delay:.1s"><span class="card-ic t-green">{{ icon('award', 18, 'a-beat') }}</span><strong>{{ stats.reached }}<small>/{{ stats.members }}</small></strong><span>Reached target</span></div>
+  <div class="stat" style="--tint: var(--red);animation-delay:.15s"><span class="card-ic t-orange">{{ icon('x', 18, 'a-wiggle') }}</span><strong>{{ stats.absent }}</strong><span>Not signed in today</span></div>
+  <div class="stat" style="--tint: var(--pink);animation-delay:.2s"><span class="card-ic t-pink">{{ icon('pull', 18, 'a-float') }}</span><strong>{{ stats.prs }}</strong><span>PRs to merge</span></div>
+</div>
+
+<section class="card">
+  <div class="card-head"><h2><span class="card-ic t-cyan">{{ icon('clock', 18, 'a-tick') }}</span>Today's record</h2><span class="muted">Target {{ target|hm }}</span></div>
+  {% if not rows and not waiting %}
+    <div class="empty"><img src="{{ url_for('static', filename='img/empty.svg') }}" alt="" width="150" height="112">No team members yet. <a class="link" href="{{ url_for('web.user_new') }}">Add the first one</a></div>
+  {% else %}
+  <div class="table-wrap"><table class="rt">
+    <thead><tr><th>Member</th><th>Logged in</th><th>Logged out</th><th>Hours</th><th>Target</th><th>Work status</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+      <tr>
+        <td class="lead" data-label="Member"><span class="person">{{ avatar(r.user) }}<span><b>{{ r.user.name }}</b><small>{{ skill_chips(r.user, True) }}</small></span></span></td>
+        <td data-label="Logged in">{{ r.day.first_in|ltime }}</td>
+        <td data-label="Logged out">{% if r.day.active %}<span class="badge st8-working"><span class="live"></span> Online</span>{% else %}{{ r.day.last_out|ltime }}{% endif %}</td>
+        <td data-label="Hours"><span class="hours">{{ r.minutes|hm }}</span>{{ meter(r.minutes, target) }}</td>
+        <td data-label="Target">{{ state_badge('reached' if r.met else r.state, 'Reached' if r.met else r.label) }}{% if r.day.incomplete %} <span class="badge badge-red">Incomplete</span>{% endif %}</td>
+        <td class="full" data-label="Work status">
+          {% if r.updates %}<div class="updates">{% for u in r.updates[-3:] %}<span><b>{{ u.assignment.task.title }}</b> · {{ u.progress }}% — {{ u.note }}</span>{% endfor %}</div>
+          {% else %}<span class="muted">No progress update yet</span>{% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    {% for m in waiting %}
+      <tr>
+        <td class="lead" data-label="Member"><span class="person">{{ avatar(m) }}<span><b>{{ m.name }}</b><small>{{ m.email }}</small></span></span></td>
+        <td data-label="Logged in">—</td><td data-label="Logged out">—</td><td data-label="Hours">—</td>
+        <td data-label="Target"><span class="badge badge-slate">Not joined yet</span></td>
+        <td class="full" data-label="Work status"><span class="muted">Attendance starts on their first sign-in</span></td>
+      </tr>
+    {% endfor %}
+    </tbody></table></div>
+  {% endif %}
+</section>
+
+<div class="grid-2">
+  <section class="card">
+    <div class="card-head"><h2><span class="card-ic t-pink">{{ icon('pull', 18, 'a-float') }}</span>Pull requests to merge</h2>{% if repo %}<a class="link" href="{{ repo }}/pulls" target="_blank" rel="noopener noreferrer">GitHub {{ icon('external', 13) }}</a>{% endif %}</div>
+    {% for a in prs %}
+      <div class="pr">
+        <span class="pr-ic">{{ icon('pull', 18) }}</span>
+        <div class="pr-body"><b>{{ a.task.title }} {{ pr_number(a.pr_url) }}</b><small>{{ a.user.name }} · {{ STATUS[a.status] }}</small></div>
+        <a class="btn btn-dark btn-sm" href="{{ a.pr_url }}/files" target="_blank" rel="noopener noreferrer nofollow">{{ icon('github', 14) }} Review</a>
+        <a class="btn btn-ghost btn-sm" href="{{ url_for('web.task_detail', tid=a.task_id) }}">{{ icon('merge', 14) }} Merge</a>
+      </div>
+    {% else %}<p class="empty">{{ icon('check', 18) }} No open pull requests.</p>{% endfor %}
+  </section>
+  <section class="card">
+    <div class="card-head"><h2><span class="card-ic t-green">{{ icon('award', 18, 'a-beat') }}</span>Completed — awaiting review</h2></div>
+    {% for a in review %}
+      <div class="pr">
+        {{ avatar(a.user, 'sm') }}
+        <div class="pr-body"><b>{{ a.task.title }}</b><small>{{ a.user.name }} · {{ a.submitted_at|ldt }}</small></div>
+        <a class="btn btn-success btn-sm" href="{{ url_for('web.task_detail', tid=a.task_id) }}">{{ icon('review', 14) }} Review</a>
+      </div>
+    {% else %}<p class="empty">{{ icon('check', 18) }} Nothing waiting for review.</p>{% endfor %}
+  </section>
+</div>
+{% endblock %}

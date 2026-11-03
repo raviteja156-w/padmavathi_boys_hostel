@@ -15,7 +15,7 @@
         </div>
       </div>
       <button type="button" id="openPauseWizard" class="inline-flex items-center justify-center gap-2 px-5 py-3 min-h-[48px] rounded-2xl font-extrabold text-amber-950 shadow-lg transition hover:-translate-y-0.5"
-              style="background:linear-gradient(135deg,#FDE047,#F59E0B)">
+              style="background:linear-gradient(135deg,#2B5CC4,#1B3F8F)">
         <i class="fa-solid fa-circle-pause"></i> Pause Bed
       </button>
     </div>
@@ -23,17 +23,17 @@
 
   <!-- Summary tiles -->
   <section class="grid grid-cols-3 gap-3 mb-6">
-    <div class="tile tone-amber">
+    <div class="tile">
       <span class="ico ico-amber mb-1.5"><i class="fa-solid fa-pause"></i></span>
       <div class="tile-value">{{ active|length }}</div>
       <div class="tile-label">Active pauses</div>
     </div>
-    <div class="tile tone-red">
+    <div class="tile">
       <span class="ico ico-red mb-1.5"><i class="fa-solid fa-hourglass-end"></i></span>
       <div class="tile-value">{{ expiring_soon }}</div>
       <div class="tile-label">Ending in 2 days</div>
     </div>
-    <div class="tile tone-indigo">
+    <div class="tile">
       <span class="ico ico-slate mb-1.5"><i class="fa-solid fa-clock-rotate-left"></i></span>
       <div class="tile-value">{{ expired|length }}</div>
       <div class="tile-label">Expired</div>

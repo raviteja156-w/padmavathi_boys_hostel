@@ -24,7 +24,7 @@
   <div class="dash-blobs" aria-hidden="true"><span></span><span></span><span></span></div>
 
   <!-- HERO: live animated hostel scene -->
-  <section class="hostel-hero {{ 'is-night' if is_night else 'is-day' }} mb-4 sm:mb-5 rise" id="hostelHero">
+  <section class="hostel-hero hero-pics {{ 'is-night' if is_night else 'is-day' }} mb-4 sm:mb-5 rise" id="hostelHero">
     <div class="hero-text">
       <p class="hero-kicker"><i class="fa-solid fa-calendar-day"></i> {{ today_label }}</p>
       <h1 class="hero-title">{{ greeting }}, Admin 👋</h1>
@@ -36,75 +36,15 @@
       </div>
     </div>
 
-    <div class="hostel-scene" aria-hidden="true">
-      <svg viewBox="0 0 800 300" preserveAspectRatio="xMidYMax slice" class="scene-svg">
-        <defs>
-          <linearGradient id="nvSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#050D1C"/><stop offset="1" stop-color="#1B3F85"/></linearGradient>
-          <linearGradient id="nvOldF" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F0A15A"/><stop offset="1" stop-color="#B4561A"/></linearGradient>
-          <linearGradient id="nvOldS" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9A4A14"/><stop offset="1" stop-color="#5E2A08"/></linearGradient>
-          <linearGradient id="nvNewF" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7FB2FF"/><stop offset="1" stop-color="#2455C4"/></linearGradient>
-          <linearGradient id="nvNewS" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3F78DC"/><stop offset="1" stop-color="#14337E"/></linearGradient>
-          <linearGradient id="nvGround" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#12264D"/><stop offset="1" stop-color="#08142B"/></linearGradient>
-          <radialGradient id="nvMoon"><stop offset="0" stop-color="#FFF7C2" stop-opacity=".85"/><stop offset="1" stop-color="#FFF7C2" stop-opacity="0"/></radialGradient>
-          <filter id="nvShadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="8" stdDeviation="7" flood-color="#000" flood-opacity=".55"/></filter>
-        </defs>
-        <rect width="800" height="300" fill="url(#nvSky)"/>
-
-        <!-- moon + stars (static) -->
-        <circle cx="690" cy="62" r="62" fill="url(#nvMoon)"/><circle cx="690" cy="62" r="24" fill="#FFF3B0"/><circle cx="700" cy="56" r="20" fill="#0B1E43" opacity=".18"/>
-        <g fill="#DCE8FF" opacity=".85">
-          <circle cx="60" cy="34" r="1.7"/><circle cx="150" cy="70" r="1.3"/><circle cx="240" cy="28" r="1.8"/><circle cx="340" cy="64" r="1.3"/>
-          <circle cx="430" cy="24" r="1.6"/><circle cx="520" cy="58" r="1.3"/><circle cx="600" cy="30" r="1.7"/><circle cx="770" cy="110" r="1.4"/>
-        </g>
-
-        <!-- far skyline -->
-        <path d="M0 232 L0 200 L40 200 L40 182 L84 182 L84 206 L130 206 L130 190 L176 190 L176 214 L230 214 L230 196 L270 196 L270 232Z" fill="#0A1B3C" opacity=".9"/>
-        <path d="M560 232 L560 204 L610 204 L610 186 L660 186 L660 210 L720 210 L720 192 L800 192 L800 232Z" fill="#0A1B3C" opacity=".9"/>
-
-        <!-- OLD HOSTEL (3D block: front + side + roof) -->
-        <g filter="url(#nvShadow)">
-          <polygon points="388,118 424,92 424,222 388,240" fill="url(#nvOldS)"/>
-          <rect x="238" y="118" width="150" height="122" fill="url(#nvOldF)"/>
-          <polygon points="228,120 313,78 424,92 388,118" fill="#7C3A0F"/>
-          <polygon points="228,120 313,78 313,84 236,122" fill="#B4561A" opacity=".7"/>
-          <rect x="283" y="124" width="60" height="14" rx="3" fill="#FFF3E2"/><text x="313" y="134.5" text-anchor="middle" font-size="8" font-weight="800" fill="#7C3A0F">OLD HOSTEL</text>
-          {% for row in range(3) %}{% for col in range(4) %}
-          <rect x="{{ 252 + col * 32 }}" y="{{ 146 + row * 28 }}" width="21" height="17" rx="2" fill="#FFE9A8" opacity=".95"/>
-          {% endfor %}{% endfor %}
-          {% for row in range(3) %}
-          <polygon points="394,{{ 146 + row * 28 }} 414,{{ 138 + row * 28 }} 414,{{ 153 + row * 28 }} 394,{{ 163 + row * 28 }}" fill="#FFD27A" opacity=".75"/>
-          {% endfor %}
-          <rect x="302" y="208" width="24" height="32" rx="3" fill="#5A2508"/>
-        </g>
-
-        <!-- NEW HOSTEL (3D block: front + side + roof) -->
-        <g filter="url(#nvShadow)">
-          <polygon points="640,86 684,58 684,226 640,244" fill="url(#nvNewS)"/>
-          <rect x="456" y="86" width="184" height="158" fill="url(#nvNewF)"/>
-          <polygon points="446,88 548,50 684,58 640,86" fill="#173E91"/>
-          <rect x="590" y="60" width="26" height="22" rx="2" fill="#0F2A66"/>
-          <line x1="480" y1="86" x2="480" y2="40" stroke="#E2E8F0" stroke-width="2"/><polygon points="480,40 506,47 480,54" fill="#FBBF24"/>
-          <rect x="506" y="96" width="82" height="14" rx="3" fill="#EAF2FF"/><text x="547" y="106.5" text-anchor="middle" font-size="8" font-weight="800" fill="#173E91">NEW HOSTEL</text>
-          {% for row in range(4) %}{% for col in range(5) %}
-          <rect x="{{ 468 + col * 34 }}" y="{{ 120 + row * 26 }}" width="23" height="16" rx="2" fill="#FFF1B8" opacity=".95"/>
-          {% endfor %}{% endfor %}
-          {% for row in range(4) %}
-          <polygon points="647,{{ 120 + row * 26 }} 677,{{ 108 + row * 26 }} 677,{{ 124 + row * 26 }} 647,{{ 136 + row * 26 }}" fill="#CFE2FF" opacity=".7"/>
-          {% endfor %}
-          <rect x="535" y="208" width="30" height="36" rx="3" fill="#0F2A66"/>
-        </g>
-
-        <!-- trees -->
-        <g><rect x="196" y="204" width="8" height="38" fill="#4B2A0C"/><circle cx="200" cy="192" r="22" fill="#14803F"/><circle cx="188" cy="204" r="14" fill="#0F6A33"/></g>
-        <g><rect x="716" y="212" width="7" height="30" fill="#4B2A0C"/><circle cx="720" cy="202" r="18" fill="#1A9446"/><circle cx="731" cy="212" r="12" fill="#0F6A33"/></g>
-
-        <!-- ground -->
-        <rect x="0" y="240" width="800" height="60" fill="url(#nvGround)"/>
-        <polygon points="260,300 360,240 520,240 640,300" fill="#1D3A72" opacity=".75"/>
-        <rect x="0" y="240" width="800" height="3" fill="#2E5BB8" opacity=".6"/>
-      </svg>
-    </div>
+    {% include '_hostel_scene.html' %}
+    <script>
+    /* sun in the day, moon at night - uses the viewer's own clock (6am-6pm = day) */
+    (function(){ var h=document.getElementById('hostelHero'); if(!h) return;
+      var hr=new Date().getHours(), n=(hr<6||hr>=18);
+      h.classList.toggle('is-night',n); h.classList.toggle('is-day',!n); })();
+    </script>
   </section>
+
 
   <!-- AI ASSISTANT (the existing Admin Bot; this card just opens it) -->
   <section class="ai-card mb-4 sm:mb-6 rise rise-1" aria-label="AI Assistant">
@@ -203,7 +143,7 @@
 
   <!-- CLARITY: how the cards are made + hostel calculator -->
   <section class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-5 sm:mb-7">
-    <a href="{{ url_for('how_cards_work_page') }}" class="action-tile" style="background:linear-gradient(135deg,#1E3A8A,#4F46E5);color:#fff;border:0">
+    <a href="{{ url_for('how_cards_work_page') }}" class="action-tile" >
       <span class="ico mb-2" style="background:rgba(255,255,255,.18);color:#fff"><i class="fa-solid fa-play a-pulse"></i></span>
       <div class="font-extrabold">కార్డులు ఎలా లెక్కిస్తారు? <span class="badge-new">NEW</span></div>
       <div class="text-xs" style="color:#C7D2FE">Animated explainer in Telugu with today's live numbers, room by room</div>

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240" fill="none">
+<defs><linearGradient id="a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#10b981"/><stop offset="1" stop-color="#22d3ee"/></linearGradient>
+<linearGradient id="b" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f59e0b"/><stop offset="1" stop-color="#ec4899"/></linearGradient><filter id="g"><feGaussianBlur stdDeviation="10"/></filter></defs>
+<style>.fl{animation:f 5s ease-in-out infinite}@keyframes f{50%{transform:translateY(-8px)}}
+.row{animation:r 2.4s ease-in-out infinite}.row:nth-of-type(2){animation-delay:-.8s}.row:nth-of-type(3){animation-delay:-1.6s}@keyframes r{0%,100%{opacity:.25}50%{opacity:1}}
+.q{animation:q 3s ease-in-out infinite}@keyframes q{0%,100%{transform:translate(0,0)}50%{transform:translate(-6px,6px)}}</style>
+<circle cx="150" cy="130" r="90" fill="url(#a)" opacity=".22" filter="url(#g)"/>
+<g class="fl">
+<path d="M80 70v100c0 14 30 26 70 26s70-12 70-26V70" fill="#161a40" stroke="url(#a)" stroke-width="3"/>
+<ellipse cx="150" cy="70" rx="70" ry="24" fill="#1d2252" stroke="url(#a)" stroke-width="3"/>
+<path d="M80 103c0 14 30 26 70 26s70-12 70-26M80 137c0 14 30 26 70 26s70-12 70-26" stroke="url(#a)" stroke-width="3"/>
+<ellipse cx="150" cy="70" rx="40" ry="10" fill="url(#a)" opacity=".5"/>
+<g><rect class="row" x="112" y="112" width="76" height="6" rx="3" fill="#ffffff55"/><rect class="row" x="112" y="146" width="60" height="6" rx="3" fill="#ffffff55"/><rect class="row" x="112" y="180" width="70" height="6" rx="3" fill="#ffffff55"/></g>
+</g>
+<g class="q"><rect x="222" y="34" width="84" height="46" rx="12" fill="#161a40" stroke="url(#b)" stroke-width="2"/>
+<text x="234" y="62" font-family="monospace" font-size="13" fill="#fbbf24">SELECT *</text></g>
+<circle cx="52" cy="200" r="16" fill="url(#b)" opacity=".8"/><path d="M45 200l5 5 9-10" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

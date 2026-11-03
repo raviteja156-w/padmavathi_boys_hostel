@@ -1,0 +1,166 @@
+{% extends 'base.html' %}
+{% from '_icons.html' import icon %}
+{% from '_ui.html' import csrf, errors_list %}
+{% block body_class %}founder-view{% endblock %}
+{% block title %}{{ p.name if p else 'Project status' }}{% endblock %}
+{% block content %}
+{% if preview %}
+<div class="flash flash-warning">{{ icon('eye', 18) }}<span><b>Preview</b> — this is exactly what the founder sees. <a class="link" href="{{ url_for('web.project_admin', pid=p.id) }}">Back to controls</a></span></div>
+{% endif %}
+
+{% if not p %}
+<section class="card center-card glow">
+  <picture class="art"><source media="(max-width: 1000px), (hover: none), (prefers-reduced-motion: reduce)" srcset="{{ url_for('static', filename='img/launch-still.svg') }}"><img src="{{ url_for('static', filename='img/launch.svg') }}" alt="" width="260" height="210" style="margin:0 auto"></picture>
+  <h1>Your project is being <span class="grad">set up</span></h1>
+  <p class="muted">Your team will connect your project here shortly. You'll see live progress, the app link and your agreement.</p>
+</section>
+{% else %}
+{% set phase_i = phase_keys.index(p.phase) if p.phase in phase_keys else 0 %}
+
+{# ------------------------------------------------ hero #}
+<section class="f-hero">
+  <div class="f-hero-text">
+    <div class="eyebrow">{{ icon('sparkles', 14, 'a-spin') }} {{ 'Hi ' ~ g.user.name.split(' ')[0] ~ ' · ' if not preview }}Your project</div>
+    <h1 class="f-title"><span class="w">{{ p.name }}</span></h1>
+    {% if p.summary %}<p class="f-lead">{{ p.summary }}</p>{% endif %}
+    <div class="f-pills">
+      <span class="pstat ps-{{ p.status }}"><span class="live"></span>{{ PROJECT_STATUS[p.status] }}</span>
+      <span class="chip">{{ icon('flag', 15, 'a-wiggle') }} {{ PHASES[p.phase] }} phase</span>
+      {% if p.target_date %}<span class="chip">{{ icon('calendar', 15) }} Target {{ p.target_date.strftime('%d %b %Y') }}</span>{% endif %}
+      <span class="chip">{{ icon('clock', 15, 'a-tick') }} Updated {{ p.updated_at|ldt }}</span>
+    </div>
+    {% if p.status_note %}<div class="f-note">{{ icon('info', 18) }}<p class="pre">{{ p.status_note }}</p></div>{% endif %}
+  </div>
+  <div class="f-hero-ring">
+    <div class="f-ring pv-{{ p.progress }}">
+      <span class="f-orbit"><i></i></span>
+      <div class="f-ring-in"><strong>{{ p.progress }}<small>%</small></strong><span>complete</span></div>
+    </div>
+    <picture class="art"><source media="(max-width: 1000px), (hover: none), (prefers-reduced-motion: reduce)" srcset="{{ url_for('static', filename='img/launch-still.svg') }}"><img class="f-rocket" src="{{ url_for('static', filename='img/launch.svg') }}" alt="Animated rocket launching from a browser window" width="200" height="162"></picture>
+  </div>
+</section>
+
+{# ------------------------------------------------ phase journey #}
+<section class="card f-journey-card">
+  <div class="card-head"><h2><span class="card-ic t-violet">{{ icon('rocket', 18, 'a-float') }}</span>Project journey</h2><span class="muted">Step {{ phase_i + 1 }} of {{ phase_keys|length }}</span></div>
+  <ol class="f-journey dv-{{ (phase_i * 100 / (phase_keys|length - 1))|int }}">
+    {% for k in phase_keys %}
+    <li class="dl-{{ loop.index0 }} {{ 'done' if loop.index0 < phase_i or (p.phase == 'live' and loop.last) else 'now' if loop.index0 == phase_i else '' }}">
+      <span class="node">{{ icon({'discovery': 'eye', 'design': 'layout', 'development': 'code', 'testing': 'check', 'launch': 'rocket', 'live': 'zap'}[k], 18) }}</span>
+      <b>{{ PHASES[k] }}</b>
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+
+<div class="f-stats">
+  <div class="stat" style="--tint: var(--green)"><span class="card-ic t-green">{{ icon('flag', 18, 'a-wiggle') }}</span><strong>{{ stats.done }}<small>/{{ stats.total }}</small></strong><span>Milestones done</span></div>
+  <div class="stat" style="--tint: var(--pink);animation-delay:.05s"><span class="card-ic t-pink">{{ icon('edit', 18, 'a-float') }}</span><strong>{{ stats.open }}</strong><span>Changes in progress</span></div>
+  <div class="stat" style="--tint: var(--cyan);animation-delay:.1s"><span class="card-ic t-cyan">{{ icon('check', 18, 'a-pulse') }}</span><strong>{{ stats.fixed }}</strong><span>Changes delivered</span></div>
+  <div class="stat" style="--tint: var(--violet);animation-delay:.15s"><span class="card-ic t-violet">{{ icon('review', 18, 'a-float') }}</span><strong style="font-size:1.25rem;margin-top:6px">{{ 'Signed' if agreement and not needs_sign else 'Awaiting signature' if agreement else 'Not yet shared' }}</strong><span>Agreement</span></div>
+</div>
+
+{# ------------------------------------------------ live app + agreement #}
+<div class="split">
+  <section class="card f-live glow">
+    <div class="card-head"><h2><span class="card-ic t-cyan">{{ icon('external', 18, 'a-pulse') }}</span>Your live application</h2>{% if p.live_url %}<span class="pstat ps-on_track"><span class="live"></span>Online</span>{% endif %}</div>
+    <div class="browser">
+      <div class="browser-bar"><i></i><i></i><i></i><span class="url">{{ icon('shield', 12) }} {{ (p.live_url or 'your-app-link-appears-here.com')|replace('https://', '')|replace('http://', '') }}</span></div>
+      <div class="browser-body">
+        <picture class="art"><source media="(max-width: 1000px), (hover: none), (prefers-reduced-motion: reduce)" srcset="{{ url_for('static', filename='img/hero-still.svg') }}"><img src="{{ url_for('static', filename='img/hero.svg') }}" alt="" width="300" height="225"></picture>
+      </div>
+    </div>
+    {% if p.live_url %}
+      <div class="btn-row" style="margin-top:16px">
+        <a class="btn btn-primary btn-lg" href="{{ p.live_url }}" target="_blank" rel="noopener noreferrer">{{ icon('rocket', 18) }} View live application</a>
+        <a class="btn btn-ghost btn-lg" href="#changes">{{ icon('edit', 17) }} Request a change</a>
+      </div>
+      <p class="note">{{ icon('info', 14) }} Try the app, then tell us anything you'd like changed below.</p>
+    {% else %}<p class="muted" style="margin-top:14px">Your team will share the live link as soon as the first version is ready.</p>{% endif %}
+  </section>
+
+  <section class="card f-agree">
+    <picture class="art"><source media="(max-width: 1000px), (hover: none), (prefers-reduced-motion: reduce)" srcset="{{ url_for('static', filename='img/contract-still.svg') }}"><img src="{{ url_for('static', filename='img/contract.svg') }}" alt="Animated agreement being signed" width="220" height="171" style="margin:0 auto"></picture>
+    {% if not agreement %}
+      <h2 style="justify-content:center;text-align:center">Agreement coming soon</h2>
+      <p class="muted" style="text-align:center">Your team is preparing the project agreement.</p>
+    {% elif needs_sign %}
+      <h2 style="text-align:center;display:block">Your agreement is <span class="grad">ready to sign</span></h2>
+      <p class="muted" style="text-align:center">Version {{ agreement.version }} · updated {{ agreement.updated_at|ldt }}</p>
+      {% if not preview %}<a class="btn btn-primary btn-block" href="{{ url_for('web.agreement') }}">{{ icon('edit', 17) }} Review &amp; sign</a>{% endif %}
+    {% else %}
+      <h2 style="text-align:center;display:block"><span class="grad-2">Signed</span> &amp; approved</h2>
+      <p class="sig-mini">{{ sig.signed_name }}</p>
+      <p class="muted" style="text-align:center">Version {{ agreement.version }} · {{ sig.signed_at|ldt }}</p>
+      {% if not preview %}<a class="btn btn-ghost btn-block" href="{{ url_for('web.agreement') }}">{{ icon('review', 17) }} View agreement</a>{% endif %}
+    {% endif %}
+  </section>
+</div>
+
+{# ------------------------------------------------ milestones + updates #}
+<div class="grid-2">
+  <section class="card" id="milestones">
+    <div class="card-head"><h2><span class="card-ic t-green">{{ icon('flag', 18, 'a-wiggle') }}</span>Milestones</h2>
+      <span class="muted">{{ stats.done }} of {{ stats.total }} done</span></div>
+    {% if p.milestones %}
+    <ol class="f-miles">
+      {% for m in p.milestones %}
+      <li class="ms-{{ m.status }} dl-{{ [loop.index0, 15]|min }}">
+        <span class="dot">{{ icon('check' if m.status == 'done' else 'zap' if m.status == 'in_progress' else 'clock', 14) }}</span>
+        <div><b>{{ m.title }}</b><small>{{ MILESTONE_STATUS[m.status] }}{% if m.due_date %} · {{ m.due_date.strftime('%d %b %Y') }}{% endif %}</small></div>
+      </li>
+      {% endfor %}
+    </ol>
+    {% else %}<p class="empty">Milestones will appear here.</p>{% endif %}
+  </section>
+
+  <section class="card" id="updates">
+    <div class="card-head"><h2><span class="card-ic t-orange">{{ icon('send', 18, 'a-float') }}</span>Updates from the team</h2></div>
+    {% if p.updates %}
+    <ol class="timeline">
+      {% for u in p.updates[:8] %}
+      <li class="{{ 'final' if loop.first }}"><div class="tl-head"><b>{{ u.created_at|ldt }}</b></div><p class="pre" style="margin:4px 0">{{ u.body }}</p></li>
+      {% endfor %}
+    </ol>
+    {% else %}<p class="empty">No updates yet. Your team will post news here.</p>{% endif %}
+  </section>
+</div>
+
+{# ------------------------------------------------ change requests #}
+<section class="card" id="changes">
+  <div class="card-head"><h2><span class="card-ic t-pink">{{ icon('edit', 18, 'a-wiggle') }}</span>Request changes</h2><span class="muted">Seen something to fix or improve in the live app?</span></div>
+  <div class="split">
+    <div class="col">
+      {% if not preview %}
+      {{ errors_list(errors) }}
+      <form method="post" action="{{ url_for('web.change_request_new') }}" class="f-form">
+        {{ csrf() }}
+        <label for="cr-title">What should change? *</label>
+        <input id="cr-title" name="title" maxlength="150" value="{{ form.get('title', '') }}" placeholder="e.g. Make the signup button bigger on mobile" required>
+        <label for="cr-details">Details *</label>
+        <textarea id="cr-details" name="details" rows="4" maxlength="5000" placeholder="Where is it, what happens now, and what you'd like instead" required>{{ form.get('details', '') }}</textarea>
+        <div class="grid-2" style="margin:0;gap:14px">
+          <div><label for="cr-url">Page link (optional)</label><input id="cr-url" name="page_url" type="url" maxlength="500" value="{{ form.get('page_url', '') }}" placeholder="{{ p.live_url or 'https://' }}"></div>
+          <div><label for="cr-pr">Priority</label><select id="cr-pr" name="priority">{% for k, l in REQUEST_PRIORITY.items() %}<option value="{{ k }}" {{ 'selected' if form.get('priority', 'normal') == k }}>{{ l }}</option>{% endfor %}</select></div>
+        </div>
+        <button class="btn btn-primary btn-block" type="submit">{{ icon('send', 17) }} Send to the team</button>
+      </form>
+      {% else %}<p class="muted">The founder sees a form here to submit change requests.</p>{% endif %}
+    </div>
+    <div class="col">
+      {% for r in p.requests %}
+      <article class="f-req rq-{{ r.status }} dl-{{ [loop.index0, 15]|min }}">
+        <div class="f-req-head"><b>{{ r.title }}</b><span class="rqs rqs-{{ r.status }}">{{ REQUEST_STATUS[r.status] }}</span></div>
+        <p class="pre muted" style="margin:6px 0">{{ r.details }}</p>
+        <small>{{ REQUEST_PRIORITY[r.priority] }} priority · {{ r.created_at|ldt }}{% if r.user %} · {{ r.user.name }}{% endif %}</small>
+        {% if r.page_url %}<div><a class="link" href="{{ r.page_url }}" target="_blank" rel="noopener noreferrer nofollow">{{ icon('external', 13) }} Page</a></div>{% endif %}
+        {% if r.admin_reply %}<div class="f-reply">{{ icon('send', 14) }}<span class="pre">{{ r.admin_reply }}</span></div>{% endif %}
+      </article>
+      {% else %}
+      <div class="empty"><picture class="art"><source media="(max-width: 1000px), (hover: none), (prefers-reduced-motion: reduce)" srcset="{{ url_for('static', filename='img/empty-still.svg') }}"><img src="{{ url_for('static', filename='img/empty.svg') }}" alt="" width="140" height="105"></picture>No change requests yet.</div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

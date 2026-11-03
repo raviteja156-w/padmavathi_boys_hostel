@@ -175,8 +175,8 @@
       '<div class="mp-row"><span><i class="fa-solid fa-door-open mr-1"></i>Room No</span><span>'+esc(p.room)+'</span></div>'+
       '<div class="mp-row"><span><i class="fa-solid fa-phone mr-1"></i>Contact</span><span>'+esc(p.contact)+'</span></div>'+
       '<div class="mp-money"><div class="mp-m" style="background:linear-gradient(135deg,#1E3A8A,#0a1f44)"><i class="fa-solid fa-indian-rupee-sign"></i> Total Rent<b>'+inr(p.total_rent)+'</b></div>'+
-      '<div class="mp-m" style="background:linear-gradient(135deg,#15803d,#16A34A)"><i class="fa-solid fa-circle-check"></i> Amount Paid<b>'+inr(p.amount_paid)+'</b></div>'+
-      '<div class="mp-m" style="background:linear-gradient(135deg,'+(p.balance>0?'#b45309,#D97706':'#15803d,#16A34A')+')"><i class="fa-solid fa-hourglass-half"></i> Balance<b>'+inr(p.balance)+'</b></div></div>'+
+      '<div class="mp-m" style="background:linear-gradient(135deg,#1B3A78,#0F2552)"><i class="fa-solid fa-circle-check"></i> Amount Paid<b>'+inr(p.amount_paid)+'</b></div>'+
+      '<div class="mp-m" style="background:linear-gradient(135deg,'+(p.balance>0?'#1B3A78,#0F2552':'#1B3A78,#0F2552')+')"><i class="fa-solid fa-hourglass-half"></i> Balance<b>'+inr(p.balance)+'</b></div></div>'+
       '<div class="mp-row"><span><i class="fa-solid fa-hand-holding-dollar mr-1"></i>Paid To</span><span>'+(esc(p.paid_to)||'—')+'</span></div>'+
       '<div class="mp-row"><span><i class="fa-solid '+modeIcon+' mr-1"></i>Online / Cash</span><span>'+esc(mode)+'</span></div>'+
       (p.payment_date?'<div class="mp-row"><span><i class="fa-solid fa-calendar-check mr-1"></i>Paid On</span><span>'+esc(p.payment_date)+'</span></div>':'')+

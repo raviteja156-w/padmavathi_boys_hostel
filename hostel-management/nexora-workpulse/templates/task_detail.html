@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+{% from '_icons.html' import icon %}
+{% from '_ui.html' import csrf, avatar, stage_bar, skill_chips %}
+{% block title %}{{ task.title }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><a class="link" href="{{ url_for('web.tasks') }}">{{ icon('back', 15) }} Tasks</a>
+    <h1 style="margin-top:8px">{{ task.title }}</h1>
+    <p style="display:flex;flex-wrap:wrap;gap:6px;align-items:center"><span class="badge prio-{{ task.priority }}">{{ PRIORITIES[task.priority] }}</span>
+      {% if task.work_type %}<span class="wt wt-{{ task.work_type }}">{{ WORK_TYPES[task.work_type] }}</span>{% endif %}
+      <span class="muted">{{ icon('target', 14) }} {{ '%g' % task.target_hours }}h · {{ icon('calendar', 14) }} {{ task.start_date.strftime('%d %b') }} → {{ task.deadline.strftime('%d %b %Y') }}</span></p></div>
+  <div class="head-actions">
+    {% if repo %}<a class="btn btn-dark" href="{{ repo }}/pulls" target="_blank" rel="noopener noreferrer">{{ icon('github', 16) }} Repo PRs</a>{% endif %}
+    <a class="btn btn-ghost" href="{{ url_for('web.task_edit', tid=task.id) }}">{{ icon('edit', 16) }} Edit / reassign</a>
+  </div>
+</div>
+
+<section class="card">
+  <div class="card-head"><h2><span class="card-ic t-blue">{{ icon('review', 18, 'a-float') }}</span>Brief</h2></div>
+  <p class="pre">{{ task.description }}</p>
+  {% if task.expected_deliverable %}<p><b>Expected deliverable:</b> {{ task.expected_deliverable }}</p>{% endif %}
+  {% if task.instructions %}<p><b>Instructions:</b></p><p class="pre">{{ task.instructions }}</p>{% endif %}
+</section>
+
+{% for a in assignments %}
+<section class="card dl-{{ [loop.index0, 15]|min }}">
+  <div class="card-head">
+    <span class="person">{{ avatar(a.user, 'lg') }}<span><b style="font-size:1.05rem">{{ a.user.name }}</b>{{ skill_chips(a.user, True) }}</span></span>
+    <span style="display:flex;gap:6px;flex-wrap:wrap"><span class="badge st-{{ a.status }}">{{ STATUS[a.status] }}</span>{% if is_overdue(a) %}<span class="badge badge-red">Overdue</span>{% endif %}</span>
+  </div>
+  {{ stage_bar(a) }}
+  <div style="display:flex;align-items:center;gap:12px;margin:8px 0 14px"><div class="bar flex1 wv-{{ a.progress }}"><i></i></div><b class="hours">{{ a.progress }}%</b></div>
+
+  <div class="grid-2" style="margin-bottom:0">
+    <div>
+      {% if a.pr_url %}
+      <div class="pr {{ 'merged' if a.pr_merged_at }}">
+        <span class="pr-ic">{{ icon('merge' if a.pr_merged_at else 'pull', 18, '' if a.pr_merged_at else 'a-float') }}</span>
+        <div class="pr-body"><b>Pull request {{ pr_number(a.pr_url) }}</b><small>{{ 'Merged ' ~ (a.pr_merged_at|ldt) if a.pr_merged_at else 'Open — needs your review' }}</small></div>
+        <a class="btn btn-dark btn-sm" href="{{ a.pr_url }}/files" target="_blank" rel="noopener noreferrer nofollow">{{ icon('github', 14) }} Review code</a>
+      </div>
+      {% if not a.pr_merged_at %}
+      <div class="btn-row">
+        {% if token %}
+        <form method="post" action="{{ url_for('web.merge_pr', aid=a.id) }}">{{ csrf() }}<input type="hidden" name="approve" value="1">
+          <button class="btn btn-success btn-sm">{{ icon('merge', 15) }} Merge{{ ' & approve' if a.status == 'submitted' }}</button></form>
+        {% else %}
+        <a class="btn btn-success btn-sm" href="{{ a.pr_url }}" target="_blank" rel="noopener noreferrer nofollow">{{ icon('merge', 15) }} Merge on GitHub</a>
+        <form method="post" action="{{ url_for('web.merge_pr', aid=a.id) }}">{{ csrf() }}<input type="hidden" name="mark_only" value="1">
+          <button class="btn btn-ghost btn-sm">{{ icon('check', 15) }} I merged it</button></form>
+        {% endif %}
+      </div>
+      {% endif %}
+      {% endif %}
+      {% if a.deliverable_url %}<p><a class="link" href="{{ a.deliverable_url }}" target="_blank" rel="noopener noreferrer nofollow">{{ icon('external', 14) }} Deliverable link</a></p>{% endif %}
+      {% if a.work_notes %}<p><b>Completion summary</b></p><p class="pre">{{ a.work_notes }}</p>{% endif %}
+
+      {% if a.status == 'submitted' %}
+      <form method="post" action="{{ url_for('web.review', aid=a.id) }}" style="margin-top:10px">
+        {{ csrf() }}
+        <label for="fb{{ a.id }}">Feedback (required when requesting changes)</label>
+        <textarea id="fb{{ a.id }}" name="feedback" rows="2" maxlength="3000"></textarea>
+        <div class="btn-row"><button class="btn btn-success" name="decision" value="approved">{{ icon('check', 16) }} Approve</button>
+          <button class="btn btn-danger" name="decision" value="changes">{{ icon('edit', 16) }} Request changes</button></div>
+      </form>
+      {% endif %}
+    </div>
+    <div>
+      <h3 style="display:flex;align-items:center;gap:8px">{{ icon('list', 16) }} Daily progress</h3>
+      {% if a.updates %}
+      <ol class="timeline">{% for u in a.updates[:8] %}
+        <li><div class="tl-head"><b>{{ u.update_date.strftime('%a %d %b') }}</b><span class="badge badge-violet">{{ u.progress }}%</span></div>
+          <p class="pre" style="margin:4px 0">{{ u.note }}</p>
+          {% if u.pr_url %}<a class="link" href="{{ u.pr_url }}" target="_blank" rel="noopener noreferrer nofollow">{{ icon('pull', 13) }} {{ pr_number(u.pr_url) or 'Link' }}</a>{% endif %}</li>
+      {% endfor %}</ol>
+      {% else %}<p class="muted">No progress posted yet.</p>{% endif %}
+    </div>
+  </div>
+  {% if a.reviews %}<details><summary>Review history ({{ a.reviews|length }})</summary>
+    {% for r in a.reviews %}<p><span class="badge {{ 'badge-green' if r.decision == 'approved' else 'badge-amber' }}">{{ 'Approved' if r.decision == 'approved' else 'Changes requested' }}</span>
+      <small>{{ r.reviewer.name }}, {{ r.created_at|ldt }}</small>{% if r.feedback %}<br><span class="pre">{{ r.feedback }}</span>{% endif %}</p>{% endfor %}</details>{% endif %}
+</section>
+{% else %}<section class="card empty">Nobody is assigned to this task.</section>{% endfor %}
+
+<section class="card danger-zone">
+  <form method="post" action="{{ url_for('web.task_delete', tid=task.id) }}" style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between">
+    {{ csrf() }}
+    <span><b>Delete this task</b><br><small>Removes the task, its assignments and progress updates.</small></span>
+    <span style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><label class="check" style="margin:0"><input type="checkbox" name="confirm" value="1"> Yes, delete it</label>
+      <button class="btn btn-danger btn-sm">{{ icon('trash', 15) }} Delete task</button></span>
+  </form>
+</section>
+{% endblock %}

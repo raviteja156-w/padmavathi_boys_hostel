@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+{% from '_icons.html' import icon %}
+{% from '_ui.html' import csrf %}
+{% set bare = True %}
+{% block title %}Welcome{% endblock %}
+{% block bare %}
+<div class="wizard">
+  <div class="wiz-progress" aria-label="Step {{ step + 1 }} of 5">
+    {% for i in range(5) %}<i class="{{ 'on' if i == step else 'done' if i < step }}"></i>{% endfor %}
+  </div>
+
+  {% with msgs = get_flashed_messages(with_categories=true) %}{% for cat, m in msgs %}<div class="flash flash-{{ cat }}" role="status" style="width:100%">{{ m }}</div>{% endfor %}{% endwith %}
+
+  {% if step == 0 %}
+  {# ------------------------------------------------ intro #}
+  <section class="wiz-card">
+    <div class="intro">
+      <div>
+        <div class="brand big"><span class="logo">{{ icon('pulse', 24, 'a-beat') }}</span><span>NEXORA<br><small>WORKPULSE</small></span></div>
+        <h1 class="headline">
+          <span class="w" style="animation-delay:.1s">Your</span> <span class="w" style="animation-delay:.2s">work,</span>
+          <span class="w" style="animation-delay:.3s">beautifully</span> <span class="w shimmer" style="animation-delay:.45s">in&nbsp;sync.</span>
+        </h1>
+        <p class="lead" style="color:var(--soft);font-size:1.05rem"><span class="typing">Hours, tasks and code reviews in one place.</span></p>
+        <div class="features">
+          <div class="feature" style="animation-delay:1.4s"><span class="card-ic t-cyan">{{ icon('clock', 18, 'a-tick') }}</span><div><b>Auto timer</b><span>Starts when you sign in, stops when you sign out.</span></div></div>
+          <div class="feature" style="animation-delay:1.55s"><span class="card-ic t-green">{{ icon('target', 18, 'a-pulse') }}</span><div><b>Daily target</b><span>See your hours fill the ring until you hit the goal.</span></div></div>
+          <div class="feature" style="animation-delay:1.7s"><span class="card-ic t-violet">{{ icon('edit', 18, 'a-wiggle') }}</span><div><b>Daily progress</b><span>A short note on each task, every day you work on it.</span></div></div>
+          <div class="feature" style="animation-delay:1.85s"><span class="card-ic t-orange">{{ icon('pull', 18, 'a-float') }}</span><div><b>Pull requests</b><span>Push code to GitHub, link your PR, the admin merges.</span></div></div>
+        </div>
+      </div>
+      <img src="{{ url_for('static', filename='img/hero.svg') }}" alt="Animated dashboard illustration" width="440" height="330">
+    </div>
+    <div class="wiz-actions" style="margin-top:8px">
+      <span class="muted">3 quick questions so tasks match your strengths.</span>
+      <a class="btn btn-primary btn-lg" href="{{ url_for('web.onboarding', step=1) }}">Next {{ icon('arrow', 18) }}</a>
+    </div>
+  </section>
+
+  {% elif step in (1, 2, 3) %}
+  {# ------------------------------------------------ question #}
+  {% set copy = {
+    'backend': ('Rate yourself at backend operations', 'APIs, server logic, authentication, integrations.', 'backend.svg'),
+    'database': ('Rate yourself in database management', 'Schemas, SQL queries, migrations, performance.', 'database.svg'),
+    'frontend': ('Rate yourself at frontend', 'Layouts, components, responsive UI, styling.', 'frontend.svg')} %}
+  {% set q = copy[area] %}
+  <section class="wiz-card">
+    <form method="post" class="question">
+      {{ csrf() }}
+      <img class="q-art" src="{{ url_for('static', filename='img/' ~ q[2]) }}" alt="Animated {{ area }} illustration" width="320" height="240">
+      <div>
+        <div class="q-num">Question {{ step }} of {{ total }}</div>
+        <h1 class="q-title">{{ q[0] }}</h1>
+        <p class="muted">{{ q[1] }}</p>
+        <div class="options" role="radiogroup" aria-label="{{ label }}">
+          {% for key, (name, score) in SKILLS.items() %}
+          <label class="option l{{ score }}">
+            <input type="radio" name="level" value="{{ key }}" {{ 'checked' if current == key }} required>
+            <span class="box">
+              <span class="lv" aria-hidden="true">{% for n in range(3) %}<b class="lvh-{{ n }} {{ 'on' if n < score }}"></b>{% endfor %}</span>
+              <span class="txt"><strong>{{ name }}</strong><span>{{ {'moderate': 'I can do it with guidance and examples.', 'good': 'I work on my own and deliver reliably.', 'high': 'I am strong here and can guide others.'}[key] }}</span></span>
+              <span class="tick">{{ icon('check', 16) }}</span>
+            </span>
+          </label>
+          {% endfor %}
+        </div>
+        <div class="wiz-actions">
+          <a class="btn btn-ghost" href="{{ url_for('web.onboarding', step=step - 1) }}">{{ icon('back', 16) }} Back</a>
+          <button class="btn btn-primary btn-lg" type="submit">{{ 'Finish' if step == 3 else 'Next' }} {{ icon('arrow', 18) }}</button>
+        </div>
+      </div>
+    </form>
+  </section>
+
+  {% else %}
+  {# ------------------------------------------------ done #}
+  <section class="wiz-card" style="text-align:center">
+    <img src="{{ url_for('static', filename='img/done.svg') }}" alt="Trophy with falling confetti" width="260" height="195" style="margin:0 auto">
+    <h1 class="headline" style="font-size:clamp(1.8rem,1.2rem + 2.4vw,2.8rem)"><span class="w">You're</span> <span class="w shimmer" style="animation-delay:.15s">all&nbsp;set,</span> <span class="w" style="animation-delay:.3s">{{ g.user.name.split(' ')[0] }}!</span></h1>
+    <p class="muted">Your admin will use these ratings when assigning work.</p>
+    <div class="summary-skills">
+      {% for area, label, field in SKILL_AREAS %}{% set lvl = g.user[field] %}
+      <div><span class="card-ic {{ {'backend': 't-blue', 'database': 't-green', 'frontend': 't-pink'}[area] }}" style="margin:0 auto">{{ icon({'backend': 'server', 'database': 'database', 'frontend': 'layout'}[area], 18, 'a-float') }}</span>
+        <strong>{{ SKILLS[lvl][0] if lvl else '—' }}</strong><small>{{ label }}</small></div>
+      {% endfor %}
+    </div>
+    <div class="wiz-actions" style="justify-content:center">
+      <a class="btn btn-ghost" href="{{ url_for('web.onboarding', step=1) }}">{{ icon('edit', 16) }} Change answers</a>
+      <a class="btn btn-primary btn-lg" href="{{ url_for('web.dashboard') }}">Go to my dashboard {{ icon('rocket', 18) }}</a>
+    </div>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

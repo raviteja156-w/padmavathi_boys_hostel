@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% from '_icons.html' import icon %}
+{% from '_ui.html' import csrf, errors_list %}
+{% block title %}Add a person{% endblock %}
+{% block content %}
+<div class="card narrow glow" style="margin-top:20px">
+  <div style="text-align:center">
+    <span class="card-ic t-violet" style="width:64px;height:64px;border-radius:20px;margin:0 auto 14px">{{ icon('user', 28, 'a-float') }}</span>
+    <h1>Add a <span class="grad">person</span></h1>
+    <p class="muted">Team members track hours and tasks. Founders only see their project status and agreement.</p>
+  </div>
+  {{ errors_list(errors) }}
+  <form method="post" class="person-form" novalidate>
+    {{ csrf() }}
+    <label>Account type</label>
+    <div class="choice-grid" style="grid-template-columns:1fr 1fr">
+      <label class="choice"><input type="radio" id="role-member" name="role" value="member" {{ 'checked' if v.role != 'founder' }}><span>{{ icon('users', 22) }}Team member<small>Hours, tasks, pull requests</small></span></label>
+      <label class="choice"><input type="radio" id="role-founder" name="role" value="founder" {{ 'checked' if v.role == 'founder' }}><span>{{ icon('rocket', 22) }}Founder<small>Project status &amp; agreement</small></span></label>
+    </div>
+    <div class="founder-only">
+      <label for="project_id">Founder's project</label>
+      <select id="project_id" name="project_id"><option value="">Choose a project…</option>{% for pr in projects %}<option value="{{ pr.id }}" {{ 'selected' if v.project_id == pr.id|string }}>{{ pr.name }}</option>{% endfor %}</select>
+      {% if not projects %}<p class="hint">No projects yet. <a class="link" href="{{ url_for('web.project_new') }}">Create the project first</a>.</p>{% endif %}
+    </div>
+    <label for="name">Full name</label><input id="name" name="name" value="{{ v.name }}" maxlength="80" required>
+    <label for="email">Email address</label><input id="email" name="email" type="email" value="{{ v.email }}" maxlength="254" required>
+    <label for="pw">Initial password (min {{ min_length }} characters)</label><input id="pw" name="password" type="password" autocomplete="new-password" required>
+    <label for="cf">Confirm password</label><input id="cf" name="confirm_password" type="password" autocomplete="new-password" required>
+    <p class="note">{{ icon('shield', 14) }} Share the password through a secure channel. They can change it from the Password page.</p>
+    <div class="btn-row"><button class="btn btn-primary" type="submit">{{ icon('plus', 16) }} Create account</button> <a class="btn btn-ghost" href="{{ url_for('web.users') }}">Cancel</a></div>
+  </form>
+</div>
+{% endblock %}

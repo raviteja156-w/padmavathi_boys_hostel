@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% from '_icons.html' import icon %}
+{% block title %}Diagnostics{% endblock %}
+{% block content %}
+<div class="page-head"><div><div class="eyebrow">{{ icon('settings', 14, 'a-spin') }} Read-only check · app {{ version }}</div>
+  <h1>System <span class="grad">diagnostics</span></h1>
+  <p class="muted">Take a screenshot of this whole page and send it to your developer. Nothing here changes any data.</p></div></div>
+<section class="card glow">
+  <div class="card-head"><h2><span class="card-ic t-green">{{ icon('check', 18) }}</span>Checks</h2></div>
+  {% for name, ok, info in checks %}
+  <div class="pr"><span class="pr-ic" {% if not ok %}style="background:rgba(244,63,94,.18);color:#fda4af"{% endif %}>{{ icon('check' if ok else 'x', 18) }}</span>
+    <div class="pr-body"><b>{{ name }}</b><small class="pre" style="word-break:break-all">{{ info }}</small></div></div>
+  {% endfor %}
+</section>
+<section class="card">
+  <div class="card-head"><h2><span class="card-ic t-blue">{{ icon('database', 18) }}</span>Database upgrades applied</h2></div>
+  <p>{{ migrations|join(' · ') or 'none found' }}</p>
+</section>
+<section class="card">
+  <div class="card-head"><h2><span class="card-ic t-violet">{{ icon('list', 18) }}</span>WorkPulse tables &amp; columns</h2></div>
+  {% set ns = namespace(t='') %}
+  {% for t, c, d in columns %}{% if t != ns.t %}{% if ns.t %}</p>{% endif %}<p><b>{{ t }}</b><br>{% set ns.t = t %}{% endif %}<small>{{ c }} ({{ d }})</small>{{ ', ' if not loop.last and columns[loop.index][0] == t }}{% endfor %}{% if ns.t %}</p>{% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,9 @@
+{% from '_icons.html' import icon %}
+<div class="card center-card glow">
+  <img src="{{ url_for('static', filename='img/empty.svg') }}" alt="" width="160" height="120" style="margin:0 auto">
+  <div class="big-code">{{ code }}</div>
+  <h1>{{ title }}</h1>
+  <p class="muted">{{ message }}</p>
+  {% if detail %}<div class="flash flash-error" style="text-align:left;margin-top:14px"><span><b>Technical reason (only admins see this):</b><br><code style="word-break:break-all">{{ detail }}</code><br><small>Send a screenshot of this to your developer.</small></span></div>{% endif %}
+  <a class="btn btn-primary" href="{{ url_for('web.index') }}">{{ icon('home', 16) }} Back to dashboard</a>
+</div>

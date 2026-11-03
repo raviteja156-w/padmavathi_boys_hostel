@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% from '_icons.html' import icon %}
+{% from '_ui.html' import csrf %}
+{% block title %}Delete all data{% endblock %}
+{% block content %}
+<div class="card narrow danger-zone" style="margin-top:20px">
+  <div style="text-align:center">
+    <span class="card-ic" style="width:64px;height:64px;border-radius:20px;margin:0 auto 14px;background:linear-gradient(135deg,#e11d48,#f97316)">{{ icon('alert', 28, 'a-pulse') }}</span>
+    <h1>Delete all WorkPulse data?</h1>
+    <p class="muted">This cannot be undone. Your own account and the GitHub repository setting are always kept so you can sign in and start again.</p>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:20px 0">
+    <div class="stat" style="--tint:var(--violet);padding:14px"><strong>{{ counts.members }}</strong><span>Team members</span></div>
+    <div class="stat" style="--tint:var(--orange);padding:14px"><strong>{{ counts.founders }}</strong><span>Founders</span></div>
+    <div class="stat" style="--tint:var(--blue);padding:14px"><strong>{{ counts.projects }}</strong><span>Founder projects</span></div>
+    <div class="stat" style="--tint:var(--pink);padding:14px"><strong>{{ counts.tasks }}</strong><span>Tasks</span></div>
+    <div class="stat" style="--tint:var(--cyan);padding:14px"><strong>{{ counts.sessions }}</strong><span>Work sessions</span></div>
+    <div class="stat" style="--tint:var(--green);padding:14px"><strong>{{ counts.updates }}</strong><span>Progress updates</span></div>
+  </div>
+  <form method="post">
+    {{ csrf() }}
+    {% if counts.admins %}<label class="check" style="margin-top:0"><input type="checkbox" name="include_admins" value="1"> Also delete the other {{ counts.admins }} admin account(s). Only my account stays.</label>{% endif %}
+    <label for="phrase">Type <b>{{ phrase }}</b> to confirm</label>
+    <input id="phrase" name="phrase" autocomplete="off" required>
+    <div class="btn-row" style="margin-top:18px">
+      <button class="btn btn-danger" type="submit">{{ icon('trash', 16) }} Delete everything</button>
+      <a class="btn btn-ghost" href="{{ url_for('web.settings') }}">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

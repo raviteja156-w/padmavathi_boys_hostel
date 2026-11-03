@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% from '_icons.html' import icon %}
+{% from '_ui.html' import csrf %}
+{% block body_class %}founder-view{% endblock %}
+{% block title %}Agreement{% endblock %}
+{% block content %}
+<div class="page-head no-print">
+  <div><div class="eyebrow">{{ icon('review', 14, 'a-float') }} {{ p.name if p else 'Your project' }}</div>
+    <h1>Project <span class="grad">agreement</span></h1>
+    <p class="muted">Read it carefully, then sign by typing your full name. Use your browser's Print to save a PDF copy.</p></div>
+  {% if a %}<div class="head-actions">{% if needs_sign %}<span class="pstat ps-at_risk">{{ icon('edit', 14) }} Awaiting your signature</span>{% else %}<span class="pstat ps-on_track">{{ icon('check', 14) }} Signed</span>{% endif %}</div>{% endif %}
+</div>
+
+{% if not a %}
+<section class="card center-card glow">
+  <picture class="art"><source media="(max-width: 1000px), (hover: none), (prefers-reduced-motion: reduce)" srcset="{{ url_for('static', filename='img/contract-still.svg') }}"><img src="{{ url_for('static', filename='img/contract.svg') }}" alt="" width="240" height="187" style="margin:0 auto"></picture>
+  <h2 style="justify-content:center">Your agreement is being prepared</h2>
+  <p class="muted">You'll be able to read and sign it here once your team publishes it.</p>
+</section>
+{% else %}
+<div class="agree-wrap">
+  <article class="paper">
+    <div class="paper-head">
+      <span class="logo">{{ icon('pulse', 20) }}</span>
+      <div><small>NEXORA · Project agreement · Version {{ a.version }}</small><h2>{{ a.title }}</h2></div>
+    </div>
+    <div class="paper-body pre">{{ a.body }}</div>
+    <div class="paper-sign">
+      <div>
+        <small>Founder signature</small>
+        {% if sig %}<p class="sig-script">{{ sig.signed_name }}</p>{% else %}<p class="sig-empty">Not signed yet</p>{% endif %}
+        <span class="sig-line"></span>
+        <small>{{ sig.signed_name if sig else g.user.name }}{% if sig %} · {{ sig.signed_at|ldt }}{% endif %}</small>
+      </div>
+      {% if sig %}<div class="sig-seal">{{ icon('check', 28) }}<span>Digitally<br>approved</span></div>{% endif %}
+    </div>
+    {% if sig %}<p class="paper-proof">Signed electronically by {{ sig.signed_name }} ({{ sig.user.email if sig.user else '' }}) on {{ sig.signed_at|ldt }} from IP {{ sig.ip_address or '—' }}. Document fingerprint: <code>{{ sig.body_hash[:16] }}…</code></p>{% endif %}
+  </article>
+
+  <aside class="col no-print">
+    {% if needs_sign %}
+    <section class="card glow sign-card">
+      <picture class="art"><source media="(max-width: 1000px), (hover: none), (prefers-reduced-motion: reduce)" srcset="{{ url_for('static', filename='img/contract-still.svg') }}"><img src="{{ url_for('static', filename='img/contract.svg') }}" alt="Animated pen signing the agreement" width="200" height="156" style="margin:0 auto"></picture>
+      <h2 style="display:block;text-align:center">Sign &amp; <span class="grad">approve</span></h2>
+      {% if history %}<div class="flash flash-warning">{{ icon('alert', 18) }}<span>The agreement was updated after you signed version {{ history[0].version }}. Please review and sign version {{ a.version }}.</span></div>{% endif %}
+      {% if error %}<div class="flash flash-error" role="alert">{{ icon('alert', 18) }}<span>{{ error }}</span></div>{% endif %}
+      <form method="post">
+        {{ csrf() }}
+        <input type="hidden" name="version" value="{{ a.version }}">
+        <label for="signed_name">Type your full name to sign</label>
+        <input id="signed_name" name="signed_name" class="sig-input" maxlength="120" autocomplete="name" placeholder="{{ g.user.name }}" required>
+        <label class="check"><input type="checkbox" name="agree" value="1"> I have read this agreement and I approve it. My typed name is my electronic signature.</label>
+        <button class="btn btn-primary btn-block btn-lg" type="submit">{{ icon('edit', 18) }} Sign agreement</button>
+      </form>
+      <p class="note">{{ icon('shield', 14) }} We record your name, the time, your IP address and a fingerprint of this exact text.</p>
+    </section>
+    {% else %}
+    <section class="card glow" style="text-align:center">
+      <picture class="art"><source media="(max-width: 1000px), (hover: none), (prefers-reduced-motion: reduce)" srcset="{{ url_for('static', filename='img/done-still.svg') }}"><img src="{{ url_for('static', filename='img/done.svg') }}" alt="" width="200" height="150" style="margin:0 auto"></picture>
+      <h2 style="display:block">You've signed this agreement</h2>
+      <p class="muted">If your team changes it, you'll be asked to review and sign again.</p>
+      <a class="btn btn-ghost btn-block" href="{{ url_for('web.dashboard') }}">{{ icon('rocket', 17) }} Back to project status</a>
+    </section>
+    {% endif %}
+  </aside>
+</div>
+{% endif %}
+{% endblock %}

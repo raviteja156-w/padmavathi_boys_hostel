@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+{% from '_icons.html' import icon %}
+{% from '_ui.html' import csrf, avatar %}
+{% block title %}{{ p.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><a class="link" href="{{ url_for('web.projects') }}">{{ icon('back', 15) }} Founders</a>
+    <h1 style="margin-top:8px">{{ p.name }}</h1>
+    <p style="display:flex;flex-wrap:wrap;gap:6px;align-items:center"><span class="pstat ps-{{ p.status }}">{{ PROJECT_STATUS[p.status] }}</span><span class="chip" style="padding:4px 10px">{{ PHASES[p.phase] }}</span><span class="muted">{{ p.progress }}% · updated {{ p.updated_at|ldt }}</span></p></div>
+  <div class="head-actions">
+    <a class="btn btn-cyan" href="{{ url_for('web.project_preview', pid=p.id) }}">{{ icon('eye', 16) }} Preview founder page</a>
+    <a class="btn btn-ghost" href="{{ url_for('web.project_edit', pid=p.id) }}">{{ icon('edit', 16) }} Edit details</a>
+  </div>
+</div>
+
+<div class="split">
+  <div class="col">
+    {# -------- work status control #}
+    <section class="card glow">
+      <div class="card-head"><h2><span class="card-ic t-violet">{{ icon('zap', 18, 'a-pulse') }}</span>Work status <small>(shown to the founder)</small></h2></div>
+      <form method="post" action="{{ url_for('web.project_status', pid=p.id) }}">
+        {{ csrf() }}
+        <label>Phase</label>
+        <div class="choice-grid">
+          {% for k, l in PHASES.items() %}
+          <label class="choice"><input type="radio" name="phase" value="{{ k }}" {{ 'checked' if p.phase == k }}>
+            <span>{{ icon({'discovery': 'eye', 'design': 'layout', 'development': 'code', 'testing': 'check', 'launch': 'rocket', 'live': 'zap'}[k], 20) }}{{ l }}</span></label>
+          {% endfor %}
+        </div>
+        <div class="grid-2" style="margin:0;gap:14px">
+          <div><label for="status">Health</label><select id="status" name="status">{% for k, l in PROJECT_STATUS.items() %}<option value="{{ k }}" {{ 'selected' if p.status == k }}>{{ l }}</option>{% endfor %}</select></div>
+          <div><label for="progress">Overall progress (%)</label><input id="progress" name="progress" type="number" min="0" max="100" step="1" value="{{ p.progress }}"></div>
+        </div>
+        <label for="live_url">Live application link</label><input id="live_url" name="live_url" type="url" maxlength="500" value="{{ p.live_url or '' }}" placeholder="https://app.example.com">
+        <label for="status_note">Status message to the founder</label><textarea id="status_note" name="status_note" rows="3" maxlength="2000" placeholder="e.g. Dashboard pages are being built this week. Next demo on Friday.">{{ p.status_note or '' }}</textarea>
+        <button class="btn btn-primary" type="submit" style="margin-top:14px">{{ icon('send', 16) }} Update founder page</button>
+      </form>
+    </section>
+
+    {# -------- change requests #}
+    <section class="card" id="changes">
+      <div class="card-head"><h2><span class="card-ic t-pink">{{ icon('edit', 18, 'a-wiggle') }}</span>Change requests</h2><span class="muted">{{ stats.open }} open</span></div>
+      {% for r in p.requests %}
+      <article class="f-req rq-{{ r.status }}">
+        <div class="f-req-head"><b>{{ r.title }}</b><span class="rqs rqs-{{ r.status }}">{{ REQUEST_STATUS[r.status] }}</span></div>
+        <p class="pre" style="margin:6px 0">{{ r.details }}</p>
+        <small>{{ REQUEST_PRIORITY[r.priority] }} priority · {{ r.user.name if r.user else 'Founder' }} · {{ r.created_at|ldt }}</small>
+        {% if r.page_url %}<div><a class="link" href="{{ r.page_url }}" target="_blank" rel="noopener noreferrer nofollow">{{ icon('external', 13) }} Page</a></div>{% endif %}
+        <form method="post" action="{{ url_for('web.change_request_update', rid=r.id) }}" class="cr-form">
+          {{ csrf() }}
+          <select name="status" aria-label="Status">{% for k, l in REQUEST_STATUS.items() %}<option value="{{ k }}" {{ 'selected' if r.status == k }}>{{ l }}</option>{% endfor %}</select>
+          <input name="admin_reply" maxlength="3000" value="{{ r.admin_reply or '' }}" placeholder="Reply to the founder (optional)" aria-label="Reply">
+          <button class="btn btn-success btn-sm">{{ icon('check', 14) }} Save</button>
+        </form>
+      </article>
+      {% else %}<p class="empty">No change requests yet.</p>{% endfor %}
+    </section>
+
+    {# -------- updates #}
+    <section class="card" id="updates">
+      <div class="card-head"><h2><span class="card-ic t-orange">{{ icon('send', 18, 'a-float') }}</span>Post an update</h2></div>
+      <form method="post" action="{{ url_for('web.project_update_add', pid=p.id) }}">
+        {{ csrf() }}
+        <textarea name="body" rows="3" maxlength="5000" placeholder="e.g. Login and dashboard are live on the test link. Please try them and send feedback." aria-label="Update"></textarea>
+        <button class="btn btn-warn" style="margin-top:10px">{{ icon('send', 16) }} Post to founder</button>
+      </form>
+      <ol class="timeline" style="margin-top:18px">
+        {% for u in p.updates %}
+        <li><div class="tl-head"><b>{{ u.created_at|ldt }}</b><small>{{ u.author.name if u.author else '' }}</small>
+          <form method="post" action="{{ url_for('web.project_update_delete', uid=u.id) }}" style="margin-left:auto">{{ csrf() }}<button class="icon-btn" title="Delete update" aria-label="Delete update" style="width:30px;height:30px">{{ icon('trash', 14) }}</button></form></div>
+          <p class="pre" style="margin:4px 0">{{ u.body }}</p></li>
+        {% endfor %}
+      </ol>
+    </section>
+  </div>
+
+  <div class="col">
+    {# -------- milestones #}
+    <section class="card" id="milestones">
+      <div class="card-head"><h2><span class="card-ic t-green">{{ icon('flag', 18, 'a-wiggle') }}</span>Milestones</h2><span class="muted">{{ stats.done }}/{{ stats.total }}</span></div>
+      {% for m in p.milestones %}
+      <form method="post" action="{{ url_for('web.milestone_update', mid=m.id) }}" class="ms-row ms-{{ m.status }}">
+        {{ csrf() }}
+        <input name="title" value="{{ m.title }}" maxlength="150" aria-label="Milestone title">
+        <div class="ms-row-2">
+          <select name="status" aria-label="Status">{% for k, l in MILESTONE_STATUS.items() %}<option value="{{ k }}" {{ 'selected' if m.status == k }}>{{ l }}</option>{% endfor %}</select>
+          <input name="due_date" type="date" value="{{ m.due_date.isoformat() if m.due_date else '' }}" aria-label="Due date">
+          <button class="btn btn-success btn-sm" name="action" value="save" title="Save">{{ icon('check', 14) }}</button>
+          <button class="btn btn-ghost btn-sm" name="action" value="delete" title="Remove">{{ icon('trash', 14) }}</button>
+        </div>
+      </form>
+      {% endfor %}
+      <form method="post" action="{{ url_for('web.milestone_add', pid=p.id) }}" class="ms-row ms-new">
+        {{ csrf() }}
+        <input name="title" maxlength="150" placeholder="New milestone" aria-label="New milestone title">
+        <div class="ms-row-2"><input name="due_date" type="date" aria-label="Due date"><button class="btn btn-primary btn-sm">{{ icon('plus', 14) }} Add</button></div>
+      </form>
+    </section>
+
+    {# -------- agreement #}
+    <section class="card f-agree">
+      <div class="card-head"><h2><span class="card-ic t-cyan">{{ icon('review', 18, 'a-float') }}</span>Agreement</h2>
+        {% if agreement %}{% if sig %}<span class="pstat ps-on_track">{{ icon('check', 13) }} Signed</span>{% else %}<span class="pstat ps-at_risk">Awaiting signature</span>{% endif %}{% endif %}</div>
+      {% if agreement %}
+        <p><b>{{ agreement.title }}</b><br><small>Version {{ agreement.version }} · updated {{ agreement.updated_at|ldt }}</small></p>
+        {% if sig %}<p class="sig-mini" style="text-align:left">{{ sig.signed_name }}</p><small>Signed {{ sig.signed_at|ldt }} · IP {{ sig.ip_address or '—' }}</small>{% endif %}
+      {% else %}<p class="muted">No agreement yet. Write one and the founder can sign it digitally.</p>{% endif %}
+      <a class="btn btn-primary btn-block" href="{{ url_for('web.agreement_edit', pid=p.id) }}">{{ icon('edit', 16) }} {{ 'Edit agreement' if agreement else 'Write agreement' }}</a>
+    </section>
+
+    {# -------- founder access #}
+    <section class="card">
+      <div class="card-head"><h2><span class="card-ic t-blue">{{ icon('users', 18, 'a-float') }}</span>Founder access</h2></div>
+      {% if all_founders %}
+      <form method="post" action="{{ url_for('web.project_founders', pid=p.id) }}">
+        {{ csrf() }}
+        {% for f in all_founders %}
+        <label class="pick" style="margin-bottom:8px"><input type="checkbox" name="founders" value="{{ f.id }}" {{ 'checked' if f.project_id == p.id }}>{{ avatar(f, 'sm') }}
+          <span class="who"><b>{{ f.name }}</b><small>{{ f.email }}{% if f.project and f.project_id != p.id %} · now on {{ f.project.name }}{% endif %}</small></span></label>
+        {% endfor %}
+        <button class="btn btn-ghost btn-sm">{{ icon('check', 14) }} Save access</button>
+      </form>
+      {% else %}<p class="muted">No founder logins yet.</p>{% endif %}
+      <a class="link" href="{{ url_for('web.user_new', role='founder', project=p.id) }}" style="margin-top:10px">{{ icon('plus', 14) }} Create a founder login for this project</a>
+    </section>
+
+    <section class="card danger-zone">
+      <form method="post" action="{{ url_for('web.project_delete', pid=p.id) }}">
+        {{ csrf() }}
+        <b>Delete project</b><p class="muted" style="font-size:.84rem">Removes milestones, updates, change requests and the agreement. Founder logins are kept.</p>
+        <label class="check"><input type="checkbox" name="confirm" value="1"> Yes, delete it</label>
+        <button class="btn btn-danger btn-sm">{{ icon('trash', 14) }} Delete project</button>
+      </form>
+    </section>
+  </div>
+</div>
+{% endblock %}

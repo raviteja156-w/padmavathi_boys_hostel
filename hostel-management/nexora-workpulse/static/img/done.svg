@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240" fill="none">
+<defs><linearGradient id="a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f59e0b"/><stop offset="1" stop-color="#f97316"/></linearGradient><filter id="g"><feGaussianBlur stdDeviation="12"/></filter></defs>
+<style>.c{animation:fall 3s linear infinite}.c:nth-of-type(2n){animation-duration:3.6s}.c:nth-of-type(3n){animation-duration:2.6s;animation-delay:-1s}.c:nth-of-type(5n){animation-delay:-2s}
+@keyframes fall{from{transform:translateY(-40px) rotate(0)}to{transform:translateY(260px) rotate(540deg)}}
+.cup{animation:b 2.4s ease-in-out infinite;transform-origin:160px 200px}@keyframes b{50%{transform:translateY(-8px) rotate(-3deg)}}</style>
+<circle cx="160" cy="120" r="80" fill="url(#a)" opacity=".3" filter="url(#g)"/>
+<g class="cup"><path d="M116 52h88v36c0 30-20 50-44 50s-44-20-44-50z" fill="url(#a)"/>
+<path d="M116 64H94c0 24 12 36 26 36M204 64h22c0 24-12 36-26 36" stroke="#f59e0b" stroke-width="7" fill="none"/>
+<rect x="148" y="136" width="24" height="30" fill="#f97316"/><rect x="122" y="166" width="76" height="20" rx="6" fill="#8b5cf6"/>
+<path d="M160 70l6 12 13 2-9 9 2 13-12-6-12 6 2-13-9-9 13-2z" fill="#fff8"/></g>
+<g><rect class="c" x="40" y="0" width="8" height="12" rx="2" fill="#ec4899"/><rect class="c" x="80" y="0" width="8" height="12" rx="2" fill="#22d3ee"/><rect class="c" x="240" y="0" width="8" height="12" rx="2" fill="#10b981"/>
+<rect class="c" x="280" y="0" width="8" height="12" rx="2" fill="#f59e0b"/><rect class="c" x="200" y="0" width="8" height="12" rx="2" fill="#8b5cf6"/><rect class="c" x="120" y="0" width="8" height="12" rx="2" fill="#f97316"/>
+<rect class="c" x="20" y="0" width="8" height="12" rx="2" fill="#3b82f6"/><rect class="c" x="300" y="0" width="8" height="12" rx="2" fill="#ec4899"/><rect class="c" x="160" y="0" width="8" height="12" rx="2" fill="#22d3ee"/><rect class="c" x="260" y="0" width="8" height="12" rx="2" fill="#f43f5e"/></g>
+</svg>

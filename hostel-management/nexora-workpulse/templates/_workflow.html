@@ -1,0 +1,13 @@
+{% from '_icons.html' import icon %}
+<section class="card">
+  <div class="card-head"><h2><span class="card-ic t-violet">{{ icon('zap', 18, 'a-pulse') }}</span>How work flows here</h2></div>
+  <img class="flow-art" src="{{ url_for('static', filename='img/gitflow.svg') }}" alt="Animated diagram: a branch leaves main, becomes a pull request and is merged back" width="520" height="150">
+  <ol class="flow" style="padding:0;margin:0">
+    <li><span class="card-ic t-cyan">{{ icon('play', 16, 'a-pulse') }}</span><b>Sign in</b><span>Your timer starts automatically.</span></li>
+    <li><span class="card-ic t-blue">{{ icon('tasks', 16, 'a-float') }}</span><b>Pick a task</b><span>Read the brief and deadline.</span></li>
+    <li><span class="card-ic t-pink">{{ icon('branch', 16, 'a-wiggle') }}</span><b>Code on a branch</b><span>Push it to the team repo.</span></li>
+    <li><span class="card-ic t-violet">{{ icon('pull', 16, 'a-float') }}</span><b>Open a pull request</b><span>Paste its link in your update.</span></li>
+    <li><span class="card-ic t-orange">{{ icon('edit', 16, 'a-wiggle') }}</span><b>Post daily progress</b><span>One note per task per day.</span></li>
+    <li><span class="card-ic t-green">{{ icon('award', 16, 'a-beat') }}</span><b>Mark complete</b><span>Admin reviews &amp; merges.</span></li>
+  </ol>
+</section>

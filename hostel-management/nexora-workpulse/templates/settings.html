@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% from '_icons.html' import icon %}
+{% from '_ui.html' import csrf %}
+{% block title %}GitHub & data{% endblock %}
+{% block content %}
+<div class="page-head"><div><div class="eyebrow">{{ icon('settings', 14, 'a-spin') }} Setup</div><h1>GitHub &amp; <span class="grad">data</span></h1></div></div>
+{% if error %}<div class="flash flash-error" role="alert">{{ icon('alert', 18) }}<span>{{ error }}</span></div>{% endif %}
+
+<section class="card glow">
+  <div class="card-head"><h2><span class="card-ic" style="background:#0d1117;border:1px solid var(--line-2)">{{ icon('github', 18, 'a-float') }}</span>Team repository</h2></div>
+  <img class="flow-art" src="{{ url_for('static', filename='img/gitflow.svg') }}" alt="Animated branch, pull request and merge diagram" width="520" height="150">
+  <form method="post">
+    {{ csrf() }}
+    <label for="github_repo">Repository URL</label>
+    <input id="github_repo" name="github_repo" value="{{ repo }}" maxlength="300" placeholder="https://github.com/your-org/your-repo">
+    <p class="hint">Members see this on their dashboard with buttons to open the repo and create a pull request. Individual tasks can override it.</p>
+    <button class="btn btn-primary" type="submit">{{ icon('check', 16) }} Save repository</button>
+  </form>
+</section>
+
+<section class="card">
+  <div class="card-head"><h2><span class="card-ic t-green">{{ icon('merge', 18, 'a-float') }}</span>Merging pull requests</h2>
+    {% if token %}<span class="badge badge-green">{{ icon('check', 12) }} In-app merge enabled</span>{% else %}<span class="badge badge-amber">Merge on GitHub</span>{% endif %}</div>
+  {% if token %}
+    <p>A <code>GITHUB_TOKEN</code> is configured, so each task shows a <b>Merge</b> button that merges the pull request on GitHub for you.</p>
+  {% else %}
+    <p>Right now <b>Merge on GitHub</b> opens the pull request so you merge it there, then you click <b>I merged it</b>.</p>
+    <p class="muted">To merge from inside WorkPulse, create a fine-grained GitHub token with <b>Pull requests: Read and write</b> and <b>Contents: Read and write</b> on your repository, then add it in Render → Environment as <code>GITHUB_TOKEN</code>.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <div class="card-head"><h2><span class="card-ic t-blue">{{ icon('settings', 18, 'a-spin') }}</span>Diagnostics</h2></div>
+  <p class="muted">Something not working? This read-only check shows exactly what fails.</p>
+  <a class="btn btn-cyan" href="{{ url_for('web.diagnostics') }}">{{ icon('eye', 16) }} Run diagnostics</a>
+</section>
+
+<section class="card danger-zone">
+  <div class="card-head"><h2><span class="card-ic" style="background:linear-gradient(135deg,#e11d48,#f97316)">{{ icon('trash', 18, 'a-wiggle') }}</span>Delete all WorkPulse data</h2></div>
+  <p class="muted">Start fresh: removes every team member, founder, founder project, agreement, task, hour record and progress update. You can choose to delete the other admin accounts too. Your own account always stays.</p>
+  <a class="btn btn-danger" href="{{ url_for('web.reset_data') }}">{{ icon('trash', 16) }} Continue to delete all data</a>
+</section>
+{% endblock %}

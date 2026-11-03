@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% from '_icons.html' import icon %}
+{% from '_ui.html' import csrf, errors_list %}
+{% block title %}{{ 'Edit project' if p else 'New project' }}{% endblock %}
+{% block content %}
+<div class="card narrow glow" style="margin-top:20px;max-width:680px">
+  <div style="text-align:center">
+    <img src="{{ url_for('static', filename='img/launch.svg') }}" alt="" width="180" height="146" style="margin:0 auto">
+    <h1>{{ 'Edit' if p else 'New' }} founder <span class="grad">project</span></h1>
+    <p class="muted">{{ 'Basic details shown at the top of the founder page.' if p else 'We add 5 starter milestones you can rename or remove.' }}</p>
+  </div>
+  {{ errors_list(errors) }}
+  <form method="post" novalidate>
+    {{ csrf() }}
+    <label for="name">Project name *</label><input id="name" name="name" value="{{ v.get('name', '') }}" maxlength="120" placeholder="e.g. Company website and dashboard" required>
+    <label for="summary">Short description</label><textarea id="summary" name="summary" rows="3" maxlength="3000" placeholder="One or two lines the founder sees under the project name">{{ v.get('summary', '') }}</textarea>
+    <label for="live_url">Live application link</label><input id="live_url" name="live_url" type="url" value="{{ v.get('live_url', '') }}" maxlength="500" placeholder="https://app.example.com">
+    <div class="grid-2" style="margin:0;gap:14px">
+      <div><label for="start_date">Start date</label><input id="start_date" name="start_date" type="date" value="{{ v.get('start_date', '') }}"></div>
+      <div><label for="target_date">Target launch date</label><input id="target_date" name="target_date" type="date" value="{{ v.get('target_date', '') }}"></div>
+    </div>
+    <div class="btn-row" style="margin-top:20px"><button class="btn btn-primary" type="submit">{{ icon('check', 16) }} {{ 'Save' if p else 'Create project' }}</button>
+      <a class="btn btn-ghost" href="{{ url_for('web.project_admin', pid=p.id) if p else url_for('web.projects') }}">Cancel</a></div>
+  </form>
+</div>
+{% endblock %}

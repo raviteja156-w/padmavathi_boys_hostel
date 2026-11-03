@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240" fill="none">
+<defs><linearGradient id="a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ec4899"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient>
+<linearGradient id="b" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#f97316"/><stop offset="1" stop-color="#f59e0b"/></linearGradient>
+<linearGradient id="c" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#22d3ee"/><stop offset="1" stop-color="#3b82f6"/></linearGradient><filter id="g"><feGaussianBlur stdDeviation="10"/></filter></defs>
+<style>.fl{animation:f 5s ease-in-out infinite}@keyframes f{50%{transform:translateY(-8px)}}
+.blk{transform-box:fill-box;transform-origin:left;animation:w 3s ease-in-out infinite}.b2{animation-delay:-1s}.b3{animation-delay:-2s}@keyframes w{0%,100%{transform:scaleX(.6)}50%{transform:scaleX(1)}}
+.cur{animation:c 4s ease-in-out infinite}@keyframes c{0%,100%{transform:translate(0,0)}40%{transform:translate(-70px,-40px)}70%{transform:translate(-20px,-70px)}}
+.sp{animation:t 2s ease-in-out infinite}@keyframes t{50%{transform:scale(.6);opacity:.4}}</style>
+<circle cx="150" cy="120" r="90" fill="url(#a)" opacity=".25" filter="url(#g)"/>
+<g class="fl">
+<rect x="46" y="40" width="210" height="160" rx="16" fill="#161a40" stroke="url(#a)" stroke-width="2"/>
+<path d="M46 66h210" stroke="#ffffff22"/><circle cx="62" cy="53" r="4" fill="#f43f5e"/><circle cx="76" cy="53" r="4" fill="#f59e0b"/><circle cx="90" cy="53" r="4" fill="#10b981"/>
+<rect x="62" y="80" width="56" height="104" rx="8" fill="#ffffff10"/>
+<rect class="blk" x="130" y="82" width="110" height="34" rx="8" fill="url(#a)"/>
+<rect class="blk b2" x="130" y="124" width="80" height="12" rx="6" fill="url(#c)"/>
+<rect class="blk b3" x="130" y="144" width="100" height="12" rx="6" fill="#ffffff2a"/>
+<rect x="130" y="164" width="52" height="20" rx="10" fill="url(#b)"/>
+<rect x="70" y="92" width="40" height="8" rx="4" fill="#ffffff33"/><rect x="70" y="108" width="30" height="8" rx="4" fill="#ffffff22"/><rect x="70" y="124" width="36" height="8" rx="4" fill="#ffffff22"/>
+</g>
+<g class="cur"><path d="M262 196l0 30 8-8 6 13 6-3-6-12 11 0z" fill="#fff" stroke="#11132f" stroke-width="2"/></g>
+<g fill="#fbbf24"><path class="sp" d="M280 52l3 8 8 3-8 3-3 8-3-8-8-3 8-3z"/><path class="sp" style="animation-delay:-1s" d="M30 170l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></g>
+</svg>

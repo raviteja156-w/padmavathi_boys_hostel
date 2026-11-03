@@ -1,0 +1,5 @@
+{% extends 'base.html' %}
+{% from '_icons.html' import icon %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}{% include '_error_body.html' %}{% endblock %}
+{% block bare %}<div class="container">{% include '_error_body.html' %}</div>{% endblock %}

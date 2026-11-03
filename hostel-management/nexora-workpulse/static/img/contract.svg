@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 280" fill="none">
+<defs>
+<linearGradient id="a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8b5cf6"/><stop offset=".55" stop-color="#ec4899"/><stop offset="1" stop-color="#f97316"/></linearGradient>
+<linearGradient id="c" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#10b981"/><stop offset="1" stop-color="#22d3ee"/></linearGradient>
+<linearGradient id="p" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f8fafc"/><stop offset="1" stop-color="#e2e8f0"/></linearGradient>
+<filter id="g"><feGaussianBlur stdDeviation="14"/></filter>
+</defs>
+<style>
+.doc{animation:f 5s ease-in-out infinite}@keyframes f{50%{transform:translateY(-8px)}}
+.sig{stroke-dasharray:260;stroke-dashoffset:260;animation:w 3.6s ease-in-out infinite}@keyframes w{0%{stroke-dashoffset:260}55%,85%{stroke-dashoffset:0}100%{stroke-dashoffset:0;opacity:0}}
+.pen{animation:pen 3.6s ease-in-out infinite}@keyframes pen{0%{transform:translate(0,0)}55%{transform:translate(96px,-6px)}85%{transform:translate(96px,-6px)}100%{transform:translate(0,0)}}
+.seal{transform-origin:276px 206px;animation:seal 3.6s ease-in-out infinite}@keyframes seal{0%,55%{transform:scale(0);opacity:0}65%{transform:scale(1.2);opacity:1}75%,95%{transform:scale(1);opacity:1}100%{opacity:0}}
+</style>
+<circle cx="180" cy="140" r="100" fill="url(#a)" opacity=".25" filter="url(#g)"/>
+<g class="doc">
+<rect x="96" y="30" width="170" height="220" rx="14" fill="url(#p)"/>
+<rect x="116" y="54" width="90" height="10" rx="5" fill="url(#a)"/>
+<g fill="#cbd5e1"><rect x="116" y="78" width="130" height="6" rx="3"/><rect x="116" y="92" width="120" height="6" rx="3"/><rect x="116" y="106" width="128" height="6" rx="3"/><rect x="116" y="126" width="110" height="6" rx="3"/><rect x="116" y="140" width="126" height="6" rx="3"/><rect x="116" y="154" width="96" height="6" rx="3"/></g>
+<path d="M116 214h120" stroke="#94a3b8" stroke-width="2" stroke-dasharray="4 4"/>
+<path class="sig" d="M120 204c10-22 18-22 16 0s10-26 18-6 10 4 16-8 8 14 18 2 12-6 22 4" stroke="#6d28d9" stroke-width="3.5" stroke-linecap="round"/>
+</g>
+<g class="pen"><path d="M118 196l40-58 10 7-40 58-14 6z" fill="url(#a)"/><path d="M118 196l-4 13 14-6z" fill="#11132f"/></g>
+<g class="seal"><circle cx="276" cy="206" r="28" fill="url(#c)"/><path d="M263 206l9 9 17-18" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></g>
+</svg>

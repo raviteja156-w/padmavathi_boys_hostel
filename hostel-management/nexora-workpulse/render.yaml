@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: nexora-workpulse
+    runtime: python
+    plan: free
+    region: singapore
+    buildCommand: pip install -r requirements.txt
+    # init-db is idempotent: it applies new SQL migrations (CREATE ... IF NOT EXISTS only)
+    # and creates the first admin only if no admin exists yet.
+    startCommand: flask --app app init-db && gunicorn "app:create_app()" --workers 2 --threads 4 --timeout 60 --bind 0.0.0.0:$PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.3
+      - key: APP_ENV
+        value: production
+      - key: APP_TIMEZONE
+        value: Asia/Kolkata
+      - key: DAILY_TARGET_HOURS
+        value: "4"
+      - key: FLASK_SECRET_KEY
+        generateValue: true
+      # Secrets below are entered in the Render dashboard (never stored in Git):
+      - key: DATABASE_URL
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: GITHUB_TOKEN
+        sync: false

@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+{% from '_icons.html' import icon %}
+{% from '_ui.html' import csrf, stage_bar, state_badge, meter %}
+{% block title %}My dashboard{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <div class="eyebrow">{{ icon('sparkles', 14, 'a-spin') }} {{ today|ldate }}</div>
+    <h1>Hi {{ g.user.name.split(' ')[0] }}, <span class="grad">let's build.</span></h1>
+    <p class="muted">Your timer runs while you're signed in. Post progress on each task you touch today.</p>
+    <div class="chips">
+      {{ state_badge(state[0], state[1]) }}
+      <span class="chip">{{ icon('tasks', 15) }} {{ assignments|rejectattr('status', 'equalto', 'completed')|list|length }} open task(s)</span>
+      {% if overdue %}<span class="chip" style="border-color:rgba(244,63,94,.5);color:#fda4af">{{ icon('flame', 15, 'a-wiggle') }} {{ overdue|length }} overdue</span>{% endif %}
+    </div>
+  </div>
+  <img class="hero-art" src="{{ url_for('static', filename='img/hero.svg') }}" alt="Animated illustration of a work dashboard" width="320" height="240">
+</section>
+
+{% include '_observed.html' %}
+{% if day.incomplete %}<div class="flash flash-warning" role="alert">{{ icon('alert', 18) }}<span>A session ran past the maximum length and was flagged incomplete. Stop and restart your timer.</span></div>{% endif %}
+
+<div class="split">
+  <div class="col">
+    <section class="card glow">
+      <div class="card-head"><h2><span class="card-ic t-cyan">{{ icon('clock', 18, 'a-tick') }}</span>Today's hours</h2>{{ state_badge(state[0], state[1]) }}</div>
+      <div class="timer">
+        <div class="ring {{ 'done' if minutes >= target }} pv-{{ pct }}"><div class="ring-in"><strong>{{ minutes|hm }}</strong><span>of {{ target|hm }} target</span></div></div>
+        <div class="timer-info">
+          {% if minutes >= target %}<span class="big grad">Target reached! 🎉</span><span class="badge badge-green">{{ icon('check', 13) }} Target achieved</span>
+          {% else %}<span class="big"><b class="grad-2">{{ remaining|hm }}</b> to go</span>{% endif %}
+          <span class="muted">{% if day.first_in %}Signed in at {{ day.first_in|ltime }}{% else %}Timer not started today{% endif %}</span>
+          <div class="btn-row">
+          {% if day.active %}
+            {% if day.on_break %}
+              <form method="post" action="{{ url_for('web.break_end') }}">{{ csrf() }}<button class="btn btn-success">{{ icon('play', 16) }} Resume</button></form>
+            {% else %}
+              <form method="post" action="{{ url_for('web.break_start') }}">{{ csrf() }}<button class="btn btn-ghost">{{ icon('pause', 16) }} Pause</button></form>
+            {% endif %}
+            <form method="post" action="{{ url_for('web.clock_out') }}">{{ csrf() }}<button class="btn btn-danger">{{ icon('stop', 16) }} Stop for today</button></form>
+          {% else %}
+            <form method="post" action="{{ url_for('web.clock_in') }}">{{ csrf() }}<button class="btn btn-success btn-lg">{{ icon('play', 16) }} Start work timer</button></form>
+          {% endif %}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2><span class="card-ic t-violet">{{ icon('tasks', 18, 'a-float') }}</span>My tasks</h2></div>
+      {% if not assignments %}
+        <div class="empty"><img src="{{ url_for('static', filename='img/empty.svg') }}" alt="" width="150" height="112">No tasks yet. Your admin will post them here.</div>
+      {% else %}
+      <div class="task-list stagger">
+        {% for a in assignments %}
+        <a class="task-card ac-{{ '3' if a.status == 'completed' else '4' if is_overdue(a) else '1' }}" href="{{ url_for('web.my_task', aid=a.id) }}">
+          <div class="meta">
+            <span class="badge st-{{ a.status }}">{{ STATUS[a.status] }}</span>
+            <span class="badge prio-{{ a.task.priority }}">{{ PRIORITIES[a.task.priority] }}</span>
+            {% if a.task.work_type %}<span class="wt wt-{{ a.task.work_type }}">{{ WORK_TYPES[a.task.work_type] }}</span>{% endif %}
+          </div>
+          <h3>{{ a.task.title }}</h3>
+          {{ stage_bar(a) }}
+          <div class="bar wv-{{ a.progress }}"><i></i></div>
+          <div class="foot-row">
+            <span>{{ icon('calendar', 14) }} {{ a.task.deadline.strftime('%d %b') }}{% if is_overdue(a) %} · <b style="color:#fda4af">overdue</b>{% endif %}</span>
+            {% if a.id in updated_today %}<span class="done-mark">{{ icon('check', 14) }} Updated today</span>
+            {% elif a.status not in ('submitted', 'completed') %}<span class="go">Post today's progress {{ icon('arrow', 15) }}</span>
+            {% else %}<span class="go">View {{ icon('arrow', 15) }}</span>{% endif %}
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </section>
+  </div>
+
+  <div class="col">
+    <section class="card">
+      <div class="card-head"><h2><span class="card-ic" style="background:#0d1117;border:1px solid var(--line-2)">{{ icon('github', 18, 'a-float') }}</span>Team repository</h2></div>
+      {% if repo %}
+        <p class="muted" style="word-break:break-all">{{ repo|replace('https://github.com/', '') }}</p>
+        <div class="btn-row">
+          <a class="btn btn-dark btn-sm" href="{{ repo }}" target="_blank" rel="noopener noreferrer">{{ icon('github', 15) }} Open repo</a>
+          <a class="btn btn-primary btn-sm" href="{{ repo }}/compare" target="_blank" rel="noopener noreferrer">{{ icon('pull', 15) }} New pull request</a>
+          <a class="btn btn-ghost btn-sm" href="{{ repo }}/pulls" target="_blank" rel="noopener noreferrer">{{ icon('list', 15) }} All PRs</a>
+        </div>
+      {% else %}<p class="muted">Your admin hasn't connected a GitHub repository yet.</p>{% endif %}
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2><span class="card-ic t-green">{{ icon('chart', 18, 'a-pulse') }}</span>Last 7 days</h2><a class="link" href="{{ url_for('web.attendance_history') }}">All {{ icon('arrow', 14) }}</a></div>
+      {% if not history %}<p class="empty">Your history starts today.</p>{% endif %}
+      {% for r in history %}
+      <div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--line)">
+        <span style="width:74px;font-weight:650;font-size:.86rem">{{ r.date.strftime('%a %d') }}</span>
+        <span style="flex:1">{{ meter(r.minutes, target) }}</span>
+        <span class="hours" style="width:64px;text-align:right;font-size:.9rem">{{ r.minutes|hm }}</span>
+        <span title="{{ r.label }}" class="tone tone-{{ 'ok' if r.met else 'live' if r.state in ('working','paused') else 'miss' }}">{{ icon('check' if r.met else 'zap' if r.state in ('working','paused') else 'x', 16) }}</span>
+      </div>
+      {% endfor %}
+    </section>
+  </div>
+</div>
+
+{% include '_workflow.html' %}
+{% endblock %}

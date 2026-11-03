@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% from '_icons.html' import icon %}
+{% from '_ui.html' import avatar %}
+{% block title %}Founders{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><div class="eyebrow">{{ icon('rocket', 14, 'a-float') }} {{ projects|length }} project(s)</div><h1>Founder <span class="grad">projects</span></h1>
+    <p class="muted">You control what each founder sees: work status, live app link, milestones, updates and the agreement.</p></div>
+  <div class="head-actions">
+    <a class="btn btn-ghost btn-lg" href="{{ url_for('web.user_new', role='founder') }}">{{ icon('user', 17) }} Add founder login</a>
+    <a class="btn btn-primary btn-lg" href="{{ url_for('web.project_new') }}">{{ icon('plus', 18) }} New project</a>
+  </div>
+</div>
+{% if unassigned %}<div class="flash flash-warning">{{ icon('alert', 18) }}<span>{{ unassigned|length }} founder login(s) not linked to a project: {{ unassigned|map(attribute='name')|join(', ') }}. Open a project and tick them under “Founder access”.</span></div>{% endif %}
+{% if not projects %}
+  <section class="card empty"><img src="{{ url_for('static', filename='img/launch.svg') }}" alt="" width="220" height="178" style="margin:0 auto 10px">No founder projects yet. Create one, then add the founder's login.</section>
+{% else %}
+<div class="task-list stagger">
+  {% for p in projects %}{% set st = stats[p.id] %}
+  <a class="task-card ac-{{ '3' if p.status in ('on_track','completed') else '4' if p.status in ('at_risk','delayed') else '2' }}" href="{{ url_for('web.project_admin', pid=p.id) }}">
+    <div class="meta"><span class="pstat ps-{{ p.status }}">{{ PROJECT_STATUS[p.status] }}</span><span class="chip" style="padding:4px 10px">{{ PHASES[p.phase] }}</span>
+      {% if st.open %}<span class="badge badge-red">{{ icon('edit', 12) }} {{ st.open }} change request(s)</span>{% endif %}</div>
+    <h3>{{ p.name }}</h3>
+    <div style="display:flex;align-items:center;gap:10px"><div class="bar flex1 wv-{{ p.progress }}"><i></i></div><b class="hours">{{ p.progress }}%</b></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">{% for f in p.founders %}{{ avatar(f, 'sm') }}{% else %}<small>No founder login yet</small>{% endfor %}</div>
+    <div class="foot-row"><span>{{ icon('flag', 14) }} {{ st.done }}/{{ st.total }} milestones · {{ icon('review', 14) }} {{ 'Signed' if signed[p.id] else 'Not signed' }}</span><span class="go">Manage {{ icon('arrow', 15) }}</span></div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

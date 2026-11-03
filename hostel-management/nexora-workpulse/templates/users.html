@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% from '_icons.html' import icon %}
+{% from '_ui.html' import csrf, avatar, skill_chips %}
+{% block title %}Team{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><div class="eyebrow">{{ icon('users', 14, 'a-float') }} {{ users|selectattr('role', 'equalto', 'member')|list|length }} member(s)</div><h1>Your <span class="grad">team</span></h1>
+    <p class="muted">Skills come from each member's first-sign-in self-rating.</p></div>
+  <div class="head-actions"><a class="btn btn-primary btn-lg" href="{{ url_for('web.user_new') }}">{{ icon('plus', 18) }} Add person</a></div>
+</div>
+<div class="people">
+  {% for u in users %}
+  <article class="person-card {{ 'off' if not u.is_active }} hue-{{ u.name|hue }} dl-{{ [loop.index0, 15]|min }}">
+    <div class="row">
+      {{ avatar(u, 'lg') }}
+      <div style="flex:1;min-width:0"><b style="font-size:1.05rem">{{ u.name }}</b><small style="display:block;overflow:hidden;text-overflow:ellipsis">{{ u.email }}</small></div>
+      <span class="badge {{ 'badge-red' if not u.is_active else 'badge-violet' if u.role == 'admin' else 'badge-amber' if u.role == 'founder' else 'badge-green' }}">{{ 'Disabled' if not u.is_active else ROLES[u.role] }}</span>
+    </div>
+    {% if u.role == 'member' %}
+    <div style="margin-top:12px">{% if u.onboarded_at %}{{ skill_chips(u) }}{% else %}<span class="badge badge-slate">{{ icon('clock', 12) }} Skills pending first sign-in</span>{% endif %}</div>
+    <div class="facts">
+      <div><strong>{{ counts.get(u.id, 0) }}</strong><span>Open tasks</span></div>
+      <div><strong>{{ u.first_login_at.strftime('%d %b') if u.first_login_at else '—' }}</strong><span>Joined</span></div>
+      <div><strong>{{ u.last_login_at|ltime if u.last_login_at else '—' }}</strong><span>Last in</span></div>
+    </div>
+    {% elif u.role == 'founder' %}
+    <p style="margin:12px 0">{{ icon('rocket', 14) }} {% if u.project %}<a class="link" href="{{ url_for('web.project_admin', pid=u.project_id) }}">{{ u.project.name }}</a>{% else %}<span class="muted">No project linked</span>{% endif %}<br><small>Last sign-in {{ u.last_login_at|ldt }}</small></p>
+    {% else %}<p class="muted" style="margin:12px 0">Last sign-in {{ u.last_login_at|ldt }}</p>{% endif %}
+    {% if u.id != g.user.id %}
+    <div class="acts">
+      <form method="post" action="{{ url_for('web.user_toggle', uid=u.id) }}">{{ csrf() }}
+        <button class="btn btn-sm {{ 'btn-ghost' if u.is_active else 'btn-success' }}">{{ icon('pause' if u.is_active else 'play', 14) }} {{ 'Disable' if u.is_active else 'Enable' }}</button></form>
+      <a class="btn btn-sm btn-danger" href="{{ url_for('web.user_delete', uid=u.id) }}">{{ icon('trash', 14) }} Delete</a>
+    </div>
+    <form method="post" action="{{ url_for('web.user_reset', uid=u.id) }}" class="inline-form" style="margin-top:10px">{{ csrf() }}
+      <input type="password" name="password" placeholder="New password" aria-label="New password for {{ u.name }}" autocomplete="new-password" required>
+      <button class="btn btn-ghost btn-sm">{{ icon('key', 14) }} Reset</button></form>
+    {% else %}<p class="muted" style="margin-top:12px">{{ icon('user', 14) }} This is you — another admin can delete this account</p>{% endif %}
+  </article>
+  {% endfor %}
+</div>
+{% endblock %}

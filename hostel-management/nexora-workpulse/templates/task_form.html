@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% from '_icons.html' import icon %}
+{% from '_ui.html' import csrf, avatar, skill_chips, errors_list %}
+{% block title %}{{ 'Edit task' if task else 'Post a task' }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><a class="link" href="{{ url_for('web.tasks') }}">{{ icon('back', 15) }} Tasks</a>
+    <h1 style="margin-top:8px">{{ 'Edit & reassign' if task else 'Post a' }} <span class="grad">task</span></h1>
+    <p class="muted">Pick the work type and WorkPulse suggests who fits best, based on each member's self-rating.</p></div>
+</div>
+{{ errors_list(errors) }}
+<form method="post" class="task-form" novalidate>
+  {{ csrf() }}
+  <div class="split">
+    <div class="col">
+      <section class="card">
+        <div class="card-head"><h2><span class="card-ic t-violet">{{ icon('edit', 18, 'a-wiggle') }}</span>Task details</h2></div>
+        <label for="title">Task title *</label><input id="title" name="title" value="{{ v.get('title','') }}" maxlength="150" placeholder="e.g. Build the login API endpoint" required>
+        <label for="description">Detailed description *</label><textarea id="description" name="description" rows="5" maxlength="5000" required>{{ v.get('description','') }}</textarea>
+
+        <label>Work type</label>
+        <div class="choice-grid" role="radiogroup" aria-label="Work type">
+          {% for k, lbl in WORK_TYPES.items() %}
+          <label class="choice"><input type="radio" id="wt-{{ k }}" name="work_type" value="{{ k }}" {{ 'checked' if v.get('work_type') == k }}>
+            <span>{{ icon({'backend': 'server', 'database': 'database', 'frontend': 'layout', 'fullstack': 'code', 'other': 'sparkles'}[k], 22) }}{{ lbl }}</span></label>
+          {% endfor %}
+        </div>
+
+        <div class="grid-4" style="margin-top:4px">
+          <div><label for="priority">Priority</label><select id="priority" name="priority">{% for k, lbl in PRIORITIES.items() %}<option value="{{ k }}" {{ 'selected' if v.get('priority') == k }}>{{ lbl }}</option>{% endfor %}</select></div>
+          <div><label for="target_hours">Target hours *</label><input id="target_hours" name="target_hours" type="number" step="0.25" min="0.25" max="200" value="{{ v.get('target_hours','') }}" required></div>
+          <div><label for="start_date">Start date *</label><input id="start_date" name="start_date" type="date" value="{{ v.get('start_date','') }}" required></div>
+          <div><label for="deadline">Deadline *</label><input id="deadline" name="deadline" type="date" value="{{ v.get('deadline','') }}" required></div>
+        </div>
+        <label for="expected_deliverable">Expected deliverable</label><input id="expected_deliverable" name="expected_deliverable" value="{{ v.get('expected_deliverable','') }}" maxlength="1000" placeholder="e.g. Merged pull request with tests">
+        <label for="instructions">Additional instructions</label><textarea id="instructions" name="instructions" rows="3" maxlength="3000">{{ v.get('instructions','') }}</textarea>
+        <label for="repo_url">GitHub repository for this task</label>
+        <input id="repo_url" name="repo_url" value="{{ v.get('repo_url','') }}" maxlength="300" placeholder="{{ repo or 'https://github.com/owner/repository' }}">
+        <p class="hint">Leave empty to use the team repository{% if repo %} ({{ repo|replace('https://github.com/', '') }}){% endif %}.</p>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="card glow">
+        <div class="card-head"><h2><span class="card-ic t-orange">{{ icon('sparkles', 18, 'a-spin') }}</span>Suggested for this work</h2></div>
+        <div class="suggest">
+          <p class="suggest-hint muted" style="gap:8px;align-items:center">{{ icon('info', 16) }} Choose a work type to see who fits best.</p>
+          {% for wt in ('backend', 'database', 'frontend', 'fullstack') %}
+          <div class="suggest-box sg-{{ wt }}">
+            <h3>{{ icon({'backend': 'server', 'database': 'database', 'frontend': 'layout', 'fullstack': 'code'}[wt], 16) }} {{ WORK_TYPES[wt] }}</h3>
+            {% if suggest[wt] %}<ol>{% for m in suggest[wt] %}<li>{{ avatar(m, 'sm') }}<span><b>{{ m.name }}</b>{% if wt != 'fullstack' %} · {{ SKILLS[m['skill_' ~ wt]][0] }}{% endif %} · {{ counts.get(m.id, 0) }} open</span>{% if loop.first %} {{ icon('award', 14, 'a-beat') }}{% endif %}</li>{% endfor %}</ol>
+            {% else %}<p class="muted">No member has rated this skill yet.</p>{% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        <p class="note">{{ icon('info', 14) }} Ranked by self-rating, then by fewest open tasks.</p>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2><span class="card-ic t-cyan">{{ icon('users', 18, 'a-float') }}</span>Assign to</h2></div>
+        <label class="allteam"><input type="checkbox" name="all_team" value="1" {{ 'checked' if all_team }}> {{ icon('users', 18) }} <b>Entire team</b> <small>(all active members)</small></label>
+        <div class="pick-grid">
+          {% for m in members %}
+          {% set best = [] %}{% for wt in ('backend', 'database', 'frontend', 'fullstack') %}{% if suggest[wt] and suggest[wt][0].id == m.id %}{% set _ = best.append('best-' ~ wt) %}{% endif %}{% endfor %}
+          <label class="pick {{ best|join(' ') }}">
+            <input type="checkbox" name="assignees" value="{{ m.id }}" {{ 'checked' if m.id in selected }}>
+            {{ avatar(m) }}
+            <span class="who"><b>{{ m.name }}</b>{{ skill_chips(m, True) }}<small style="display:block;margin-top:4px">{{ counts.get(m.id, 0) }} open task(s)</small></span>
+            <span class="best">{{ icon('award', 11) }} Best fit</span>
+          </label>
+          {% else %}<p class="empty">No active team members. <a class="link" href="{{ url_for('web.user_new') }}">Create accounts first</a>.</p>{% endfor %}
+        </div>
+        {% if task %}<p class="note">{{ icon('info', 14) }} Unchecking a member removes the task only if they have not started it.</p>{% endif %}
+      </section>
+      <div class="btn-row">
+        <button class="btn btn-primary btn-lg" type="submit">{{ icon('send', 17) }} {{ 'Save changes' if task else 'Post task' }}</button>
+        <a class="btn btn-ghost btn-lg" href="{{ url_for('web.tasks') }}">Cancel</a>
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}

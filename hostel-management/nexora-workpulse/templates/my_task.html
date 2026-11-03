@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+{% from '_icons.html' import icon %}
+{% from '_ui.html' import csrf, stage_bar, errors_list %}
+{% block title %}{{ a.task.title }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <a class="link" href="{{ url_for('web.dashboard') }}">{{ icon('back', 15) }} Dashboard</a>
+    <h1 style="margin-top:8px">{{ a.task.title }}</h1>
+    <p style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+      <span class="badge st-{{ a.status }}">{{ STATUS[a.status] }}</span>
+      <span class="badge prio-{{ a.task.priority }}">{{ PRIORITIES[a.task.priority] }}</span>
+      {% if a.task.work_type %}<span class="wt wt-{{ a.task.work_type }}">{{ WORK_TYPES[a.task.work_type] }}</span>{% endif %}
+      {% if is_overdue(a) %}<span class="badge badge-red">{{ icon('flame', 13) }} Overdue</span>{% endif %}
+      <span class="muted">{{ icon('target', 14) }} {{ '%g' % a.task.target_hours }}h · {{ icon('calendar', 14) }} due {{ a.task.deadline.strftime('%d %b %Y') }}</span>
+    </p>
+  </div>
+</div>
+
+<section class="card">
+  {{ stage_bar(a) }}
+  <div style="display:flex;align-items:center;gap:12px;margin-top:10px"><div class="bar flex1 wv-{{ a.progress }}"><i></i></div><b class="hours">{{ a.progress }}%</b></div>
+</section>
+
+{{ errors_list(errors) }}
+{% if a.status == 'needs_changes' and a.reviews %}<div class="flash flash-warning">{{ icon('alert', 18) }}<span><b>Changes requested:</b> <span class="pre">{{ a.reviews[0].feedback }}</span></span></div>{% endif %}
+
+<div class="split">
+  <div class="col">
+    <section class="card">
+      <div class="card-head"><h2><span class="card-ic t-blue">{{ icon('review', 18, 'a-float') }}</span>Brief</h2></div>
+      <p class="pre">{{ a.task.description }}</p>
+      {% if a.task.expected_deliverable %}<p><b>Expected deliverable:</b> {{ a.task.expected_deliverable }}</p>{% endif %}
+      {% if a.task.instructions %}<p><b>Instructions:</b></p><p class="pre">{{ a.task.instructions }}</p>{% endif %}
+    </section>
+
+    {% if not locked %}
+    <section class="card glow">
+      <div class="card-head"><h2><span class="card-ic t-violet">{{ icon('edit', 18, 'a-wiggle') }}</span>Post today's progress</h2></div>
+      <form method="post" action="{{ url_for('web.task_update', aid=a.id) }}">
+        {{ csrf() }}
+        <label for="progress">Overall progress (%)</label>
+        <input id="progress" name="progress" type="number" min="0" max="100" step="5" value="{{ form.get('progress', a.progress) }}" required>
+        <label for="note">What did you do today? (optional)</label>
+        <textarea id="note" name="note" rows="3" maxlength="5000" placeholder="e.g. Built the login form validation, wrote 3 tests">{{ form.get('note', '') }}</textarea>
+        <label for="link">Pull request or work link</label>
+        <input id="link" name="link" type="url" maxlength="500" placeholder="https://github.com/owner/repo/pull/12" value="{{ form.get('link', '') if 'note' in form else '' }}">
+        <p class="hint">Paste your GitHub pull request so the admin can review and merge it.</p>
+        <button class="btn btn-primary" type="submit">{{ icon('send', 16) }} Save today's progress</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2><span class="card-ic t-green">{{ icon('award', 18, 'a-beat') }}</span>Finished? Mark the task complete</h2></div>
+      <form method="post" action="{{ url_for('web.task_complete', aid=a.id) }}">
+        {{ csrf() }}
+        <label for="summary">Completion summary *</label>
+        <textarea id="summary" name="summary" rows="3" maxlength="5000" placeholder="What was delivered and anything the reviewer should know">{{ form.get('summary', '') }}</textarea>
+        <label for="clink">Final pull request / deliverable link{% if a.pr_url or a.deliverable_url %} (optional, already linked){% endif %}</label>
+        <input id="clink" name="link" type="url" maxlength="500" placeholder="https://github.com/owner/repo/pull/12" value="{{ form.get('link', '') if 'summary' in form else '' }}">
+        <label class="check"><input type="checkbox" name="confirm" value="1"> I confirm this task is complete and ready for review.</label>
+        <button class="btn btn-success" type="submit">{{ icon('check', 16) }} Mark complete</button>
+      </form>
+    </section>
+    {% else %}
+    <section class="card glow" style="text-align:center">
+      <img src="{{ url_for('static', filename='img/done.svg') }}" alt="" width="200" height="150" style="margin:0 auto">
+      <h2>{{ 'Completed — waiting for review & merge' if a.status == 'submitted' else 'Approved. Great work!' }}</h2>
+      {% if a.work_notes %}<p class="pre muted">{{ a.work_notes }}</p>{% endif %}
+    </section>
+    {% endif %}
+  </div>
+
+  <div class="col">
+    <section class="card">
+      <div class="card-head"><h2><span class="card-ic" style="background:#0d1117;border:1px solid var(--line-2)">{{ icon('github', 18, 'a-float') }}</span>Code &amp; pull request</h2></div>
+      {% if a.pr_url %}
+        <div class="pr {{ 'merged' if a.pr_merged_at }}">
+          <span class="pr-ic">{{ icon('merge' if a.pr_merged_at else 'pull', 18) }}</span>
+          <div class="pr-body"><b>Pull request {{ pr_number(a.pr_url) }}</b><small>{{ 'Merged ' ~ (a.pr_merged_at|ldt) if a.pr_merged_at else 'Open — waiting for the admin' }}</small></div>
+          <a class="btn btn-ghost btn-sm" href="{{ a.pr_url }}" target="_blank" rel="noopener noreferrer nofollow">{{ icon('external', 14) }} Open</a>
+        </div>
+      {% endif %}
+      {% if a.deliverable_url %}<p><a class="link" href="{{ a.deliverable_url }}" target="_blank" rel="noopener noreferrer nofollow">{{ icon('external', 14) }} Deliverable link</a></p>{% endif %}
+      {% if repo %}
+        <ol class="timeline" style="margin-top:8px">
+          <li><b>Open the repository</b><div><a class="link" href="{{ repo }}" target="_blank" rel="noopener noreferrer">{{ repo|replace('https://github.com/', '') }} {{ icon('external', 13) }}</a></div></li>
+          <li><b>Create a branch &amp; push your code</b><div class="muted"><code>git checkout -b task-{{ a.task.id }}-{{ g.user.name.split(' ')[0]|lower }}</code></div></li>
+          <li><b>Open a pull request</b><div><a class="btn btn-primary btn-sm" href="{{ repo }}/compare" target="_blank" rel="noopener noreferrer">{{ icon('pull', 14) }} New pull request</a></div></li>
+          <li class="final"><b>Paste the PR link in today's progress</b><div class="muted">The admin reviews and merges it.</div></li>
+        </ol>
+      {% else %}<p class="muted">No GitHub repository is connected for this task. Use a deliverable link instead.</p>{% endif %}
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2><span class="card-ic t-orange">{{ icon('list', 18, 'a-float') }}</span>Progress log</h2></div>
+      {% if a.updates %}
+      <ol class="timeline">
+        {% for u in a.updates %}
+        <li class="{{ 'final' if loop.first and a.status in ('submitted','completed') }}">
+          <div class="tl-head"><b>{{ u.update_date.strftime('%a %d %b') }}</b><span class="badge badge-violet">{{ u.progress }}%</span></div>
+          <p class="pre" style="margin:4px 0">{{ u.note }}</p>
+          {% if u.pr_url %}<a class="link" href="{{ u.pr_url }}" target="_blank" rel="noopener noreferrer nofollow">{{ icon('pull', 13) }} {{ pr_number(u.pr_url) or 'Link' }}</a>{% endif %}
+          <div class="when">{{ u.created_at|ltime }}</div>
+        </li>
+        {% endfor %}
+      </ol>
+      {% else %}<p class="empty">No updates yet. Post your first one today.</p>{% endif %}
+      {% if a.reviews %}<details><summary>Review history ({{ a.reviews|length }})</summary>{% for r in a.reviews %}<p><span class="badge {{ 'badge-green' if r.decision == 'approved' else 'badge-amber' }}">{{ 'Approved' if r.decision == 'approved' else 'Changes requested' }}</span> <small>{{ r.created_at|ldt }}</small>{% if r.feedback %}<br><span class="pre">{{ r.feedback }}</span>{% endif %}</p>{% endfor %}</details>{% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

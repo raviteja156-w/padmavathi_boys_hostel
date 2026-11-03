@@ -1,0 +1,12 @@
+Delete these 5 leftover files from an OLDER version of the app. Nothing in WorkPulse uses them.
+
+migrations/0002_project_control.sql
+    IMPORTANT: this old upgrade file contains
+    "UPDATE nwp_users SET is_active = FALSE ... WHERE role <> 'admin'"
+    which DISABLES every founder and member account. Remove it so it can never run again.
+migrations/0003_member_uploads_and_update_notices.sql
+templates/project_dashboard.html
+templates/project_agreement.html
+templates/user_edit.html
+
+Deleting these files does NOT delete any data from your database.

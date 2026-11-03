@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% from '_icons.html' import icon %}
+{% from '_ui.html' import csrf, avatar %}
+{% block title %}Delete {{ u.name }}{% endblock %}
+{% block content %}
+<div class="card narrow danger-zone" style="margin-top:20px">
+  <div style="text-align:center">
+    <span class="card-ic" style="width:64px;height:64px;border-radius:20px;margin:0 auto 14px;background:linear-gradient(135deg,#e11d48,#f97316)">{{ icon('trash', 28, 'a-wiggle') }}</span>
+    <h1>Delete {{ u.name }}?</h1>
+    <p class="muted">This permanently removes the account and everything recorded for it. It cannot be undone.</p>
+    {% if u.role == 'admin' %}<p class="badge badge-violet" style="margin-top:6px">Admin account — tasks they posted and reviews they wrote move to you.</p>{% endif %}
+  </div>
+  <div class="facts" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:20px 0">
+    {% if u.role == 'founder' %}
+    <div class="stat" style="--tint:var(--pink);padding:14px"><strong>{{ fp.requests }}</strong><span>Change requests</span></div>
+    <div class="stat" style="--tint:var(--violet);padding:14px"><strong>{{ fp.signatures }}</strong><span>Signatures</span></div>
+    <div class="stat" style="--tint:var(--cyan);padding:14px"><strong>{{ u.project.name if u.project else '—' }}</strong><span>Project (kept)</span></div>
+    {% else %}
+    <div class="stat" style="--tint:var(--cyan);padding:14px"><strong>{{ fp.sessions }}</strong><span>Work sessions</span></div>
+    <div class="stat" style="--tint:var(--violet);padding:14px"><strong>{{ fp.tasks }}</strong><span>Task assignments</span></div>
+    <div class="stat" style="--tint:var(--pink);padding:14px"><strong>{{ fp.updates }}</strong><span>Progress updates</span></div>
+    {% endif %}
+  </div>
+  <p class="note">{{ icon('info', 14) }} To keep their history but block sign-in, use <b>Disable</b> on the Team page instead.</p>
+  <form method="post">
+    {{ csrf() }}
+    <label for="confirm_email">Type <b>{{ u.email }}</b> to confirm</label>
+    <input id="confirm_email" name="confirm_email" autocomplete="off" required>
+    <div class="btn-row" style="margin-top:18px">
+      <button class="btn btn-danger" type="submit">{{ icon('trash', 16) }} Delete permanently</button>
+      <a class="btn btn-ghost" href="{{ url_for('web.users') }}">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

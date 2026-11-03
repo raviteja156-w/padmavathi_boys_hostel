@@ -1,0 +1,28 @@
+# Secrets - never commit these
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+
+# Local databases, logs, OS/editor files
+*.sqlite
+*.sqlite3
+*.db
+*.log
+.DS_Store
+.idea/
+.vscode/
+dist/
+*.zip
+
+# Local demo data
+.local_secret
+workpulse_demo.db

@@ -2,7 +2,9 @@
 {% block title %}Welcome — Padmavathi Boys hostel{% endblock %}
 {% block content %}
 
-<div class="max-w-md mx-auto animate-slide-up text-center py-6 sm:py-12">
+<div class="max-w-3xl mx-auto animate-slide-up text-center py-6 sm:py-12">
+  <div class="pic-banner">{% from '_motion_pics.html' import campus %}{{ campus() }}</div>
+
   <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 text-primary text-3xl mb-4">
     <i class="fa-solid fa-building-shield"></i>
   </div>

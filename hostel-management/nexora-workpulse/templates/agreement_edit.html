@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% from '_icons.html' import icon %}
+{% from '_ui.html' import csrf %}
+{% block title %}Agreement — {{ p.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><a class="link" href="{{ url_for('web.project_admin', pid=p.id) }}">{{ icon('back', 15) }} {{ p.name }}</a>
+    <h1 style="margin-top:8px">{{ 'Edit' if a else 'Write' }} the <span class="grad">agreement</span></h1>
+    <p class="muted">{% if a %}Version {{ a.version }}. Saving a change creates version {{ a.version + 1 }} and the founder must sign again.{% else %}When you publish it, the founder can read and digitally sign it.{% endif %}</p></div>
+  {% if a %}<div class="head-actions">{% if sig %}<span class="pstat ps-on_track">{{ icon('check', 14) }} Signed by {{ sig.signed_name }}</span>{% else %}<span class="pstat ps-at_risk">Awaiting founder signature</span>{% endif %}</div>{% endif %}
+</div>
+{% if error %}<div class="flash flash-error" role="alert">{{ icon('alert', 18) }}<span>{{ error }}</span></div>{% endif %}
+<div class="split">
+  <section class="card glow">
+    <form method="post">
+      {{ csrf() }}
+      <label for="title">Agreement title</label>
+      <input id="title" name="title" value="{{ v.title }}" maxlength="200" required>
+      <label for="body">Agreement text</label>
+      <textarea id="body" name="body" rows="22" maxlength="60000" class="mono" required>{{ v.body }}</textarea>
+      <p class="hint">Plain text. Line breaks are kept exactly as you type them.</p>
+      <button class="btn btn-primary btn-lg" type="submit" style="margin-top:12px">{{ icon('send', 17) }} {{ 'Save new version' if a else 'Publish to founder' }}</button>
+    </form>
+  </section>
+  <aside class="col">
+    <section class="card f-agree">
+      <img src="{{ url_for('static', filename='img/contract.svg') }}" alt="" width="200" height="156" style="margin:0 auto">
+      <h2 style="display:block;text-align:center">Signatures</h2>
+      {% if a and a.signatures %}
+        {% for s in a.signatures %}
+        <div class="sig-row {{ 'old' if s.version != a.version }}">
+          <p class="sig-mini" style="text-align:left;margin:0">{{ s.signed_name }}</p>
+          <small>v{{ s.version }}{{ ' (current)' if s.version == a.version else ' (older version)' }} · {{ s.signed_at|ldt }}<br>{{ s.user.email if s.user else '' }} · IP {{ s.ip_address or '—' }} · <code>{{ s.body_hash[:12] }}…</code></small>
+        </div>
+        {% endfor %}
+      {% else %}<p class="muted" style="text-align:center">No signatures yet.</p>{% endif %}
+    </section>
+  </aside>
+</div>
+{% endblock %}

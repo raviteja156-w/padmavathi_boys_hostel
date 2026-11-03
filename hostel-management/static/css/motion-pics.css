@@ -1,0 +1,96 @@
+/* Moving hostel pictures (see templates/_motion_pics.html). Photos are in /static/images.
+   Each panel = the photo + small windows of the SAME photo that move (students, curtains, trees, clouds),
+   plus glowing lamps, spinning fans and rising steam. Background of the page stays navy. */
+.mp-collage{ display:grid; gap:.7rem; }
+.mp-row{ display:grid; grid-template-columns:1fr 1fr; gap:.7rem; }
+@media (max-width:560px){ .mp-row{ grid-template-columns:1fr; } }
+.mp-stage{ position:relative; width:100%; overflow:hidden; border-radius:1.1rem; border:1px solid rgba(148,170,210,.34);
+  background:#0B1B36; box-shadow:0 1px 0 rgba(255,255,255,.1) inset,0 4px 0 rgba(0,0,0,.4),0 18px 34px rgba(0,0,0,.55); }
+.mp-zoom{ position:absolute; inset:0; transform-origin:50% 60%; animation:mpZoom 22s ease-in-out infinite alternate; }
+.mp-mess .mp-zoom{ animation-delay:-6s; } .mp-bedroom .mp-zoom{ animation-delay:-12s; }
+@keyframes mpZoom{ from{ transform:scale(1) translate3d(0,0,0) } to{ transform:scale(1.06) translate3d(-.8%,-.6%,0) } }
+.mp-base,.mp-layer{ background-image:var(--img); background-size:100% 100%; background-repeat:no-repeat; }
+.mp-base{ position:absolute; inset:0; }
+.mp-win{ position:absolute; overflow:hidden;
+  -webkit-mask-image:linear-gradient(to right,transparent,#000 14%,#000 86%,transparent),linear-gradient(to bottom,transparent,#000 14%,#000 86%,transparent);
+  -webkit-mask-composite:source-in; mask-image:linear-gradient(to right,transparent,#000 14%,#000 86%,transparent),linear-gradient(to bottom,transparent,#000 14%,#000 86%,transparent); mask-composite:intersect; }
+.mp-layer{ position:absolute; will-change:transform; }
+/* motions (percent = share of the whole picture, so they scale with screen size) */
+.an-bob{ animation:mpBob 1.5s ease-in-out infinite; } .an-bob2{ animation:mpBob2 1.9s ease-in-out infinite; }
+@keyframes mpBob{ 0%,100%{ transform:translateY(0) } 50%{ transform:translateY(-.55%) scaleY(1.004) } }
+@keyframes mpBob2{ 0%,100%{ transform:translateY(0) rotate(0) } 30%{ transform:translateY(-.45%) rotate(.3deg) } 70%{ transform:translateY(-.15%) rotate(-.3deg) } }
+.an-sway{ animation:mpSway 5s ease-in-out infinite; } .an-sway2{ animation:mpSway 6s ease-in-out infinite reverse; }
+@keyframes mpSway{ 0%,100%{ transform:rotate(-.9deg) } 50%{ transform:rotate(.9deg) } }
+.an-swayx{ animation:mpSwayX 4.2s ease-in-out infinite; } .an-swayx2{ animation:mpSwayX 5.3s ease-in-out infinite reverse; }
+@keyframes mpSwayX{ 0%,100%{ transform:skewX(-1.6deg) } 50%{ transform:skewX(1.6deg) } }
+.an-curtain{ animation:mpCurtain 4.5s ease-in-out infinite; } .an-curtain2{ animation:mpCurtain 5.2s ease-in-out infinite reverse; }
+@keyframes mpCurtain{ 0%,100%{ transform:skewX(-2.2deg) scaleX(1) } 50%{ transform:skewX(2.2deg) scaleX(1.012) } }
+.an-cloud{ animation:mpCloud 14s ease-in-out infinite alternate; } .an-cloud2{ animation:mpCloud 18s ease-in-out infinite alternate-reverse; }
+@keyframes mpCloud{ from{ transform:translateX(-2.2%) } to{ transform:translateX(2.2%) } }
+.an-swing{ animation:mpSwing 3s ease-in-out infinite; }
+@keyframes mpSwing{ 0%,100%{ transform:rotate(-5deg) } 50%{ transform:rotate(5deg) } }
+/* warm lamp / screen glow */
+.mp-glow{ position:absolute; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; mix-blend-mode:screen;
+  background:radial-gradient(closest-side,var(--c),transparent); animation:mpGlow 3.6s ease-in-out infinite; }
+@keyframes mpGlow{ 0%,100%{ opacity:.25; transform:translate(-50%,-50%) scale(.85) } 50%{ opacity:1; transform:translate(-50%,-50%) scale(1.15) } }
+/* ceiling fans: blurred blades spinning in perspective */
+.mp-fan{ position:absolute; transform:translate(-50%,-50%); pointer-events:none; }
+.mp-fan b{ position:absolute; inset:0; border-radius:50%; background:repeating-conic-gradient(from 0deg,rgba(55,38,30,.42) 0 18deg,rgba(55,38,30,0) 18deg 60deg);
+  filter:blur(2.5px); -webkit-mask:radial-gradient(closest-side,transparent 8%,#000 22%,#000 82%,transparent 100%); mask:radial-gradient(closest-side,transparent 8%,#000 22%,#000 82%,transparent 100%);
+  animation:mpFan .55s linear infinite; }
+@keyframes mpFan{ to{ transform:rotate(360deg) } }
+/* steam from the serving counter */
+.mp-steam{ position:absolute; transform:translate(-50%,-50%); border-radius:50%; pointer-events:none; filter:blur(5px);
+  background:radial-gradient(closest-side,rgba(255,255,255,.75),transparent); opacity:0; animation:mpSteam 3.2s ease-out infinite; }
+@keyframes mpSteam{ 0%{ opacity:0; transform:translate(-50%,-30%) scale(.6) } 25%{ opacity:.8 } 100%{ opacity:0; transform:translate(-50%,-420%) scale(1.8) } }
+@media (prefers-reduced-motion:reduce){ .mp-stage *{ animation:none !important } }
+
+/* dashboard hero: greeting on navy, moving pictures under it */
+.hostel-hero.hero-pics{ display:block !important; background:linear-gradient(145deg,#12284F,#0C1F40) !important; padding:1.1rem 1.1rem 1.2rem; min-height:0 !important; }
+.hostel-hero.hero-pics .hero-text{ max-width:100% !important; padding:.2rem .3rem 1rem !important; }
+.hostel-hero.hero-pics .hero-title{ font-size:1.7rem; }
+@media (min-width:768px){ .hostel-hero.hero-pics .hero-title{ font-size:2.1rem; } }
+.pic-banner{ height:auto !important; padding:0 !important; border:0 !important; background:none !important; box-shadow:none !important; margin-bottom:1.2rem; }
+
+/* ---------- Admin dashboard hero: transparent cartoon scene (templates/_hostel_scene.html) ---------- */
+.hostel-hero.hero-pics,.hostel-hero.hero-pics.is-night,.hostel-hero.hero-pics.is-day{
+  background:transparent !important; border:0 !important; box-shadow:none !important; }
+.hostel-scene{ display:block; width:100%; max-width:1000px; height:auto; margin:.2rem auto 0; overflow:hidden; background:none; }
+.hostel-scene .leg,.hostel-scene .arm,.hostel-scene .pedal,.hostel-scene .spin,.hostel-scene .sway{ transform-box:fill-box; }
+/* students roam from one side to the other and come back round again */
+.roam{ animation-timing-function:linear; animation-iteration-count:infinite; }
+.roam.r{ animation-name:roamR; } .roam.l{ animation-name:roamL; }
+@keyframes roamR{ from{ transform:translateX(-90px) } to{ transform:translateX(1290px) } }
+@keyframes roamL{ from{ transform:translateX(1290px) } to{ transform:translateX(-90px) } }
+.bob{ animation:hsBob .55s ease-in-out infinite; } .bob2{ animation:hsBob .7s ease-in-out infinite; }
+@keyframes hsBob{ 0%,100%{ transform:translateY(0) } 50%{ transform:translateY(-2px) } }
+.leg,.arm,.pedal{ transform-origin:50% 0; }
+.la1,.a1{ animation:hsSwing .64s ease-in-out infinite alternate; }
+.la2,.a2{ animation:hsSwing .64s ease-in-out infinite alternate-reverse; }
+@keyframes hsSwing{ from{ transform:rotate(-28deg) } to{ transform:rotate(28deg) } }
+.pedal{ animation:hsPedal .6s ease-in-out infinite alternate; } .pedal.pb{ animation-direction:alternate-reverse; }
+@keyframes hsPedal{ from{ transform:rotate(-24deg) } to{ transform:rotate(24deg) } }
+.wheel .spin{ transform-origin:50% 50%; animation:hsSpin .7s linear infinite; }
+@keyframes hsSpin{ to{ transform:rotate(360deg) } }
+.sway{ transform-origin:50% 100%; animation:hsTree 5s ease-in-out infinite alternate; }
+@keyframes hsTree{ from{ transform:rotate(-1.4deg) } to{ transform:rotate(1.4deg) } }
+.w{ animation:hsWin 4s ease-in-out infinite; } @keyframes hsWin{ 0%,100%{ opacity:1 } 50%{ opacity:.62 } }
+.lampg{ animation:hsLamp 3s ease-in-out infinite; } @keyframes hsLamp{ 0%,100%{ opacity:.35 } 50%{ opacity:.8 } }
+@media (prefers-reduced-motion:reduce){ .hostel-scene *{ animation:none !important } .roam.r{ transform:translateX(250px) } .roam.l{ transform:translateX(850px) } }
+
+/* sun by day, moon + stars by night (class set on #hostelHero) */
+.hostel-scene .sc-night,.hostel-scene .sky-night{ display:none; }
+.is-night .hostel-scene .sc-night,.is-night .hostel-scene .sky-night{ display:inline; }
+.is-night .hostel-scene .sc-day,.is-night .hostel-scene .sky-day{ display:none; }
+.is-night .hostel-scene .scenery{ filter:brightness(.74) saturate(.92); }
+.sc-sun{ animation:scSun 6s ease-in-out infinite alternate; transform-origin:600px 92px; }
+@keyframes scSun{ from{ transform:scale(.96) } to{ transform:scale(1.05) } }
+.sc-rays{ transform-origin:600px 92px; animation:scSpin 40s linear infinite; }
+@keyframes scSpin{ to{ transform:rotate(360deg) } }
+.sc-cloud{ animation:scCloud 30s ease-in-out infinite alternate; } .sc-cloud.c2{ animation-duration:38s; animation-direction:alternate-reverse; }
+@keyframes scCloud{ from{ transform:translateX(-30px) } to{ transform:translateX(30px) } }
+.sc-star{ animation:scTwinkle 3s ease-in-out infinite; } .sc-star.s2{ animation-delay:-1s; } .sc-star.s3{ animation-delay:-2s; }
+@keyframes scTwinkle{ 0%,100%{ opacity:.3 } 50%{ opacity:1 } }
+.sc-moonwrap{ animation:scSun 7s ease-in-out infinite alternate; transform-origin:600px 92px; }
+.is-night .hostel-scene .lampg{ animation-name:hsLamp; } .is-day .hostel-scene .lampg{ opacity:.12; animation:none; }
+.hostel-scene{ border-radius:1.2rem; }

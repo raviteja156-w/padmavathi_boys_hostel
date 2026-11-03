@@ -1,0 +1,41 @@
+{% from '_icons.html' import icon %}
+
+{% macro avatar(user, size='') -%}
+<span class="avatar {{ size }} hue-{{ user.name|hue }}" aria-hidden="true">{{ user.name|initials }}</span>
+{%- endmacro %}
+
+{% macro skill_chips(user, compact=False) -%}
+<span class="skills">
+{%- for area, label, field in SKILL_AREAS %}{% set lvl = user[field] %}
+  <span class="skill sk-{{ area }} lv-{{ lvl or 'none' }}" title="{{ label }}: {{ SKILLS[lvl][0] if lvl else 'not rated' }}">
+    {{ icon({'backend': 'server', 'database': 'database', 'frontend': 'layout'}[area], 13) }}
+    {%- if not compact %}<span>{{ area|capitalize }}</span>{% endif %}
+    <i class="dots">{% for n in range(3) %}<b class="{{ 'on' if lvl and SKILLS[lvl][1] > n }}"></b>{% endfor %}</i>
+  </span>
+{%- endfor %}
+</span>
+{%- endmacro %}
+
+{% macro stage_bar(a) -%}
+{% set si = stage_index(a) %}
+<ol class="stages" aria-label="Task stage: {{ STAGES[si] }}">
+{%- for s in STAGES %}
+  <li class="{{ 'done' if loop.index0 < si or si == 4 else 'now' if loop.index0 == si else '' }}"><i></i><span>{{ s }}</span></li>
+{%- endfor %}
+</ol>
+{%- endmacro %}
+
+{% macro state_badge(key, label) -%}
+<span class="state st8-{{ key }}">{{ icon({'working': 'zap', 'paused': 'pause', 'reached': 'award', 'missed': 'alert', 'absent': 'x'}[key], 13) }} {{ label }}</span>
+{%- endmacro %}
+
+{% macro meter(minutes, target) -%}
+{% set w = [100, (minutes * 100 / target)|int]|min if target else 100 %}
+<span class="meter {{ 'full' if minutes >= target }}"><i class="wv-{{ w }}"></i></span>
+{%- endmacro %}
+
+{% macro errors_list(errors) -%}
+{% for e in errors %}<div class="flash flash-error" role="alert">{{ icon('alert', 18) }}<span>{{ e }}</span></div>{% endfor %}
+{%- endmacro %}
+
+{% macro csrf() -%}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{%- endmacro %}

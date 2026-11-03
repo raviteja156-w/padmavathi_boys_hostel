@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% from '_icons.html' import icon %}
+{% from '_ui.html' import avatar %}
+{% block title %}Tasks{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><div class="eyebrow">{{ icon('tasks', 14, 'a-float') }} {{ tasks|length }} task(s)</div><h1>All <span class="grad">tasks</span></h1></div>
+  <div class="head-actions"><a class="btn btn-primary btn-lg" href="{{ url_for('web.task_new') }}">{{ icon('plus', 18) }} POST A TASK</a></div>
+</div>
+{% if not tasks %}
+  <section class="card empty"><img src="{{ url_for('static', filename='img/empty.svg') }}" alt="" width="160" height="120">No tasks yet. Post the first one to give your team a target.</section>
+{% else %}
+<div class="task-list stagger">
+  {% for t in tasks %}
+  {% set done = t.assignments|selectattr('status', 'equalto', 'completed')|list|length %}
+  {% set waiting = t.assignments|selectattr('status', 'equalto', 'submitted')|list|length %}
+  {% set total = t.assignments|length %}
+  <a class="task-card ac-{{ '3' if total and done == total else '1' }}" href="{{ url_for('web.task_detail', tid=t.id) }}">
+    <div class="meta">
+      <span class="badge prio-{{ t.priority }}">{{ PRIORITIES[t.priority] }}</span>
+      {% if t.work_type %}<span class="wt wt-{{ t.work_type }}">{{ WORK_TYPES[t.work_type] }}</span>{% endif %}
+      {% if waiting %}<span class="badge badge-violet">{{ icon('review', 12) }} {{ waiting }} to review</span>{% endif %}
+    </div>
+    <h3>{{ t.title }}</h3>
+    <div style="display:flex;padding-left:2px">{% for a in t.assignments[:6] %}<span style="margin-right:-8px">{{ avatar(a.user, 'sm') }}</span>{% endfor %}</div>
+    <div class="bar wv-{{ (done * 100 / total)|int if total else 0 }}"><i></i></div>
+    <div class="foot-row"><span>{{ icon('calendar', 14) }} {{ t.deadline.strftime('%d %b %Y') }} · {{ done }}/{{ total }} done</span><span class="go">Open {{ icon('arrow', 15) }}</span></div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
