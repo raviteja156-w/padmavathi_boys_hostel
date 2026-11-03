@@ -174,7 +174,7 @@ def _stu(ctx, s):
         'total_rent': s.get('total_rent') or 0, 'paid_this_rent_month': s.get('amount_paid') or 0,
         'balance': s.get('balance') or 0, 'old_balance': s.get('old_balance') or 0,
         'joined': joined, 'due_day': _int(str(joined)[8:10]) if joined else None,
-        'note': (s.get('note') or '')[:120],
+        'adjusting': bool(s.get('adjusting')), 'note': (s.get('note') or '')[:120],
     }
 
 
@@ -361,8 +361,10 @@ def _t_expenses(db, ctx, lang, a):
         totals[r['category']] = totals.get(r['category'], 0) + (r['total'] or 0)
     shown = [r for r in rows if not cat or r['category'] == cat]
     cin = db.execute('SELECT COALESCE(SUM(amount),0) AS s, COUNT(*) AS n FROM canteen_income WHERE income_date LIKE %s', (like,)).fetchone()
+    oth = {r['category']: r['t'] for r in db.execute('SELECT category, COALESCE(SUM(amount),0) AS t FROM other_income WHERE income_date LIKE %s GROUP BY category', (like,)).fetchall()}
     return {'month': ctx['cycle_label'](key), 'totals_by_category': {k: round(v, 2) for k, v in totals.items()},
             'total_expense': round(sum(totals.values()), 2), 'canteen_income': cin['s'] or 0, 'canteen_income_entries': cin['n'] or 0,
+            'hostel_income_entered': oth.get('Hostel', 0), 'home_income_entered': oth.get('Home', 0),
             'entries_shown': len(shown),
             'entries': [{'date': r['expense_date'], 'category': r['category'], 'item': r['item'], 'qty': r['qty'],
                          'price': r['price'], 'total': r['total']} for r in shown[:40]]}
@@ -496,21 +498,63 @@ def _p_add_expense(db, ctx, lang, a):
                                         en, te, 'Yes, add expense', 'అవును, జోడించు', danger=False)}
 
 
-@_tool('propose_add_canteen_income', 'Ask the admin to confirm adding canteen income for a day.',
-       {'amount': {'type': 'number'}, 'date': {'type': 'string', 'description': 'YYYY-MM-DD, default today'}, 'note': {'type': 'string'}},
-       ['amount'])
+@_tool('propose_add_income', 'Ask the admin to confirm adding income to a section (Hostel, Canteen or Home) for a day.',
+       {'section': {'type': 'string', 'enum': ['Hostel', 'Canteen', 'Home']}, 'amount': {'type': 'number'},
+        'date': {'type': 'string', 'description': 'YYYY-MM-DD, default today'}, 'note': {'type': 'string'}},
+       ['section', 'amount'])
 def _p_add_income(db, ctx, lang, a):
+    section = a.get('section') or a.get('category') or 'Canteen'
     amount = _num(a.get('amount'))
     d, err = _parse_date(ctx, a.get('date'))
+    if section not in ('Hostel', 'Canteen', 'Home'):
+        return {'error': 'section must be Hostel, Canteen or Home'}
     if not amount or amount <= 0:
         return {'error': 'amount must be positive'}
     if err:
         return {'error': err}
     note = str(a.get('note') or '').strip()[:120]
-    en = f"Add canteen income <b>{rupee(amount)}</b> dated {d.isoformat()}?"
-    te = f"క్యాంటీన్ ఆదాయం <b>{rupee(amount)}</b> ({d.isoformat()}) జోడించాలా?"
-    return {'__final__': _confirm_reply(lang, 'add_canteen_income', {'amount': amount, 'date': d.isoformat(), 'note': note},
+    en = f"Add <b>{section}</b> income <b>{rupee(amount)}</b> dated {d.isoformat()}?"
+    te = f"<b>{section}</b> ఆదాయం <b>{rupee(amount)}</b> ({d.isoformat()}) జోడించాలా?"
+    return {'__final__': _confirm_reply(lang, 'add_income', {'section': section, 'amount': amount, 'date': d.isoformat(), 'note': note},
                                         en, te, 'Yes, add income', 'అవును, జోడించు', danger=False)}
+
+
+@_tool('propose_add_expenses',
+       'Ask the admin to confirm adding SEVERAL expense items at once (up to 15), all on one date. '
+       'Each item has category (Canteen/Hostel/Home), item name, quantity (default 1) and price of ONE unit in rupees.',
+       {'items': {'type': 'array', 'description': 'list of expense items',
+                  'items': {'type': 'object', 'properties': {
+                      'category': {'type': 'string', 'enum': ['Canteen', 'Hostel', 'Home']}, 'item': {'type': 'string'},
+                      'quantity': {'type': 'number'}, 'price': {'type': 'number'}}, 'required': ['category', 'item', 'price']}},
+        'date': {'type': 'string', 'description': 'YYYY-MM-DD, default today'}}, ['items'])
+def _p_add_expenses(db, ctx, lang, a):
+    d, err = _parse_date(ctx, a.get('date'))
+    if err:
+        return {'error': err}
+    raw = a.get('items')
+    if not isinstance(raw, list) or not raw:
+        return {'error': 'items must be a non-empty list'}
+    if len(raw) > 15:
+        return {'error': 'at most 15 items per proposal; split the list'}
+    rows, lines, grand = [], [], 0.0
+    for n, it in enumerate(raw, 1):
+        if not isinstance(it, dict):
+            return {'error': f'item {n} is invalid'}
+        cat = it.get('category')
+        name = str(it.get('item') or '').strip()[:80]
+        qty = _num(it.get('quantity')) if it.get('quantity') not in (None, '') else 1.0
+        price = _num(it.get('price'))
+        if cat not in ctx['EXPENSE_CATEGORIES'] or not name or not qty or qty <= 0 or not price or price <= 0:
+            return {'error': f'item {n} needs category, name and a positive price'}
+        total = round(qty * price, 2)
+        grand += total
+        rows.append([cat, name, qty, price])
+        lines.append(f"• <b>{escape(name)}</b> ({cat}) {qty:g} × {rupee(price)} = {rupee(total)}")
+    shown = '<br>'.join(lines)
+    en = f"Add these {len(rows)} expenses dated {d.isoformat()}?<br>{shown}<br>Total <b>{rupee(grand)}</b>"
+    te = f"ఈ {len(rows)} ఖర్చులను ({d.isoformat()}) జోడించాలా?<br>{shown}<br>మొత్తం <b>{rupee(grand)}</b>"
+    return {'__final__': _confirm_reply(lang, 'add_expenses', {'rows': rows, 'date': d.isoformat()},
+                                        en, te, 'Yes, add all', 'అవును, అన్నీ జోడించు', danger=False)}
 
 
 # ---------- executors (run only after the admin presses Yes; same SQL as the Expenditure page) ----------
@@ -526,11 +570,30 @@ def _do_add_expense(db, ctx, lang, p):
 
 
 def _do_add_income(db, ctx, lang, p):
-    db.execute('INSERT INTO canteen_income (amount, income_date, note, created_at) VALUES (%s, %s, %s, %s)',
-               (p['amount'], p['date'], p.get('note') or '', datetime.utcnow().isoformat()))
+    section = p.get('section') or 'Canteen'
+    if section == 'Canteen':
+        db.execute('INSERT INTO canteen_income (amount, income_date, note, created_at) VALUES (%s, %s, %s, %s)',
+                   (p['amount'], p['date'], p.get('note') or '', datetime.utcnow().isoformat()))
+    else:
+        db.execute('INSERT INTO other_income (category, amount, income_date, note, created_at) VALUES (%s, %s, %s, %s, %s)',
+                   (section, p['amount'], p['date'], p.get('note') or '', datetime.utcnow().isoformat()))
     db.commit()
-    return _reply(lang, tr(lang, f"Done ✓ — canteen income {rupee(p['amount'])} added ({p['date']}).",
-                           f"పూర్తయింది ✓ — క్యాంటీన్ ఆదాయం {rupee(p['amount'])} జోడించబడింది ({p['date']})."))
+    profit._CACHE['pays'] = None
+    return _reply(lang, tr(lang, f"Done ✓ — {section} income {rupee(p['amount'])} added ({p['date']}).",
+                           f"పూర్తయింది ✓ — {section} ఆదాయం {rupee(p['amount'])} జోడించబడింది ({p['date']})."))
+
+
+def _do_add_expenses(db, ctx, lang, p):
+    now = datetime.utcnow().isoformat()
+    total = 0.0
+    for cat, name, qty, price in p['rows']:
+        t = round(float(qty) * float(price), 2)
+        total += t
+        db.execute('''INSERT INTO expenses (category, item, qty, price, total, expense_date, created_at)
+                      VALUES (%s, %s, %s, %s, %s, %s, %s)''', (cat, name, qty, price, t, p['date'], now))
+    db.commit()
+    return _reply(lang, tr(lang, f"Done ✓ — {len(p['rows'])} expenses added · total {rupee(total)}.",
+                           f"పూర్తయింది ✓ — {len(p['rows'])} ఖర్చులు జోడించబడ్డాయి · మొత్తం {rupee(total)}."))
 
 
 # ==========================================================================
@@ -555,12 +618,13 @@ RENT RULES (important - the admin thinks in these terms)
 - Deleting a student moves him to Deleted Students; he can be restored.
 - Per-day rent (guests, pauses): 1, 2 and 3 sharing = Rs 300/day, every other sharing = Rs 250/day.
 - Pause Bed: a bed is held for a student who is away for some days. Guests: short stays, kept separate from students.
-- Expenditure page has categories Canteen, Hostel and Home, plus canteen income typed in by the admin.
+- Expenditure page has three sections: Hostel, Canteen and Home. Each has expenses and income typed in by the admin (many items can be added at once). Rent from students and guest money are counted automatically as Hostel income.
+- ADJUSTING: a student can be added or moved into a room beyond its normal limit by ticking "Adjusting" on the Add / Edit Student page. Such students show an Adjusting tag and a room can show e.g. 4 / 3. You cannot do this yourself; tell the admin to use that box.
 
 PROFIT / LOSS (use the profit_loss tool, never calculate by hand)
-- Hostel profit = rent collected (confirmed payments dated in the month, Old + New) + guest income - Hostel expenses.
+- Hostel profit = rent collected (confirmed payments dated in the month, Old + New) + guest income + Hostel income typed in - Hostel expenses.
 - Canteen profit = canteen income - Canteen expenses.
-- Overall profit = Hostel + Canteen. Home expenses are shown separately as "overall after Home spending".
+- Overall profit = Hostel + Canteen. Home income and expenses are shown separately as "overall after Home money".
 - Expenses are not tagged Old/New, so only rent collected can be split by building.
 
 PAGES: Dashboard (room-wise view, search, filters, Add / Edit / Delete student, Excel export-import, PDF reports), Vacancy, Payments (Pending / Confirmed), Due List, Month Payments, Hostel Calculator, How cards are calculated, Expenditure, Profit / Loss, Notes, Deleted Students, Guests, Pause Bed, Delete All Data, Payment Settings (QR). The students' side has the Add Student form, Payments (mobile number -> dashboard -> Record Payment) and a small help bot.
@@ -728,7 +792,8 @@ def reply(db, ctx, lang, message):
 def install(app, ctx):
     _EXTRA.update(ctx)
     # two new confirmable actions (the existing confirm / cancel / typed-yes flow handles them)
-    for kind, fn in (('add_expense', _do_add_expense), ('add_canteen_income', _do_add_income)):
+    for kind, fn in (('add_expense', _do_add_expense), ('add_income', _do_add_income), ('add_canteen_income', _do_add_income),
+                     ('add_expenses', _do_add_expenses)):
         if kind not in assistant.ACTION_KINDS:
             assistant.ACTION_KINDS = tuple(assistant.ACTION_KINDS) + (kind,)
         assistant._EXEC[kind] = fn

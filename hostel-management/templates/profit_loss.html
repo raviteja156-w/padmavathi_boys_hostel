@@ -38,7 +38,7 @@
     <div class="text-3xl font-extrabold {{ 'text-success' if r.overall_net >= 0 else 'text-danger' }}">{{ amt(r.overall_net) }}</div>
     <div class="text-[11px] text-slate-400 mt-1">Hostel {{ amt(r.hostel_net) }} + Canteen {{ amt(r.canteen_net) }}</div>
     <div class="mt-3 pt-3 border-t border-slate-100 text-sm">
-      <span class="text-slate-500">After Home spending (₹{{ money.format(r.home_expense) }}):</span>
+      <span class="text-slate-500">After Home money (income ₹{{ money.format(r.home_income) }} − spending ₹{{ money.format(r.home_expense) }}):</span>
       <b class="{{ 'text-success' if r.overall_after_home >= 0 else 'text-danger' }}">{{ amt(r.overall_after_home) }}</b>
     </div>
   </div>
@@ -56,6 +56,7 @@
         <div class="flex justify-between pl-3 text-xs text-slate-400"><span>New Hostel</span><span>₹{{ money.format(r.rent_new) }}</span></div>
         <div class="flex justify-between pl-3 text-xs text-slate-400"><span>Cash / Online</span><span>₹{{ money.format(r.rent_cash) }} / ₹{{ money.format(r.rent_online) }}</span></div>
         <div class="flex justify-between"><span class="text-slate-500">Guest income</span><b>₹{{ money.format(r.guest_income) }}</b></div>
+        <div class="flex justify-between"><span class="text-slate-500">Other hostel income (entered)</span><b>₹{{ money.format(r.hostel_other_income) }}</b></div>
         <div class="flex justify-between"><span class="text-slate-500">Hostel expenses</span><b class="text-danger">₹{{ money.format(r.hostel_expense) }}</b></div>
       </div>
     </div>
@@ -112,9 +113,9 @@
   <div class="card p-4 text-xs text-slate-500 leading-relaxed">
     <b class="text-slate-700">How this is calculated</b>
     <ul class="list-disc ml-5 mt-1 space-y-0.5">
-      <li><b>Hostel</b> = rent collected (confirmed payments dated in the month) + guest payments − expenses marked <i>Hostel</i>.</li>
+      <li><b>Hostel</b> = rent collected (confirmed payments dated in the month) + guest payments + hostel income you typed in − expenses marked <i>Hostel</i>.</li>
       <li><b>Canteen</b> = canteen income − expenses marked <i>Canteen</i>.</li>
-      <li><b>Overall</b> = Hostel + Canteen. <i>Home</i> expenses are shown separately under “After Home spending”.</li>
+      <li><b>Overall</b> = Hostel + Canteen. <i>Home</i> income and expenses are shown separately under “After Home money”.</li>
       <li>Expenses are not tagged Old / New, so the Old / New split is shown for rent collected only.</li>
     </ul>
     {% if purged %}

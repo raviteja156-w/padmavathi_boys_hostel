@@ -236,7 +236,7 @@ def close_db(exception=None):
         put_conn(db.conn)
 
 
-SCHEMA_VERSION = '2026-10-29b'   # change this whenever init_db() below gets a new table / column
+SCHEMA_VERSION = '2026-11-02a'   # change this whenever init_db() below gets a new table / column
 
 
 def init_db():
@@ -507,6 +507,20 @@ def init_db():
             created_at TEXT NOT NULL
         )
     ''')
+
+    # Hostel / Home income entered on the Expenditure page (Canteen income keeps its own table above).
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS other_income (
+            id SERIAL PRIMARY KEY,
+            category TEXT NOT NULL,
+            amount REAL NOT NULL,
+            income_date TEXT NOT NULL,
+            note TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL
+        )
+    ''')
+    # ADJUSTING: 1 = this student was added beyond the room's normal limit on purpose.
+    cur.execute("ALTER TABLE students ADD COLUMN IF NOT EXISTS adjusting INTEGER NOT NULL DEFAULT 0")
 
     # Rent months follow the joined date. "Old balance" = balance that Delete All Data added to the Total Rent
     # (shown as a tag until the admin changes it); last_carry = what the LAST Delete All added (still due now).
@@ -1824,11 +1838,12 @@ def add_student():
             errors.append('Total rent must be a valid non-negative number.')
             total_rent = None
         date_of_join = _form_date(request.form.get('date_of_join'), 'Date of join', errors)
+        adjusting = 1 if request.form.get('adjusting') == '1' else 0
 
-        if not errors and room_number and sharing:
+        if not errors and room_number and sharing and not adjusting:
             ok, msg = check_capacity(db, hostel, room_number, sharing)
             if not ok:
-                errors.append(msg)
+                errors.append(msg + ' Or tick the \u201cAdjusting\u201d box to add this student anyway.')
 
         if errors:
             for e in errors:
@@ -1842,13 +1857,14 @@ def add_student():
         db.execute('''
             INSERT INTO students
             (hostel, room_number, sharing, name, contact, total_rent, amount_paid, balance, photo_filename, note, due_date,
-             date_of_join, payment_date, payment_mode, cash_amount, paid_to, receipt_filename, created_at, updated_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+             date_of_join, payment_date, payment_mode, cash_amount, paid_to, receipt_filename, created_at, updated_at,
+             adjusting)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ''', (hostel, room_number, sharing, name, clean_contact, total_rent, 0, total_rent, None, '', None,
-              date_of_join, None, None, None, None, None, now, now))
+              date_of_join, None, None, None, None, None, now, now, adjusting))
         db.commit()
 
-        flash(f'{name} was saved successfully to {hostel} - Room {room_number}!', 'success')
+        flash(f'{name} was saved successfully to {hostel} - Room {room_number}!' + (' (Adjusting: beyond the room limit)' if adjusting else ''), 'success')
         return redirect(url_for(request.endpoint, saved=1, hostel=hostel, room=room_number, name=name))
 
     return render_template('add_student.html', form={})
@@ -3184,17 +3200,22 @@ def edit_student(student_id):
             errors.append('Old balance tag must be 0 or more.')
             old_balance = 0
 
+        adjusting = 1 if request.form.get('adjusting') == '1' else 0
         if not errors and room_number and sharing:
             room_changed = (hostel != student['hostel'] or room_number != student['room_number'])
-            ok, msg = check_capacity(db, hostel, room_number, sharing, exclude_id=student_id)
-            if not ok:
-                errors.append(msg)
+            # Only a move into another room needs a free bed (unless "Adjusting" is ticked).
+            if room_changed and not adjusting:
+                ok, msg = check_capacity(db, hostel, room_number, sharing, exclude_id=student_id)
+                if not ok:
+                    errors.append(msg + ' Or tick the \u201cAdjusting\u201d box to move him there anyway.')
 
         if errors:
             for e in errors:
                 flash(e, 'error')
             merged = dict(student)
             merged.update(request.form)
+            merged['adjusting'] = adjusting
+            merged['old_balance'] = old_balance   # the form value is text; the template needs a number
             return render_template('edit_student.html', student=merged)
 
         balance = round(total_rent - amount_paid, 2)
@@ -3204,10 +3225,10 @@ def edit_student(student_id):
         db.execute('''
             UPDATE students
             SET hostel=%s, room_number=%s, sharing=%s, name=%s, contact=%s, total_rent=%s, balance=%s,
-                date_of_join=%s, old_balance=%s, updated_at=%s
+                date_of_join=%s, old_balance=%s, updated_at=%s, adjusting=%s
             WHERE id=%s
         ''', (hostel, room_number, sharing, name, clean_contact, total_rent, balance, date_of_join,
-              round(old_balance, 2), now, student_id))
+              round(old_balance, 2), now, adjusting, student_id))
         db.commit()
         sync_rent(db, [student_id])   # a new rent or joined date can change the current rent month
 
@@ -3628,6 +3649,20 @@ def _pos_num(raw):
     return v if v > 0 else None
 
 
+INCOME_SECTIONS = ('Hostel', 'Canteen', 'Home')      # the order the Expenditure page shows them in
+MAX_BULK_ROWS = 100
+
+
+def _save_income(db, section, amount, d, note, now_iso):
+    """Canteen income keeps its own table; Hostel / Home income go to other_income."""
+    if section == 'Canteen':
+        db.execute('INSERT INTO canteen_income (amount, income_date, note, created_at) VALUES (%s, %s, %s, %s)',
+                   (amount, d.isoformat(), note, now_iso))
+    else:
+        db.execute('INSERT INTO other_income (category, amount, income_date, note, created_at) VALUES (%s, %s, %s, %s, %s)',
+                   (section, amount, d.isoformat(), note, now_iso))
+
+
 @app.route('/admin/expenditure', methods=['GET', 'POST'])
 @login_required
 def expenditure():
@@ -3643,7 +3678,72 @@ def expenditure():
         d = parse_iso_date(request.form.get('date'))
         now_iso = datetime.utcnow().isoformat()
 
-        if action == 'add_expense':
+        if action == 'add_expenses':
+            # MANY items at once: category[] / item[] / qty[] / price[] rows, one date for the whole list.
+            cats = request.form.getlist('category')
+            items = request.form.getlist('item')
+            qtys = request.form.getlist('qty')
+            prices = request.form.getlist('price')
+            rows, errs = [], []
+            if not d or d > today:
+                errs.append('Choose a valid date (not in the future).')
+            for i in range(min(len(items), MAX_BULK_ROWS)):
+                item = (items[i] or '').strip()[:120]
+                raw_price = (prices[i] if i < len(prices) else '') or ''
+                if not item and not raw_price.strip():
+                    continue                                    # an empty row is simply ignored
+                cat = cats[i] if i < len(cats) else None
+                raw_qty = (qtys[i] if i < len(qtys) else '') or ''
+                qty = _pos_num(raw_qty) if raw_qty.strip() else 1.0
+                price = _pos_num(raw_price)
+                if cat not in EXPENSE_CATEGORIES or not item or qty is None or price is None:
+                    errs.append(f'Row {i + 1} is incomplete (needs item and price).')
+                else:
+                    rows.append((cat, item, qty, price, round(qty * price, 2)))
+            if not rows and not errs:
+                errs.append('Add at least one item.')
+            if errs:
+                flash(' '.join(errs[:3]) + ' Nothing was saved.', 'error')
+            else:
+                for cat, item, qty, price, total in rows:
+                    db.execute('''INSERT INTO expenses (category, item, qty, price, total, expense_date, created_at)
+                                  VALUES (%s, %s, %s, %s, %s, %s, %s)''',
+                               (cat, item, qty, price, total, d.isoformat(), now_iso))
+                db.commit()
+                flash(f'{len(rows)} item{"s" if len(rows) != 1 else ""} added \u2022 total \u20b9{sum(r[4] for r in rows):,.0f}', 'success')
+            key = d.strftime('%Y-%m') if d else key
+
+        elif action == 'add_incomes':
+            # MANY income entries at once: section[] / amount[] / note[] rows, one date.
+            secs_in = request.form.getlist('section')
+            amounts = request.form.getlist('amount')
+            notes = request.form.getlist('note')
+            rows, errs = [], []
+            if not d or d > today:
+                errs.append('Choose a valid date (not in the future).')
+            for i in range(min(len(amounts), MAX_BULK_ROWS)):
+                raw_amt = (amounts[i] or '').strip()
+                note = ((notes[i] if i < len(notes) else '') or '').strip()[:120]
+                if not raw_amt and not note:
+                    continue
+                sec = secs_in[i] if i < len(secs_in) else None
+                amt = _pos_num(raw_amt)
+                if sec not in INCOME_SECTIONS or amt is None:
+                    errs.append(f'Row {i + 1} is incomplete (needs an amount).')
+                else:
+                    rows.append((sec, amt, note))
+            if not rows and not errs:
+                errs.append('Add at least one income amount.')
+            if errs:
+                flash(' '.join(errs[:3]) + ' Nothing was saved.', 'error')
+            else:
+                for sec, amt, note in rows:
+                    _save_income(db, sec, amt, d, note, now_iso)
+                db.commit()
+                flash(f'{len(rows)} income entr{"ies" if len(rows) != 1 else "y"} added \u2022 total \u20b9{sum(r[1] for r in rows):,.0f}', 'success')
+            key = d.strftime('%Y-%m') if d else key
+
+        elif action == 'add_expense':          # (kept: the old single-item form / API)
             category = request.form.get('category')
             item = (request.form.get('item') or '').strip()[:120]
             qty = _pos_num(request.form.get('qty'))
@@ -3656,19 +3756,18 @@ def expenditure():
                               VALUES (%s, %s, %s, %s, %s, %s, %s)''',
                            (category, item, qty, price, total, d.isoformat(), now_iso))
                 db.commit()
-                flash(f'Expense added: {item} — ₹{total:,.0f}', 'success')
+                flash(f'Expense added: {item} \u2022 \u20b9{total:,.0f}', 'success')
             key = d.strftime('%Y-%m') if d else key
 
-        elif action == 'add_canteen_income':
+        elif action == 'add_canteen_income':   # (kept)
             amount = _pos_num(request.form.get('amount'))
             note = (request.form.get('note') or '').strip()[:120]
             if amount is None or not d:
                 flash('Please enter the canteen income amount and date.', 'error')
             else:
-                db.execute('INSERT INTO canteen_income (amount, income_date, note, created_at) VALUES (%s, %s, %s, %s)',
-                           (amount, d.isoformat(), note, now_iso))
+                _save_income(db, 'Canteen', amount, d, note, now_iso)
                 db.commit()
-                flash(f'Canteen income added: ₹{amount:,.0f}', 'success')
+                flash(f'Canteen income added: \u20b9{amount:,.0f}', 'success')
             key = d.strftime('%Y-%m') if d else key
 
         elif action == 'delete_expense':
@@ -3676,44 +3775,76 @@ def expenditure():
             db.commit()
             flash('Expense deleted.', 'success')
 
-        elif action == 'delete_canteen_income':
-            db.execute('DELETE FROM canteen_income WHERE id=%s', (request.form.get('id', type=int),))
+        elif action in ('delete_income', 'delete_canteen_income'):
+            if request.form.get('kind') == 'other':
+                db.execute('DELETE FROM other_income WHERE id=%s', (request.form.get('id', type=int),))
+            else:
+                db.execute('DELETE FROM canteen_income WHERE id=%s', (request.form.get('id', type=int),))
             db.commit()
-            flash('Canteen income entry deleted.', 'success')
+            flash('Income entry deleted.', 'success')
 
         return redirect(url_for('expenditure', month=key))
 
-    # ---- GET: build the month's picture ----
+    # ---- GET: build the month's picture, section by section (Hostel, Canteen, Home) ----
     like = key + '-%'
     expenses = [dict(r) for r in db.execute(
         'SELECT * FROM expenses WHERE expense_date LIKE %s ORDER BY expense_date DESC, id DESC', (like,)).fetchall()]
     canteen_rows = [dict(r) for r in db.execute(
         'SELECT * FROM canteen_income WHERE income_date LIKE %s ORDER BY income_date DESC, id DESC', (like,)).fetchall()]
+    other_rows = [dict(r) for r in db.execute(
+        'SELECT * FROM other_income WHERE income_date LIKE %s ORDER BY income_date DESC, id DESC', (like,)).fetchall()]
 
-    cat_totals = {c: 0.0 for c in EXPENSE_CATEGORIES}
-    days = {}
+    secs = {n: {'name': n, 'entries': [], 'income': 0.0, 'expense': 0.0} for n in INCOME_SECTIONS}
     for e in expenses:
-        cat_totals[e['category']] = cat_totals.get(e['category'], 0) + (e['total'] or 0)
-        day = days.setdefault(e['expense_date'], {'date': e['expense_date'], 'rows': [], 'total': 0.0,
-                                                    'cats': {c: 0.0 for c in EXPENSE_CATEGORIES}})
-        day['rows'].append(e)
-        day['total'] += e['total'] or 0
-        day['cats'][e['category']] = day['cats'].get(e['category'], 0) + (e['total'] or 0)
-    daily = sorted(days.values(), key=lambda x: x['date'], reverse=True)
+        sec = secs.get(e['category'])
+        if sec is None:
+            continue
+        sec['expense'] += e['total'] or 0
+        q = e['qty'] or 0
+        sec['entries'].append({'type': 'expense', 'kind': 'expense', 'id': e['id'], 'date': e['expense_date'], 'label': e['item'],
+                               'detail': f"{q:g} \u00d7 \u20b9{(e['price'] or 0):,.0f}", 'amount': e['total'] or 0})
+    for r in canteen_rows:
+        secs['Canteen']['income'] += r['amount'] or 0
+        secs['Canteen']['entries'].append({'type': 'income', 'kind': 'canteen', 'id': r['id'], 'date': r['income_date'],
+                                           'label': r['note'] or 'Canteen income', 'detail': '', 'amount': r['amount'] or 0})
+    for r in other_rows:
+        sec = secs.get(r['category'])
+        if sec is None:
+            continue
+        sec['income'] += r['amount'] or 0
+        sec['entries'].append({'type': 'income', 'kind': 'other', 'id': r['id'], 'date': r['income_date'],
+                               'label': r['note'] or f"{r['category']} income", 'detail': '', 'amount': r['amount'] or 0})
 
-    canteen_income = round(sum(r['amount'] for r in canteen_rows), 2)
-    total_expense = round(sum(cat_totals.values()), 2)
+    # Rent collected from students + guest money are counted automatically (same numbers as the Profit / Loss page).
+    auto_rent = auto_guest = 0.0
+    try:
+        rep_ = profit.month_report(db, _ai_ctx, key)
+        auto_rent, auto_guest = rep_['rent_total'], rep_['guest_income']
+    except Exception:
+        try:
+            db.conn.rollback()
+        except Exception:
+            pass
+    secs['Hostel']['auto_rent'], secs['Hostel']['auto_guest'] = auto_rent, auto_guest
+
+    for sec in secs.values():
+        sec['entries'].sort(key=lambda x: (x['date'], x['id']), reverse=True)
+        sec['income_total'] = round(sec['income'] + sec.get('auto_rent', 0) + sec.get('auto_guest', 0), 2)
+        sec['income'] = round(sec['income'], 2)
+        sec['expense'] = round(sec['expense'], 2)
+        sec['net'] = round(sec['income_total'] - sec['expense'], 2)
+
+    overall = {
+        'income': round(secs['Hostel']['income_total'] + secs['Canteen']['income_total'], 2),
+        'expense': round(secs['Hostel']['expense'] + secs['Canteen']['expense'], 2),
+    }
+    overall['net'] = round(secs['Hostel']['net'] + secs['Canteen']['net'], 2)
+    overall['after_home'] = round(overall['net'] + secs['Home']['net'], 2)
 
     this_key, last_key = _expense_month_keys()
-    summary = {
-        'canteen_income': canteen_income,
-        'total_expense': total_expense,
-        'cat_totals': cat_totals,
-        'canteen_net': round(canteen_income - cat_totals['Canteen'], 2),
-    }
     default_date = today.isoformat() if key == this_key else f'{key}-01'
-    return render_template('expenditure.html', key=key, label=cycle_label(key), s=summary, daily=daily,
-                           canteen_rows=canteen_rows, categories=EXPENSE_CATEGORIES,
+    return render_template('expenditure.html', key=key, label=cycle_label(key), secs=secs, overall=overall,
+                           sections=INCOME_SECTIONS, categories=EXPENSE_CATEGORIES,
                            this_key=this_key, last_key=last_key, default_date=default_date,
                            today_iso=today.isoformat())
 

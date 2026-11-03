@@ -683,3 +683,110 @@ body, body.font-sans { font-family: Inter, AppTelugu, system-ui, -apple-system, 
 /* window flicker delays for the dashboard hostel scene (kept here so the template has no CSS inside Jinja) */
 .wo0{animation-delay:0.00s} .wo1{animation-delay:0.45s} .wo2{animation-delay:0.90s} .wo3{animation-delay:1.35s} .wo4{animation-delay:1.80s} .wo5{animation-delay:2.25s} .wo6{animation-delay:2.70s} .wo7{animation-delay:3.15s} .wo8{animation-delay:3.60s} .wo9{animation-delay:4.05s} .wo10{animation-delay:4.50s} .wo11{animation-delay:4.95s}
 .wn0{animation-delay:0.20s} .wn1{animation-delay:0.57s} .wn2{animation-delay:0.94s} .wn3{animation-delay:1.31s} .wn4{animation-delay:1.68s} .wn5{animation-delay:2.05s} .wn6{animation-delay:2.42s} .wn7{animation-delay:2.79s} .wn8{animation-delay:3.16s} .wn9{animation-delay:3.53s} .wn10{animation-delay:3.90s} .wn11{animation-delay:4.27s} .wn12{animation-delay:4.64s} .wn13{animation-delay:5.01s} .wn14{animation-delay:5.38s} .wn15{animation-delay:5.75s} .wn16{animation-delay:6.12s} .wn17{animation-delay:6.49s} .wn18{animation-delay:6.86s} .wn19{animation-delay:7.23s}
+
+
+/* =====================================================================================================
+   DASHBOARD v4: colourful gradient cards + icons that move   (additive; nothing above is changed)
+   ===================================================================================================== */
+@keyframes tileGrad   { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+@keyframes icoBounce  { 0%,100% { transform: translateY(0); } 40% { transform: translateY(-6px); } 60% { transform: translateY(-2px); } }
+@keyframes icoSway    { 0%,100% { transform: rotate(-9deg); } 50% { transform: rotate(9deg); } }
+@keyframes icoFloat   { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-5px) scale(1.08); } }
+@keyframes icoCoin    { 0%,60% { transform: rotateY(0); } 80%,100% { transform: rotateY(360deg); } }
+@keyframes icoPulse   { 0%,100% { transform: scale(1); } 50% { transform: scale(1.22); } }
+@keyframes icoShake   { 0%,70%,100% { transform: translateX(0) rotate(0); } 75% { transform: translateX(-3px) rotate(-8deg); } 80% { transform: translateX(3px) rotate(8deg); } 85% { transform: translateX(-3px) rotate(-6deg); } 90% { transform: translateX(3px) rotate(6deg); } }
+@keyframes icoRing    { 0%,60%,100% { transform: rotate(0); } 64% { transform: rotate(16deg); } 70% { transform: rotate(-14deg); } 76% { transform: rotate(10deg); } 82% { transform: rotate(-8deg); } 88% { transform: rotate(4deg); } }
+@keyframes icoFlip    { 0%,55% { transform: rotate(0); } 80%,100% { transform: rotate(180deg); } }
+@keyframes icoRise    { 0%,100% { transform: translateY(2px) scale(.94); } 50% { transform: translateY(-4px) scale(1.12); } }
+@keyframes icoSpin    { to { transform: rotate(360deg); } }
+@keyframes sheen      { 0% { transform: translateX(-120%) skewX(-18deg); } 55%,100% { transform: translateX(260%) skewX(-18deg); } }
+@keyframes coinFall   { 0% { transform: translateY(-14px) rotate(0); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(70px) rotate(360deg); opacity: 0; } }
+@keyframes sparkle    { 0%,100% { transform: scale(0) rotate(0); opacity: 0; } 50% { transform: scale(1) rotate(90deg); opacity: 1; } }
+
+.a-bounce { animation: icoBounce 2.2s ease-in-out infinite; display:inline-block; }
+.a-sway   { animation: icoSway 2.6s ease-in-out infinite; display:inline-block; transform-origin: 50% 90%; }
+.a-float  { animation: icoFloat 3s ease-in-out infinite; display:inline-block; }
+.a-coin   { animation: icoCoin 3.2s ease-in-out infinite; display:inline-block; }
+.a-pulse  { animation: icoPulse 1.8s ease-in-out infinite; display:inline-block; }
+.a-shake  { animation: icoShake 3.4s ease-in-out infinite; display:inline-block; }
+.a-ring   { animation: icoRing 3.6s ease-in-out infinite; display:inline-block; transform-origin: 50% 10%; }
+.a-flip   { animation: icoFlip 3.4s ease-in-out infinite; display:inline-block; }
+.a-rise   { animation: icoRise 2.4s ease-in-out infinite; display:inline-block; }
+.a-spin   { animation: icoSpin 9s linear infinite; display:inline-block; }
+
+/* summary tiles: bold gradients that slowly drift, white text, glass icon */
+.dash-v3 .tile { color: #fff !important; border: 0 !important; background-size: 220% 220% !important; animation: tileGrad 9s ease infinite;
+  box-shadow: 0 12px 24px -10px var(--tg, rgba(59,130,246,.6)) !important; backdrop-filter: none; overflow: hidden; }
+.dash-v3 .tile.tone-blue   { background-image: linear-gradient(135deg,#2563EB,#38BDF8,#6366F1) !important; --tg: rgba(37,99,235,.65); }
+.dash-v3 .tile.tone-amber  { background-image: linear-gradient(135deg,#F59E0B,#FB923C,#F97316) !important; --tg: rgba(249,115,22,.65); }
+.dash-v3 .tile.tone-indigo { background-image: linear-gradient(135deg,#4F46E5,#A855F7,#6366F1) !important; --tg: rgba(99,102,241,.65); }
+.dash-v3 .tile.tone-teal   { background-image: linear-gradient(135deg,#0D9488,#2DD4BF,#06B6D4) !important; --tg: rgba(13,148,136,.65); }
+.dash-v3 .tile.tone-green  { background-image: linear-gradient(135deg,#16A34A,#4ADE80,#10B981) !important; --tg: rgba(22,163,74,.65); }
+.dash-v3 .tile.tone-red    { background-image: linear-gradient(135deg,#DC2626,#FB7185,#F43F5E) !important; --tg: rgba(225,29,72,.65); }
+.dash-v3 .tile::before { background: rgba(255,255,255,.55) !important; }
+.dash-v3 .tile::after { background: #fff !important; opacity: .13 !important; }
+.dash-v3 .tile .tile-value { color: #fff !important; text-shadow: 0 2px 10px rgba(0,0,0,.18); }
+.dash-v3 .tile .tile-label { color: rgba(255,255,255,.92) !important; }
+.dash-v3 .tile .ico { background: rgba(255,255,255,.25) !important; color: #fff !important; box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.35); }
+.dash-v3 .tile .ico i { font-size: 1.15rem; }
+.dash-v3 .tile > .shine { position:absolute; top:0; bottom:0; width:40%; left:0; background: linear-gradient(100deg, transparent, rgba(255,255,255,.35), transparent);
+  animation: sheen 5.5s ease-in-out infinite; pointer-events:none; }
+.dash-v3 .tile:nth-child(2) > .shine { animation-delay: .6s; } .dash-v3 .tile:nth-child(3) > .shine { animation-delay: 1.2s; }
+.dash-v3 .tile:nth-child(4) > .shine { animation-delay: 1.8s; } .dash-v3 .tile:nth-child(5) > .shine { animation-delay: 2.4s; } .dash-v3 .tile:nth-child(6) > .shine { animation-delay: 3s; }
+
+/* quick-action tiles: rainbow icon chips that move */
+.dash-v3 .action-tile .ico { color: #fff !important; box-shadow: 0 8px 16px -6px rgba(15,23,42,.35); width: 2.7rem; height: 2.7rem; }
+.dash-v3 .action-tile .ico.ico-red    { background: linear-gradient(135deg,#EF4444,#F97316) !important; }
+.dash-v3 .action-tile .ico.ico-amber  { background: linear-gradient(135deg,#F59E0B,#FACC15) !important; }
+.dash-v3 .action-tile .ico.ico-indigo { background: linear-gradient(135deg,#6366F1,#A855F7) !important; }
+.dash-v3 .action-tile .ico.ico-purple { background: linear-gradient(135deg,#8B5CF6,#EC4899) !important; }
+.dash-v3 .action-tile .ico.ico-green  { background: linear-gradient(135deg,#10B981,#22D3EE) !important; }
+.dash-v3 .action-tile .ico.ico-blue   { background: linear-gradient(135deg,#3B82F6,#06B6D4) !important; }
+.dash-v3 .action-tile:hover .ico i { animation-duration: .9s; }
+
+/* money tiles (Expenditure / Profit-Loss) */
+.money-tile { position: relative; display: flex; align-items: center; gap: .9rem; padding: 1rem 1.1rem; border-radius: 1.2rem; color: #fff; overflow: hidden;
+  text-decoration: none; box-shadow: 0 14px 28px -12px var(--mg, rgba(79,70,229,.6)); transition: transform .2s ease; background-size: 200% 200%; animation: tileGrad 8s ease infinite; }
+.money-tile:hover { transform: translateY(-3px) scale(1.01); }
+.money-tile .m-ico { width: 3.1rem; height: 3.1rem; border-radius: 1rem; background: rgba(255,255,255,.25); display:flex; align-items:center; justify-content:center; font-size: 1.4rem; flex-shrink: 0;
+  box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.4); }
+.money-tile .m-title { font-weight: 900; font-size: 1.02rem; line-height: 1.2; }
+.money-tile .m-sub { font-size: .76rem; opacity: .92; margin-top: .1rem; }
+.money-tile .m-go { margin-left: auto; opacity: .9; }
+.money-tile .coin { position: absolute; font-size: 1rem; top: 0; animation: coinFall 3.2s ease-in infinite; pointer-events: none; }
+.money-tile .spark { position: absolute; width: .6rem; height: .6rem; background: #fff; clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); animation: sparkle 2.6s ease-in-out infinite; pointer-events: none; }
+.money-exp  { background-image: linear-gradient(120deg,#F97316,#EC4899,#F59E0B); --mg: rgba(236,72,153,.55); }
+.money-prof { background-image: linear-gradient(120deg,#059669,#14B8A6,#22C55E); --mg: rgba(5,150,105,.55); }
+
+/* hero: a few more things floating around */
+.floaty.f5 { left: 18%; top: 52%; animation-delay: -2s; background: rgba(250,204,21,.35); }
+.floaty.f6 { right: 18%; top: 8%; animation-delay: -4s; background: rgba(244,114,182,.35); }
+
+/* room cards: each building gets its own colour */
+.dash-v3 .room-block[data-hostel="Old Hostel"] .room-header { background: linear-gradient(90deg,#F59E0B,#F97316) !important; color: #fff !important; }
+.dash-v3 .room-block[data-hostel="New Hostel"] .room-header { background: linear-gradient(90deg,#4F46E5,#06B6D4) !important; color: #fff !important; }
+.dash-v3 .room-header .occupancy-badge { background: rgba(255,255,255,.92); color: #0F172A; }
+.dash-v3 .room-header .occupancy-badge.occupancy-full { background: #FEE2E2; color: #B91C1C; }
+.dash-v3 .room-header .occupancy-badge.occupancy-over { background: #FEF3C7; color: #B45309; box-shadow: 0 0 0 2px rgba(245,158,11,.5); animation: icoPulse 2s ease-in-out infinite; }
+.dash-v3 .mini-stat:nth-child(1) { background: #EFF6FF; } .dash-v3 .mini-stat:nth-child(2) { background: #ECFDF5; }
+.dash-v3 .mini-stat:nth-child(3) { background: #FFF1F2; }
+.dash-v3 .mini-stat.text-success:nth-child(3) { background: #ECFDF5; }
+.dash-v3 .student-card { transition: transform .18s ease, box-shadow .18s ease; }
+.dash-v3 .student-card:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(15,23,42,.10); }
+
+/* ADJUSTING (student added beyond the room limit) */
+.adjust-tag { display: inline-flex; align-items: center; gap: .3rem; margin-top: .25rem; font-size: 11px; font-weight: 800; color: #B45309; background: #FEF3C7;
+  border: 1px solid #FCD34D; border-radius: 999px; padding: .1rem .55rem; }
+.adjust-card { display: flex; gap: .75rem; align-items: flex-start; padding: .85rem; border: 2px dashed #CBD5E1; border-radius: 1rem; cursor: pointer; background: #F8FAFC; transition: all .2s ease; }
+.adjust-card input { margin-top: .35rem; width: 1.2rem; height: 1.2rem; accent-color: #F59E0B; flex-shrink: 0; }
+.adjust-card .adjust-ico { width: 2.4rem; height: 2.4rem; border-radius: .8rem; background: #FEF3C7; color: #B45309; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.adjust-card b { display: block; color: #0F172A; }
+.adjust-card small { display: block; color: #64748B; font-size: .74rem; line-height: 1.35; margin-top: .1rem; }
+.adjust-card:has(input:checked) { border-color: #F59E0B; border-style: solid; background: #FFFBEB; box-shadow: 0 6px 18px -8px rgba(245,158,11,.6); }
+.adjust-card:has(input:checked) .adjust-ico i { animation: icoSway 1.6s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .a-bounce,.a-sway,.a-float,.a-coin,.a-pulse,.a-shake,.a-ring,.a-flip,.a-rise,.a-spin,
+  .dash-v3 .tile, .dash-v3 .tile > .shine, .money-tile, .money-tile .coin, .money-tile .spark,
+  .dash-v3 .room-header .occupancy-badge.occupancy-over { animation: none !important; }
+}

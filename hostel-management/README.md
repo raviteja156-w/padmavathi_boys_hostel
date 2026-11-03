@@ -225,3 +225,19 @@ only runs after you press Yes. It never writes SQL, never sees passwords/keys, a
 - Overall profit = Hostel + Canteen; "after Home spending" also subtracts *Home* expenses
 - Rent income also reads the backup copies kept by *Delete All Data* (each payment counted once), so past months stay correct
   until a backup is permanently deleted.
+
+
+---
+
+## Round 3: Adjusting, bulk entry, Hostel/Home income, colourful dashboard
+
+- **Adjusting** (Add Student / Edit Student): tick the box to put a student in a room that is already at its limit. He gets an
+  "Adjusting" tag, the room shows e.g. `4 / 3 occupied • +1 adjusting`. Without the box the normal "room is full" rule applies.
+- **Expenditure & Income page** is now 3 steps: (1) month at a glance for Hostel / Canteen / Home, (2) add many expenses or many
+  income rows at once (or paste a list like `Rice 10 60`), (3) every entry of the month per section with delete buttons.
+- **Hostel income and Home income** can be typed in (table `other_income`); student rent and guest money still count automatically
+  as Hostel income. Profit / Loss and the AI agent use the same numbers.
+- **AI agent** can now propose several expenses in one confirmation (`propose_add_expenses`) and income for any section
+  (`propose_add_income`).
+- Dashboard: gradient summary cards, animated icons (respecting "reduce motion"), money tiles, coloured room headers.
+- Fixed: a validation error on the Edit Student page used to crash the page (Old balance field).

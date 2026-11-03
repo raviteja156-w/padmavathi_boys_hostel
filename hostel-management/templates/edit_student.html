@@ -73,6 +73,15 @@
       <p class="text-xs text-slate-400 mt-1">Rent is due on this day of every month, and the student appears in the Due List from that day until paid.</p>
     </div>
 
+    <label class="adjust-card">
+      <input type="checkbox" name="adjusting" value="1" {{ 'checked' if student.adjusting }}>
+      <span class="adjust-ico"><i class="fa-solid fa-people-arrows"></i></span>
+      <span>
+        <b>Adjusting</b>
+        <small>Tick this to add the student even if the room is already full (more than its sharing limit). He will show an “Adjusting” tag on the dashboard.</small>
+      </span>
+    </label>
+
     <div class="flex gap-3">
       <a href="{{ url_for('student_payment_details', student_id=student.id) }}" class="btn-outline flex-1 text-center py-3.5"><i class="fa-solid fa-indian-rupee-sign mr-1"></i>Payments</a>
       <a href="{{ url_for('admin_dashboard') }}" class="btn-outline flex-1 text-center py-3.5">Cancel</a>

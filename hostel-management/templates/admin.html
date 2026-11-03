@@ -118,6 +118,8 @@
       <span class="floaty f2"><i class="fa-solid fa-key"></i></span>
       <span class="floaty f3"><i class="fa-solid fa-indian-rupee-sign"></i></span>
       <span class="floaty f4"><i class="fa-solid fa-utensils"></i></span>
+      <span class="floaty f5"><i class="fa-solid fa-coins"></i></span>
+      <span class="floaty f6"><i class="fa-solid fa-bell"></i></span>
     </div>
   </section>
 
@@ -135,37 +137,37 @@
   <!-- SUMMARY CARDS (colour-coded; same figures as before) -->
   <section class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4 mb-5 sm:mb-7">
     <a href="{{ url_for('calculation', card='students') }}" class="tile tone-blue rise rise-1" style="display:block;text-decoration:none;color:inherit" title="Tap to see how this number is calculated">
-      <span class="ico ico-blue mb-2"><i class="fa-solid fa-users"></i></span>
+      <span class="shine"></span><span class="ico ico-blue mb-2"><i class="fa-solid fa-users a-bounce"></i></span>
       <div class="tile-value" data-count="{{ stats.total }}">{{ stats.total }}</div>
       <div class="tile-label">Total Students</div>
       <div class="text-[10px] mt-1 opacity-60">Tap for calculation ›</div>
     </a>
     <a href="{{ url_for('calculation', card='old') }}" class="tile tone-amber rise rise-1" style="display:block;text-decoration:none;color:inherit" title="Tap to see how this number is calculated">
-      <span class="ico ico-amber mb-2"><i class="fa-solid fa-house"></i></span>
+      <span class="shine"></span><span class="ico ico-amber mb-2"><i class="fa-solid fa-house a-sway"></i></span>
       <div class="tile-value" data-count="{{ stats.old_count }}">{{ stats.old_count }}</div>
       <div class="tile-label">Old Hostel</div>
       <div class="text-[10px] mt-1 opacity-60">Tap for calculation ›</div>
     </a>
     <a href="{{ url_for('calculation', card='new') }}" class="tile tone-indigo rise rise-2" style="display:block;text-decoration:none;color:inherit" title="Tap to see how this number is calculated">
-      <span class="ico ico-indigo mb-2"><i class="fa-solid fa-city"></i></span>
+      <span class="shine"></span><span class="ico ico-indigo mb-2"><i class="fa-solid fa-city a-float"></i></span>
       <div class="tile-value" data-count="{{ stats.new_count }}">{{ stats.new_count }}</div>
       <div class="tile-label">New Hostel</div>
       <div class="text-[10px] mt-1 opacity-60">Tap for calculation ›</div>
     </a>
     <a href="{{ url_for('calculation', card='rent') }}" class="tile tone-teal rise rise-2" style="display:block;text-decoration:none;color:inherit" title="Tap to see how this number is calculated">
-      <span class="ico ico-blue mb-2"><i class="fa-solid fa-hand-holding-dollar"></i></span>
+      <span class="shine"></span><span class="ico ico-blue mb-2"><i class="fa-solid fa-hand-holding-dollar a-rise"></i></span>
       <div class="tile-value" data-count="{{ stats.total_rent|round|int }}" data-prefix="₹">₹{{ '{:,.0f}'.format(stats.total_rent) }}</div>
       <div class="tile-label">Total Rent to Receive</div>
       <div class="text-[10px] mt-1 opacity-60">Tap for calculation ›</div>
     </a>
     <a href="{{ url_for('calculation', card='paid') }}" class="tile tone-green rise rise-3" style="display:block;text-decoration:none;color:inherit" title="Tap to see how this number is calculated">
-      <span class="ico ico-green mb-2"><i class="fa-solid fa-sack-dollar"></i></span>
+      <span class="shine"></span><span class="ico ico-green mb-2"><i class="fa-solid fa-sack-dollar a-pulse"></i></span>
       <div class="tile-value" data-count="{{ stats.total_paid|round|int }}" data-prefix="₹">₹{{ '{:,.0f}'.format(stats.total_paid) }}</div>
       <div class="tile-label">Total Paid</div>
       <div class="text-[10px] mt-1 opacity-60">Tap for calculation ›</div>
     </a>
     <a href="{{ url_for('calculation', card='due') }}" class="tile tone-red rise rise-3" style="display:block;text-decoration:none;color:inherit" title="Tap to see how this number is calculated">
-      <span class="ico ico-red mb-2"><i class="fa-solid fa-triangle-exclamation"></i></span>
+      <span class="shine"></span><span class="ico ico-red mb-2"><i class="fa-solid fa-triangle-exclamation a-shake"></i></span>
       <div class="tile-value" data-count="{{ stats.total_balance|round|int }}" data-prefix="₹">₹{{ '{:,.0f}'.format(stats.total_balance) }}</div>
       <div class="tile-label">Balance Due</div>
       <div class="text-[10px] mt-1 opacity-60">Tap for calculation ›</div>
@@ -176,39 +178,55 @@
   <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-5 sm:mb-7">
     <a href="{{ url_for('due_list') }}" class="action-tile">
       {% if due_count %}<span class="corner-count" style="background:#DC2626">{{ due_count }}</span>{% endif %}
-      <span class="ico ico-red mb-2"><i class="fa-solid fa-calendar-days"></i></span>
+      <span class="ico ico-red mb-2"><i class="fa-solid fa-bell a-ring"></i></span>
       <div class="font-extrabold text-slate-800">Due List</div>
       <div class="text-xs text-slate-500">Students due for payment</div>
     </a>
     <a href="{{ url_for('admin_payments') }}" class="action-tile">
       {% if pending_payments_count %}<span class="corner-count" style="background:#F59E0B">{{ pending_payments_count }}</span>{% endif %}
-      <span class="ico ico-amber mb-2"><i class="fa-solid fa-hourglass-half"></i></span>
+      <span class="ico ico-amber mb-2"><i class="fa-solid fa-hourglass-half a-flip"></i></span>
       <div class="font-extrabold text-slate-800">Today's Payments</div>
       <div class="text-xs text-slate-500">Submissions awaiting confirmation</div>
     </a>
     <a href="{{ url_for('admin_notes') }}" class="action-tile">
       {% if admin_nav and admin_nav.notes %}<span class="corner-count" style="background:#CA8A04">{{ admin_nav.notes }}</span>{% endif %}
-      <span class="ico ico-indigo mb-2"><i class="fa-solid fa-note-sticky"></i></span>
+      <span class="ico ico-indigo mb-2"><i class="fa-solid fa-note-sticky a-sway"></i></span>
       <div class="font-extrabold text-slate-800">Notes</div>
       <div class="text-xs text-slate-500">Your own notes</div>
     </a>
     <a href="{{ url_for('pause_bed') }}" class="action-tile">
       {% if admin_nav and admin_nav.pauses %}<span class="corner-count" style="background:#7C3AED">{{ admin_nav.pauses }}</span>{% endif %}
-      <span class="ico ico-purple mb-2"><i class="fa-solid fa-bed-pulse pulse-soft"></i></span>
+      <span class="ico ico-purple mb-2"><i class="fa-solid fa-bed-pulse a-pulse"></i></span>
       <div class="font-extrabold text-slate-800">Pause Bed <span class="badge-new">NEW</span></div>
       <div class="text-xs text-slate-500">Temporarily pause beds</div>
+    </a>
+  </section>
+
+  <!-- MONEY: Expenditure / Income and Profit-Loss -->
+  <section class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-5 sm:mb-7">
+    <a href="{{ url_for('expenditure') }}" class="money-tile money-exp">
+      <span class="coin" style="left:62%;animation-delay:0s">🪙</span><span class="coin" style="left:78%;animation-delay:1.1s">💸</span><span class="coin" style="left:90%;animation-delay:2s">🪙</span>
+      <span class="m-ico"><i class="fa-solid fa-receipt a-sway"></i></span>
+      <span><span class="m-title block">Expenditure &amp; Income</span><span class="m-sub block">Hostel, Canteen and Home &mdash; add many items at once</span></span>
+      <i class="fa-solid fa-arrow-right m-go a-float"></i>
+    </a>
+    <a href="{{ url_for('profit_loss') }}" class="money-tile money-prof">
+      <span class="spark" style="left:58%;top:18%"></span><span class="spark" style="left:80%;top:62%;animation-delay:1.3s"></span><span class="spark" style="left:92%;top:20%;animation-delay:.7s"></span>
+      <span class="m-ico"><i class="fa-solid fa-chart-line a-rise"></i></span>
+      <span><span class="m-title block">Profit / Loss</span><span class="m-sub block">Hostel, Canteen and Overall &mdash; this month and all time</span></span>
+      <i class="fa-solid fa-arrow-right m-go a-float"></i>
     </a>
   </section>
 
   <!-- CLARITY: how the cards are made + hostel calculator -->
   <section class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-5 sm:mb-7">
     <a href="{{ url_for('how_cards_work_page') }}" class="action-tile" style="background:linear-gradient(135deg,#1E3A8A,#4F46E5);color:#fff;border:0">
-      <span class="ico mb-2" style="background:rgba(255,255,255,.18);color:#fff"><i class="fa-solid fa-play"></i></span>
+      <span class="ico mb-2" style="background:rgba(255,255,255,.18);color:#fff"><i class="fa-solid fa-play a-pulse"></i></span>
       <div class="font-extrabold">కార్డులు ఎలా లెక్కిస్తారు? <span class="badge-new">NEW</span></div>
       <div class="text-xs" style="color:#C7D2FE">Animated explainer in Telugu with today's live numbers, room by room</div>
     </a>
     <a href="{{ url_for('hostel_calculator') }}" class="action-tile">
-      <span class="ico ico-green mb-2"><i class="fa-solid fa-calculator"></i></span>
+      <span class="ico ico-green mb-2"><i class="fa-solid fa-calculator a-bounce"></i></span>
       <div class="font-extrabold text-slate-800">Hostel Calculator <span class="badge-new">NEW</span></div>
       <div class="text-xs text-slate-500">Go room by room, tap names for payments, add totals yourself</div>
     </a>
@@ -283,8 +301,8 @@
         <div class="room-card">
           <div class="room-header">
             <span><i class="fa-solid fa-door-open mr-1.5"></i>{{ room_label(room_no).upper() }}</span>
-            <span class="occupancy-badge {{ 'occupancy-full' if students and students|length >= students[0].sharing }}">
-              {{ students|length }} / {{ students[0].sharing if students else '—' }} occupied
+            <span class="occupancy-badge {{ 'occupancy-full' if students and students|length >= students[0].sharing }} {{ 'occupancy-over' if students and students|length > students[0].sharing }}">
+              {{ students|length }} / {{ students[0].sharing if students else '—' }} occupied{% if students and students|length > students[0].sharing %} &bull; +{{ students|length - students[0].sharing }} adjusting{% endif %}
             </span>
           </div>
           <div class="room-body">
@@ -324,6 +342,9 @@
                        onclick="openPhotoModal(this.dataset.receiptUrl, this.dataset.receiptName); return false;">Receipt</a>
                     {% endif %}
                   </p>
+                  {% endif %}
+                  {% if s.adjusting %}
+                  <p class="adjust-tag"><i class="fa-solid fa-people-arrows"></i> Adjusting</p>
                   {% endif %}
                   {% if s.old_balance and s.old_balance > 0 %}
                   <p class="text-[11px] font-bold text-violet-700 bg-violet-100 rounded-full px-2 py-0.5 mt-1 inline-block">

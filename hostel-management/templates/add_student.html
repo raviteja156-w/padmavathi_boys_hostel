@@ -76,6 +76,15 @@
       <p class="text-xs text-slate-400 mt-1">Rent is due on this day of every month, and the student appears in the Due List from that day until paid.</p>
     </div>
 
+    <label class="adjust-card">
+      <input type="checkbox" name="adjusting" value="1" {{ 'checked' if form.get('adjusting') }}>
+      <span class="adjust-ico"><i class="fa-solid fa-people-arrows"></i></span>
+      <span>
+        <b>Adjusting</b>
+        <small>Tick this to add the student even if the room is already full (more than its sharing limit). He will show an “Adjusting” tag on the dashboard.</small>
+      </span>
+    </label>
+
     <button type="submit" class="btn-primary w-full text-base py-4 flex items-center justify-center gap-2">
       <i class="fa-solid fa-floppy-disk"></i> SAVE STUDENT
     </button>

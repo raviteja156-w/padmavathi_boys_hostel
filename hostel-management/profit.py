@@ -5,6 +5,7 @@ How the numbers are worked out (the same definitions are used by the page AND by
 
   HOSTEL income   = rent collected (every CONFIRMED student payment dated in the month, Old + New Hostel)
                     + guest money (what guests paid, counted in the month they checked in)
+                    + Hostel income typed in on the Expenditure page
   HOSTEL expense  = Expenditure entries with category "Hostel"
   HOSTEL profit   = HOSTEL income - HOSTEL expense
 
@@ -12,7 +13,8 @@ How the numbers are worked out (the same definitions are used by the page AND by
                     (exactly what the Expenditure page already shows)
 
   OVERALL profit  = HOSTEL profit + CANTEEN profit
-  After Home      = OVERALL profit - expenses with category "Home"   (home / personal spending, shown separately)
+  HOME net        = Home income typed in on the Expenditure page - expenses with category "Home"
+  After Home      = OVERALL profit + HOME net                        (home / personal money, shown separately)
 
 Where the rent figures come from: CONFIRMED rows of payment_submissions. "Delete All Data" removes those rows
 from the live table but keeps a backup copy, so the backups that are still available (not permanently deleted)
@@ -108,45 +110,65 @@ def _canteen_income_by_month(db):
     return out
 
 
-def _build(key, label, rent, guest, exp, canteen_in):
+def _other_income_by_month(db):
+    """Hostel / Home income typed in on the Expenditure page."""
+    out = {}
+    try:
+        for r in db.execute("SELECT substr(income_date,1,7) AS m, category, COALESCE(SUM(amount),0) AS t "
+                            "FROM other_income GROUP BY 1, 2").fetchall():
+            out.setdefault(r['m'], {})[r['category']] = float(r['t'] or 0)
+    except Exception:
+        try:
+            db.conn.rollback()
+        except Exception:
+            pass
+    return out
+
+
+def _build(key, label, rent, guest, exp, canteen_in, other=None):
+    other = other or {}
     old, new = rent.get('Old Hostel', 0.0), rent.get('New Hostel', 0.0)
     rent_total = old + new
-    hostel_income = rent_total + guest
+    hostel_other = other.get('Hostel', 0.0)
+    home_income = other.get('Home', 0.0)
+    hostel_income = rent_total + guest + hostel_other
     hostel_exp = exp.get('Hostel', 0.0)
     canteen_exp = exp.get('Canteen', 0.0)
     home_exp = exp.get('Home', 0.0)
     hostel_net = hostel_income - hostel_exp
     canteen_net = canteen_in - canteen_exp
     overall = hostel_net + canteen_net
+    home_net = home_income - home_exp
     r2 = lambda v: round(v, 2)
     return {
         'key': key, 'label': label,
         'rent_old': r2(old), 'rent_new': r2(new), 'rent_total': r2(rent_total),
         'rent_cash': r2(rent.get('cash', 0.0)), 'rent_online': r2(rent_total - rent.get('cash', 0.0)),
         'payments_count': rent.get('count', 0),
-        'guest_income': r2(guest),
+        'guest_income': r2(guest), 'hostel_other_income': r2(hostel_other),
         'hostel_income': r2(hostel_income), 'hostel_expense': r2(hostel_exp), 'hostel_net': r2(hostel_net),
         'canteen_income': r2(canteen_in), 'canteen_expense': r2(canteen_exp), 'canteen_net': r2(canteen_net),
-        'home_expense': r2(home_exp),
-        'overall_net': r2(overall), 'overall_after_home': r2(overall - home_exp),
-        'total_income': r2(hostel_income + canteen_in),
+        'home_income': r2(home_income), 'home_expense': r2(home_exp), 'home_net': r2(home_net),
+        'overall_net': r2(overall), 'overall_after_home': r2(overall + home_net),
+        'total_income': r2(hostel_income + canteen_in + home_income),
         'total_expense': r2(hostel_exp + canteen_exp + home_exp),
     }
 
 
 def _all_data(db, ctx):
-    return _rent_by_month(db, ctx), _guest_by_month(db), _expense_by_month(db), _canteen_income_by_month(db)
+    return (_rent_by_month(db, ctx), _guest_by_month(db), _expense_by_month(db), _canteen_income_by_month(db),
+            _other_income_by_month(db))
 
 
 def month_report(db, ctx, key, data=None):
-    rent, guest, exp, cin = data or _all_data(db, ctx)
+    rent, guest, exp, cin, oth = data or _all_data(db, ctx)
     return _build(key, ctx['cycle_label'](key),
-                  rent.get(key, {}), guest.get(key, 0.0), exp.get(key, {}), cin.get(key, 0.0))
+                  rent.get(key, {}), guest.get(key, 0.0), exp.get(key, {}), cin.get(key, 0.0), oth.get(key, {}))
 
 
 def all_time_report(db, ctx, data=None):
-    rent, guest, exp, cin = data or _all_data(db, ctx)
-    keys = sorted(set(rent) | set(guest) | set(exp) | set(cin))
+    rent, guest, exp, cin, oth = data or _all_data(db, ctx)
+    keys = sorted(set(rent) | set(guest) | set(exp) | set(cin) | set(oth))
     tot_rent = {'Old Hostel': 0.0, 'New Hostel': 0.0, 'cash': 0.0, 'count': 0}
     for k in keys:
         for f in tot_rent:
@@ -155,8 +177,12 @@ def all_time_report(db, ctx, data=None):
     for k in keys:
         for c, v in exp.get(k, {}).items():
             tot_exp[c] = tot_exp.get(c, 0.0) + v
+    tot_oth = {}
+    for k in keys:
+        for c, v in oth.get(k, {}).items():
+            tot_oth[c] = tot_oth.get(c, 0.0) + v
     rep = _build('all', 'All time' + (f' ({ctx["cycle_label"](keys[0])} - {ctx["cycle_label"](keys[-1])})' if keys else ''),
-                 tot_rent, sum(guest.values()), tot_exp, sum(cin.values()))
+                 tot_rent, sum(guest.values()), tot_exp, sum(cin.values()), tot_oth)
     rep['months'] = len(keys)
     return rep
 
@@ -207,12 +233,11 @@ def report_for(db, ctx, which):
 
 def register(app, ctx):
     login_required = ctx['login_required']
-    get_db = ctx['get_db']
 
     @app.route('/admin/profit-loss', endpoint='profit_loss')
     @login_required
     def profit_loss_page():
-        db = get_db()
+        db = ctx['get_db']()
         today = ctx['today_ist']()
         this_key = _month_key(today)
         last_key = resolve_month('last', ctx)
