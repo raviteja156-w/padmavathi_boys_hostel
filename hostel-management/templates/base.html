@@ -89,10 +89,16 @@
         href="{{ url_for('static', filename='css/style.css') }}"
     >
 
+    <!-- Navy professional theme (loads after style.css) -->
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/navy-theme.css') }}"
+    >
+
     {% block extra_head %}{% endblock %}
 </head>
 
-<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col animate-fade-in">
+<body class="text-slate-800 font-sans min-h-screen flex flex-col animate-fade-in">
 
     {# When the admin is logged in, EVERY page (except the login page) gets the full admin menu, so every part of the app is one tap away. #}
     {% set is_admin_area = session.get('admin_logged_in') and request.endpoint != 'admin_login' %}
