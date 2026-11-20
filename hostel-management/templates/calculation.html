@@ -49,10 +49,17 @@
         <span class="text-xs font-bold text-slate-700">{% if money %}₹{% endif %}{{ '{:,.0f}'.format(r.value) }}</span>
       </div>
       {% for st in r.students %}
+{% if st.left %}
+      <div class="flex justify-between items-center gap-3 py-1.5 border-t border-slate-100 first:border-0">
+        <span class="min-w-0 truncate text-sm text-slate-800">{{ st.name }} <span class="text-[11px] font-bold text-white bg-slate-500 rounded-full px-1.5 py-0.5">LEFT</span></span>
+        <span class="shrink-0 text-sm font-semibold text-slate-700">₹{{ '{:,.0f}'.format(st.value) }}</span>
+      </div>
+      {% else %}
       <a href="{{ url_for('student_payment_details', student_id=st.id) }}" class="flex justify-between items-center gap-3 py-1.5 border-t border-slate-100 first:border-0" style="text-decoration:none">
         <span class="min-w-0 truncate text-sm text-slate-800">{{ st.name }}{% if st.detail %} <span class="text-[11px] text-slate-400">({{ st.detail }})</span>{% endif %}</span>
         <span class="shrink-0 text-sm font-semibold text-slate-700">{% if money %}₹{{ '{:,.0f}'.format(st.value) }}{% else %}1{% endif %}</span>
       </a>
+      {% endif %}
       {% endfor %}
       {% if money %}
       <div class="mt-2 pt-2 border-t border-dashed border-slate-200 text-[12px] text-slate-500 break-words">

@@ -241,3 +241,12 @@ only runs after you press Yes. It never writes SQL, never sees passwords/keys, a
   (`propose_add_income`).
 - Dashboard: gradient summary cards, animated icons (respecting "reduce motion"), money tiles, coloured room headers.
 - Fixed: a validation error on the Edit Student page used to crash the page (Old balance field).
+
+---
+
+## 🆕 Latest changes
+
+- **Faster pages:** Tailwind is now pre-built (`static/css/tailwind.css`) instead of compiled in the browser; text responses are gzip-compressed; links are prefetched on touch/hover. After adding *new* Tailwind classes, rebuild the CSS (see `tools/tailwind/tailwind.config.js`).
+- **Stay on the same page:** saving/editing/deleting/importing returns to the page you were on. Sessions no longer expire on every server restart (stable session key; set `SECRET_KEY` in the environment for best security).
+- **Acknowledgements with icons:** every action shows a toast with an icon + title (Saved, Deleted, Restored, Payment confirmed, ...). This was previously broken (messages were read before the page had loaded them).
+- **Tour:** Quit button, instant Next/Back, teacher character with a stick who explains each point in Telugu (browser voice `te-IN`), Pause & act / Resume.

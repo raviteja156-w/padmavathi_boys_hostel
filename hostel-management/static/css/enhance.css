@@ -1,0 +1,125 @@
+/* Speed / mobile / acknowledgement helpers + dashboard tour. Additive only: nothing here changes existing layouts. */
+html { -webkit-tap-highlight-color: transparent; }
+a, button, input, select, textarea, label, summary, [role="button"] { touch-action: manipulation; }  /* no 300ms tap delay */
+img { content-visibility: auto; }
+
+/* extra hero chips */
+.hchip-blue i { color: #93C5FD; }
+.hchip-tour { cursor: pointer; border: 1px dashed rgba(255,255,255,.55) !important; font-family: inherit; }
+.hchip-tour i { color: #FDE68A; }
+
+/* busy button (shown while a form is being saved) */
+.is-busy { position: relative; opacity: .85; pointer-events: none; }
+.is-busy .busy-spin { display: inline-block; width: .9em; height: .9em; margin-right: .45em; vertical-align: -.1em;
+  border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: busyspin .7s linear infinite; }
+@keyframes busyspin { to { transform: rotate(360deg); } }
+
+/* toasts: easier to read on phones, a little longer on screen is handled in app.js */
+#toastContainer .toast { box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+@media (max-width: 640px) { #toastContainer { top: 4.25rem; } }
+
+/* ------------------------------ TOUR ------------------------------ */
+
+/* ===================== Acknowledgement toasts (icon + title + message) ===================== */
+#toastContainer { z-index: 90; pointer-events: none; }
+#toastContainer .toast.ack { pointer-events: auto; position: relative; overflow: hidden; display: flex; align-items: center; gap: .7rem;
+  width: min(24rem, 100%); padding: .7rem .8rem .8rem .7rem; border-radius: 1rem; background: #fff !important; color: #0F172A !important;
+  border: 1px solid #E2E8F0 !important; box-shadow: 0 14px 34px rgba(15,23,42,.28) !important; animation: ackin .22s cubic-bezier(.2,.9,.3,1.2); }
+@keyframes ackin { from { transform: translateX(24px) scale(.96); opacity: 0; } to { transform: none; opacity: 1; } }
+.ack .ack-ico { width: 2.5rem; height: 2.5rem; flex: 0 0 2.5rem; border-radius: .8rem; display: flex; align-items: center; justify-content: center; font-size: 1.15rem; color: #fff; }
+.ack .ack-ico i { animation: ackpop .35s .08s both cubic-bezier(.2,.9,.3,1.4); }
+@keyframes ackpop { from { transform: scale(.3) rotate(-25deg); opacity: 0; } to { transform: none; opacity: 1; } }
+.ack .ack-txt { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; flex: 1; }
+.ack .ack-txt b { font-size: .92rem; font-weight: 800; }
+.ack .ack-txt span { font-size: .8rem; color: #475569; overflow-wrap: anywhere; }
+.ack .toast-close { margin-left: .2rem; color: #94A3B8; cursor: pointer; padding: .35rem; align-self: flex-start; }
+.ack .ack-bar { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; transform-origin: left; animation: ackbar linear forwards; }
+@keyframes ackbar { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+.ack-success .ack-ico, .ack-success .ack-bar { background: #16A34A; }
+.ack-delete  .ack-ico, .ack-delete  .ack-bar { background: #EA580C; }
+.ack-warning .ack-ico, .ack-warning .ack-bar { background: #CA8A04; }
+.ack-info    .ack-ico, .ack-info    .ack-bar { background: #2563EB; }
+.ack-error   .ack-ico, .ack-error   .ack-bar { background: #DC2626; }
+.ack-error { border-color: #FECACA !important; }
+@media (prefers-reduced-motion: reduce) { #toastContainer .toast.ack, .ack .ack-ico i { animation: none; } }
+
+/* ===================== Dashboard tour with the teacher character ===================== */
+.tour-wrap { position: fixed; z-index: 80; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; align-items: flex-end; gap: .25rem;
+  padding: 0 .6rem calc(.6rem + env(safe-area-inset-bottom, 0px)); pointer-events: none; }
+.tour-wrap[hidden] { display: none; }
+.tour-wrap > * { pointer-events: auto; }
+.tour-char { width: 8.4rem; flex: 0 0 8.4rem; margin-bottom: -.2rem; filter: drop-shadow(0 8px 10px rgba(15,23,42,.25)); }
+.tour-char svg { width: 100%; height: auto; display: block; overflow: visible; }
+.tour-panel { position: relative; width: min(30rem, calc(100vw - 9.5rem)); max-height: 76vh; display: flex; flex-direction: column; overflow: hidden;
+  background: #fff; border-radius: 1.1rem; box-shadow: 0 18px 50px rgba(15,23,42,.38); border: 1px solid #E2E8F0; animation: tourin .12s ease-out; }
+@keyframes tourin { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+.tour-head { display: flex; align-items: center; gap: .6rem; padding: .65rem .8rem; color: #fff; background: linear-gradient(135deg,#1E3A8A,#4F46E5); }
+.tour-head .t-ico { width: 2rem; height: 2rem; border-radius: .6rem; background: rgba(255,255,255,.2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.tour-head .t-title { font-weight: 800; font-size: .95rem; line-height: 1.15; }
+.tour-head .t-sub { font-size: .68rem; opacity: .85; }
+.tour-dots { display: flex; gap: .28rem; margin-left: auto; }
+.tour-dots i { width: .42rem; height: .42rem; border-radius: 50%; background: rgba(255,255,255,.4); display: block; }
+.tour-dots i.on { background: #fff; }
+.tour-quit { margin-left: .4rem; background: #DC2626; color: #fff; border: 0; border-radius: 999px; min-height: 2.2rem; padding: 0 .8rem; font-weight: 800; font-size: .78rem;
+  display: inline-flex; align-items: center; gap: .35rem; cursor: pointer; flex-shrink: 0; }
+.tour-quit:hover { background: #B91C1C; }
+.tour-say { background: #FFFBEB; border-bottom: 1px solid #FDE68A; padding: .6rem .85rem; font-size: .95rem; line-height: 1.5; color: #78350F; font-weight: 600;
+  font-family: 'AppTelugu', 'Noto Sans Telugu', 'Gautami', 'Nirmala UI', system-ui, sans-serif; }
+.tour-say .tour-nov { display: block; margin-top: .25rem; font-size: .72rem; font-weight: 600; color: #B45309; font-family: system-ui, sans-serif; }
+.tour-body { padding: .75rem .9rem; overflow-y: auto; -webkit-overflow-scrolling: touch; font-size: .86rem; min-height: 4rem; }
+.tour-big { font-size: 1.9rem; font-weight: 800; line-height: 1; color: #1E3A8A; }
+.tour-big small { font-size: .78rem; font-weight: 700; color: #64748B; margin-left: .35rem; }
+.tour-chips { display: flex; flex-wrap: wrap; gap: .4rem; margin: .6rem 0; }
+.tour-chip { font-size: .72rem; font-weight: 700; padding: .25rem .6rem; border-radius: 999px; background: #EEF2FF; color: #3730A3; }
+.tour-chip.g { background: #DCFCE7; color: #166534; } .tour-chip.r { background: #FEE2E2; color: #991B1B; } .tour-chip.a { background: #FEF3C7; color: #92400E; }
+.tour-list { list-style: none; margin: .4rem 0 0; padding: 0; }
+.tour-list li { display: flex; justify-content: space-between; gap: .6rem; padding: .42rem 0; border-top: 1px solid #F1F5F9; }
+.tour-list li:first-child { border-top: 0; }
+.tour-list .n { font-weight: 700; min-width: 0; overflow-wrap: anywhere; } .tour-list .m { font-size: .72rem; color: #64748B; }
+.tour-list .r { text-align: right; font-weight: 700; flex-shrink: 0; font-size: .78rem; }
+.tour-empty { color: #64748B; padding: .5rem 0; }
+.tour-skel { height: 1rem; border-radius: .4rem; background: linear-gradient(90deg,#F1F5F9,#E2E8F0,#F1F5F9); background-size: 200% 100%; animation: tskel 1s linear infinite; margin: .5rem 0; }
+@keyframes tskel { to { background-position: -200% 0; } }
+.tour-foot { display: flex; flex-wrap: wrap; gap: .4rem; padding: .6rem .7rem; border-top: 1px solid #E2E8F0; background: #F8FAFC; }
+.tour-btn { flex: 1 1 auto; min-height: 44px; padding: .45rem .7rem; border-radius: .8rem; border: 1px solid #CBD5E1; background: #fff; color: #0F172A;
+  font-weight: 700; font-size: .82rem; display: inline-flex; align-items: center; justify-content: center; gap: .4rem; cursor: pointer; }
+.tour-btn.pri { background: #1E3A8A; border-color: #1E3A8A; color: #fff; }
+.tour-btn.warn { background: #FEF3C7; border-color: #FCD34D; color: #92400E; }
+.tour-btn.go { background: #DCFCE7; border-color: #86EFAC; color: #166534; }
+.tour-btn[disabled] { opacity: .45; cursor: default; }
+.tour-note { font-size: .7rem; color: #92400E; background: #FEF3C7; padding: .35rem .7rem; }
+body.tour-open main { padding-bottom: 22rem !important; }
+
+/* paused: the character shrinks to a small helper in the corner so the admin can work */
+.tour-mini { position: fixed; z-index: 80; left: .6rem; bottom: calc(.6rem + env(safe-area-inset-bottom, 0px)); display: flex; align-items: flex-end; gap: .4rem; }
+.tour-mini[hidden] { display: none; }
+.tour-mini .tour-char { width: 3.6rem; flex-basis: 3.6rem; margin: 0; }
+.tour-mini .mini-btns { display: flex; flex-direction: column; gap: .35rem; }
+.tour-mini button { border: 0; border-radius: 999px; min-height: 2.4rem; padding: 0 .9rem; font-weight: 800; font-size: .8rem; color: #fff; display: inline-flex; align-items: center; gap: .4rem; cursor: pointer; box-shadow: 0 8px 20px rgba(15,23,42,.35); }
+.tour-mini .m-resume { background: linear-gradient(135deg,#16A34A,#15803D); }
+.tour-mini .m-quit { background: #DC2626; }
+
+/* character animation */
+
+.tc-arm  { transform-origin: 68px 98px; }
+.tc-mouth { transform-origin: 50px 62px; }
+.tc-eyes { transform-origin: 50px 49px; animation: tcblink 4s infinite; }
+@keyframes tcblink { 0%,94%,100% { transform: scaleY(1); } 97% { transform: scaleY(.1); } }
+.tc-body { transform-origin: 50px 195px; animation: tcbreath 3s ease-in-out infinite; }
+@keyframes tcbreath { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-1.5px); } }
+.tour-char.talking .tc-arm { animation: tcpoint .9s ease-in-out infinite; }
+.tour-char.talking .tc-mouth { animation: tcmouth .24s ease-in-out infinite; }
+.tour-char.talking .tc-body { animation: tcbob .45s ease-in-out infinite; }
+@keyframes tcpoint { 0%,100% { transform: rotate(-8deg); } 50% { transform: rotate(14deg); } }
+@keyframes tcmouth { 0%,100% { transform: scaleY(.35); } 50% { transform: scaleY(1.15); } }
+@keyframes tcbob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-2.5px); } }
+.tour-char.idle .tc-arm { transform: rotate(-4deg); }
+.tour-char.idle .tc-mouth { transform: scaleY(.35); }
+
+@media (max-width: 640px) {
+  .tour-wrap { flex-direction: column; align-items: stretch; padding: 0 .5rem calc(.5rem + env(safe-area-inset-bottom, 0px)); }
+  .tour-char { width: 5.4rem; flex-basis: auto; align-self: flex-start; margin: 0 0 -.5rem .3rem; position: relative; z-index: 1; }
+  .tour-panel { width: auto; max-height: 64vh; }
+  body.tour-open main { padding-bottom: 70vh !important; }
+}
+@media (prefers-reduced-motion: reduce) { .tc-body, .tc-eyes, .tour-char.talking .tc-arm, .tour-char.talking .tc-mouth, .tour-char.talking .tc-body { animation: none; } }

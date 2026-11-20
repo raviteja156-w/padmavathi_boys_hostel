@@ -33,6 +33,8 @@
         <a href="{{ url_for('due_list') }}" class="hchip hchip-red"><i class="fa-solid fa-bell"></i><b>{{ due_count }}</b> due{% if due_today_count %} &bull; {{ due_today_count }} today{% endif %}</a>
         <a href="{{ url_for('due_list') }}#tomorrow" class="hchip hchip-amber"><i class="fa-solid fa-clock"></i><b>{{ tomorrow_count }}</b> tomorrow</a>
         <a href="{{ url_for('admin_payments') }}" class="hchip hchip-green"><i class="fa-solid fa-hourglass-half"></i><b>{{ pending_payments_count }}</b> to confirm</a>
+        <a href="{{ url_for('vacancies') }}" class="hchip hchip-blue" title="See every free bed"><i class="fa-solid fa-bed"></i><b>{{ vacancy_count }}</b> vacanc{{ 'y' if vacancy_count == 1 else 'ies' }}</a>
+        <button type="button" class="hchip hchip-tour" id="startTourBtn" data-tour-start><i class="fa-solid fa-route"></i> Take a Tour</button>
       </div>
     </div>
 
@@ -87,6 +89,7 @@
       <span class="shine"></span><span class="ico ico-green mb-2"><i class="fa-solid fa-sack-dollar a-pulse"></i></span>
       <div class="tile-value" data-count="{{ stats.total_paid|round|int }}" data-prefix="₹">₹{{ '{:,.0f}'.format(stats.total_paid) }}</div>
       <div class="tile-label">Total Paid</div>
+      {% if stats.left_paid %}<div class="text-[10px] mt-1 font-bold" style="color:#16A34A">incl. ₹{{ '{:,.0f}'.format(stats.left_paid) }} paid &amp; left ({{ stats.left_count }})</div>{% endif %}
       <div class="text-[10px] mt-1 opacity-60">Tap for calculation ›</div>
     </a>
     <a href="{{ url_for('calculation', card='due') }}" class="tile tone-red rise rise-3" style="display:block;text-decoration:none;color:inherit" title="Tap to see how this number is calculated">

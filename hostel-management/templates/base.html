@@ -12,76 +12,15 @@
         href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🏠%3C/text%3E%3C/svg%3E"
     >
 
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <!-- Tailwind CSS (pre-built, so pages paint instantly; no in-browser compile) -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
 
     <!-- Font Awesome -->
     <link
         rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
     >
-
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: {
-                            DEFAULT: '#1E3A8A',
-                            light: '#3B82F6',
-                            dark: '#152a63'
-                        },
-                        accent: '#3B82F6',
-                        success: '#16A34A',
-                        danger: '#DC2626'
-                    },
-
-                    fontFamily: {
-                        sans: ['Inter', 'system-ui', 'sans-serif']
-                    },
-
-                    animation: {
-                        'fade-in': 'fadeIn .4s ease-out',
-                        'slide-up': 'slideUp .3s ease-out',
-                        'pop': 'pop .25s ease-out'
-                    },
-
-                    keyframes: {
-                        fadeIn: {
-                            '0%': {
-                                opacity: 0
-                            },
-                            '100%': {
-                                opacity: 1
-                            }
-                        },
-
-                        slideUp: {
-                            '0%': {
-                                opacity: 0,
-                                transform: 'translateY(12px)'
-                            },
-                            '100%': {
-                                opacity: 1,
-                                transform: 'translateY(0)'
-                            }
-                        },
-
-                        pop: {
-                            '0%': {
-                                transform: 'scale(.85)',
-                                opacity: 0
-                            },
-                            '100%': {
-                                transform: 'scale(1)',
-                                opacity: 1
-                            }
-                        }
-                    }
-                }
-            }
-        };
-    </script>
 
     <!-- Custom CSS -->
     <link
@@ -97,10 +36,12 @@
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/motion-pics.css') }}">
 
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/enhance.css') }}">
+
     {% block extra_head %}{% endblock %}
 </head>
 
-<body class="text-slate-800 font-sans min-h-screen flex flex-col animate-fade-in">
+<body class="text-slate-800 font-sans min-h-screen flex flex-col">
 
     {# When the admin is logged in, EVERY page (except the login page) gets the full admin menu, so every part of the app is one tap away. #}
     {% set is_admin_area = session.get('admin_logged_in') and request.endpoint != 'admin_login' %}
@@ -399,6 +340,10 @@
     </script>
     {% endif %}
 
+
+    {% if is_admin_area %}
+    <script src="{{ url_for('static', filename='js/tour.js') }}" defer></script>
+    {% endif %}
 
     {% block extra_scripts %}{% endblock %}
 

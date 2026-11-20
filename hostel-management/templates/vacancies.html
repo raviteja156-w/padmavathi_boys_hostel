@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block title %}Vacancies — Padmavathi Boys hostel{% endblock %}
+{% block content %}
+<div class="animate-slide-up">
+
+  <section class="text-center py-3 sm:py-5 mb-2">
+    <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 text-primary text-2xl mb-3"><i class="fa-solid fa-bed"></i></div>
+    <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight mb-1">Vacancies</h1>
+    <p class="text-slate-500 text-sm">Free beds in every room, Old &amp; New Hostel.</p>
+  </section>
+
+  <section class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+    <div class="stat-card text-center"><div class="text-2xl font-extrabold text-success">{{ v.free }}</div><div class="text-xs text-slate-500">Free beds</div></div>
+    {% for h in v.hostels %}
+    <div class="stat-card text-center"><div class="text-2xl font-extrabold text-primary">{{ h.free }}</div><div class="text-xs text-slate-500">{{ h.name }} free</div></div>
+    {% endfor %}
+    <div class="stat-card text-center"><div class="text-2xl font-extrabold text-slate-700">{{ v.empty_rooms }}</div><div class="text-xs text-slate-500">Empty rooms</div></div>
+  </section>
+
+  <div class="flex gap-2 mb-5">
+    <a href="{{ url_for('add_student') }}" class="btn-primary tap text-sm px-4 py-2.5 flex-1 text-center"><i class="fa-solid fa-user-plus mr-1"></i> Add Student</a>
+    <a href="{{ url_for('admin_dashboard') }}" class="btn-outline tap text-sm px-4 py-2.5 flex-1 text-center"><i class="fa-solid fa-arrow-left mr-1"></i> Dashboard</a>
+  </div>
+
+  {% for h in v.hostels %}
+  <section class="mb-8">
+    <h2 class="hostel-title"><i class="fa-solid {{ 'fa-house' if h.name == 'Old Hostel' else 'fa-city' }}"></i> {{ h.name.upper() }} <span class="text-sm font-semibold opacity-80">&bull; {{ h.free }} free</span></h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+      {% for r in h.rooms %}
+      <div class="room-card">
+        <div class="room-header">
+          <span><i class="fa-solid fa-door-open mr-1.5"></i>{{ r.label.upper() }}</span>
+          {% if r.assigned %}
+          <span class="occupancy-badge {{ 'occupancy-full' if r.vacant == 0 }}">{{ r.occupied }} / {{ r.sharing }} occupied</span>
+          {% else %}
+          <span class="occupancy-badge">Empty room</span>
+          {% endif %}
+        </div>
+        <div class="room-body">
+          {% if not r.assigned %}
+          <p class="text-sm text-slate-500"><i class="fa-regular fa-circle-check mr-1 text-success"></i>No students yet &mdash; the whole room is free.</p>
+          {% elif r.vacant %}
+          <p class="text-sm font-bold text-success"><i class="fa-solid fa-bed mr-1"></i>{{ r.vacant }} bed{{ '' if r.vacant == 1 else 's' }} free</p>
+          {% else %}
+          <p class="text-sm text-slate-400"><i class="fa-solid fa-ban mr-1"></i>Full</p>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+</div>
+{% endblock %}

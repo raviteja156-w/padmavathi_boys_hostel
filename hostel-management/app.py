@@ -52,7 +52,19 @@ except ImportError:
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', secrets.token_hex(32))
+# SECRET_KEY must be the SAME on every restart / worker, otherwise every admin session becomes invalid and
+# the admin is thrown back to the login page (and then the dashboard) in the middle of work.
+# Set SECRET_KEY in the environment for best security; if it is missing we derive a stable key from the
+# database URL + admin password instead of a random one.
+import hashlib as _hashlib
+_fallback_secret = _hashlib.sha256(
+    ('hostel-session|' + (os.environ.get('DATABASE_URL') or '') + '|' + (os.environ.get('ADMIN_PASSWORD') or 'admin123')).encode('utf-8')
+).hexdigest()
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or _fallback_secret
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
+app.config['SESSION_REFRESH_EACH_REQUEST'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['MAX_CONTENT_LENGTH'] = 8 * 1024 * 1024  # 8 MB max upload
 app.config['UPLOAD_FOLDER'] = os.path.join(BASE_DIR, 'static', 'uploads')
 
@@ -598,12 +610,39 @@ def validate_csrf(token):
     return token and session.get('_csrf_token') and secrets.compare_digest(token, session['_csrf_token'])
 
 
+def back_url(default_endpoint, **values):
+    """Where to go after an action: the page the admin was on (hidden 'next' field, else the Referer),
+    only if it is on this same site. Otherwise the given default page. Keeps people on the same page."""
+    from urllib.parse import urlparse
+    for cand in (request.form.get('next'), request.referrer):
+        if not cand:
+            continue
+        u = urlparse(cand)
+        if u.netloc and u.netloc != request.host:
+            continue
+        path = u.path or ''
+        if not path.startswith('/') or path.startswith('//'):
+            continue
+        if path == request.path or path.endswith(('/delete', '/confirm', '/settle', '/restore', '/purge')):
+            continue
+        return path + ('?' + u.query if u.query else '') + ('#' + u.fragment if u.fragment else '')
+    return url_for(default_endpoint, **values)
+
+
 def login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         if not session.get('admin_logged_in'):
             flash('Please log in to access the admin area.', 'error')
-            return redirect(url_for('admin_login', next=request.path))
+            if request.method == 'GET':
+                return redirect(url_for('admin_login', next=request.full_path.rstrip('?')))
+            # A save/edit was attempted with an expired session: come back to the page the admin was on.
+            from urllib.parse import urlparse
+            ref = urlparse(request.referrer or '')
+            ref_path = ref.path if (not ref.netloc or ref.netloc == request.host) else ''
+            if ref_path.startswith('/') and not ref_path.startswith('//'):
+                return redirect(url_for('admin_login', next=ref_path + ('?' + ref.query if ref.query else '')))
+            return redirect(url_for('admin_login'))
         return decorated_check(f, *args, **kwargs)
     return decorated
 
@@ -863,13 +902,28 @@ def get_stats(db):
                COALESCE(SUM(balance), 0) AS total_balance
         FROM students
     ''').fetchone()
+    # Money paid by students who LEFT (deleted) this month stays in Total Paid. Rent and Balance are not
+    # touched. If the student is restored, the row leaves deleted_students and the money is counted on the
+    # student again, so nothing is ever counted twice.
+    left_paid, left_count = 0, 0
+    try:
+        left = db.execute('SELECT COALESCE(SUM(amount_paid), 0) AS p, COUNT(*) AS n FROM deleted_students '
+                          'WHERE deleted_cycle = %s AND COALESCE(amount_paid, 0) > 0', (current_cycle(),)).fetchone()
+        left_paid, left_count = float(left['p'] or 0), int(left['n'] or 0)
+    except Exception:
+        try:
+            db.conn.rollback()
+        except Exception:
+            pass
     return {
         'total': row['total'] or 0,
         'old_count': row['old_count'] or 0,
         'new_count': row['new_count'] or 0,
         'total_rent': row['total_rent'] or 0,
-        'total_paid': row['total_paid'] or 0,
+        'total_paid': (row['total_paid'] or 0) + left_paid,
         'total_balance': row['total_balance'] or 0,
+        'left_paid': left_paid,
+        'left_count': left_count,
     }
 
 
@@ -1897,7 +1951,9 @@ def admin_login():
             session['admin_username'] = username
             session.permanent = True
             flash('Welcome back, admin!', 'success')
-            next_url = request.args.get('next')
+            next_url = (request.args.get('next') or '').strip()
+            if not (next_url.startswith('/') and not next_url.startswith('//') and '\\' not in next_url):
+                next_url = ''
             return redirect(next_url if next_url else url_for('admin_dashboard'))
         else:
             flash('Invalid username or password.', 'error')
@@ -1943,6 +1999,7 @@ def admin_dashboard():
         tomorrow_count=len(due_tomorrow),
         due_amount_total=round(sum(s['due_amount'] for s in due_now), 2),
         pending_payments_count=pending_row['c'] or 0,
+        vacancy_count=vacancy_overview(db)['free'],
         greeting=greeting,
         is_night=(now.hour >= 18 or now.hour < 6),
         today_label=now.strftime('%A, %d %B %Y'),
@@ -2014,6 +2071,100 @@ def prorated_rent(monthly_rent, days, sharing=None):
     if per_day is None:
         per_day = (monthly_rent or 0) / RENT_MONTH_DAYS
     return per_day, round(per_day * days, 2)
+
+
+def vacancy_overview(db):
+    """Free beds per room. A room with no students has no sharing yet, so it is listed as 'empty room'."""
+    occ = {}
+    for r in db.execute('SELECT hostel, room_number, sharing FROM students').fetchall():
+        info = occ.setdefault((r['hostel'], r['room_number']), {'sharing': r['sharing'], 'count': 0})
+        info['count'] += 1
+    hostels, total_free, empty_rooms = [], 0, 0
+    for hostel in HOSTELS:
+        rooms, free = [], 0
+        for rn in rooms_for_hostel(hostel):
+            info = occ.get((hostel, rn))
+            if info:
+                vac = max(info['sharing'] - info['count'], 0)
+                free += vac
+                rooms.append({'room_number': rn, 'label': room_label(rn), 'sharing': info['sharing'],
+                              'occupied': info['count'], 'vacant': vac, 'assigned': True})
+            else:
+                empty_rooms += 1
+                rooms.append({'room_number': rn, 'label': room_label(rn), 'sharing': None,
+                              'occupied': 0, 'vacant': None, 'assigned': False})
+        total_free += free
+        hostels.append({'name': hostel, 'free': free, 'rooms': rooms})
+    return {'hostels': hostels, 'free': total_free, 'empty_rooms': empty_rooms}
+
+
+@app.route('/admin/vacancies')
+@login_required
+def vacancies():
+    return render_template('vacancies.html', v=vacancy_overview(get_db()))
+
+
+def _ist_date_of(iso_text):
+    """confirmed_at is stored in UTC; return the IST calendar date as ISO text."""
+    try:
+        return (datetime.fromisoformat(iso_text) + timedelta(hours=5, minutes=30)).date().isoformat()
+    except (TypeError, ValueError):
+        return ''
+
+
+@app.route('/admin/api/tour')
+@admin_api_required
+def tour_data():
+    """Live numbers for the dashboard tour (read-only)."""
+    db = get_db()
+    today = today_ist()
+    today_iso = today.isoformat()
+
+    guests_out = []
+    for g_ in db.execute("SELECT * FROM guests WHERE status='STAYING' ORDER BY id DESC").fetchall():
+        ci = parse_iso_date(g_['check_in'])
+        last_day = (ci + timedelta(days=g_['days'] - 1)) if ci else None
+        left_days = (last_day - today).days if last_day else None
+        bal = max(round((g_['total_amount'] or 0) - (g_['amount_paid'] or 0), 2), 0)
+        guests_out.append({'name': g_['name'], 'leaves': _fmt_date(last_day) if last_day else '',
+                           'days_left': left_days, 'balance': bal,
+                           'place': (f"{g_['hostel']} • {room_label(g_['room_number'])}" if g_['hostel'] and g_['room_number'] else (g_['hostel'] or ''))})
+    guests_out.sort(key=lambda x: (x['days_left'] is None, x['days_left'] if x['days_left'] is not None else 0))
+
+    stats = get_stats(db)
+    due_now, due_tomorrow = get_due_and_upcoming(db)
+    srows = db.execute('SELECT total_rent, amount_paid, balance FROM students').fetchall()
+    full = sum(1 for s in srows if (s['balance'] or 0) <= 0 and (s['total_rent'] or 0) > 0)
+    part = sum(1 for s in srows if (s['balance'] or 0) > 0 and (s['amount_paid'] or 0) > 0)
+    none_ = sum(1 for s in srows if (s['balance'] or 0) > 0 and (s['amount_paid'] or 0) <= 0)
+    payment = {'students': stats['total'], 'fully_paid': full, 'part_paid': part, 'not_paid': none_,
+               'total_paid': round(stats['total_paid']), 'total_due': round(stats['total_balance']),
+               'left_paid': round(stats['left_paid']), 'left_count': stats['left_count'],
+               'due_now': len(due_now), 'due_today': sum(1 for s in due_now if s.get('days_overdue') == 0),
+               'due_tomorrow': len(due_tomorrow)}
+
+    pauses = [{'name': p['name'], 'place': f"{p['hostel']} • {p['room_text']}", 'remaining': p['remaining'],
+               'ends': p['end_label'], 'days': p['days']} for p in get_pauses(db) if p['is_active']]
+
+    pend = [dict(r) for r in db.execute("SELECT id, name, hostel, room_number, amount FROM payment_submissions "
+                                        "WHERE status='PENDING' ORDER BY id DESC LIMIT 30").fetchall()]
+    pending = [{'name': p['name'], 'amount': p['amount'] or 0, 'place': f"{p['hostel']} • {room_label(p['room_number'])}"} for p in pend]
+    pending_total = db.execute("SELECT COUNT(*) AS n FROM payment_submissions WHERE status='PENDING'").fetchone()['n'] or 0
+    conf_rows = db.execute("SELECT name, amount, confirmed_at FROM payment_submissions WHERE status='CONFIRMED' "
+                           "AND confirmed_at IS NOT NULL ORDER BY confirmed_at DESC LIMIT 200").fetchall()
+    confirmed_today = [{'name': r['name'], 'amount': r['amount'] or 0} for r in conf_rows if _ist_date_of(r['confirmed_at']) == today_iso]
+
+    vac = vacancy_overview(db)
+    vrooms = []
+    for h in vac['hostels']:
+        for r in h['rooms']:
+            if r['assigned'] and r['vacant']:
+                vrooms.append({'label': f"{h['name']} • {r['label']}", 'free': r['vacant'], 'of': r['sharing']})
+    return jsonify({'ok': True, 'guests': guests_out, 'payment': payment, 'pauses': pauses,
+                    'pending': pending, 'pending_total': pending_total,
+                    'confirmed_today': confirmed_today,
+                    'confirmed_today_total': round(sum(c['amount'] for c in confirmed_today)),
+                    'vacancy': {'free': vac['free'], 'empty_rooms': vac['empty_rooms'], 'rooms': vrooms}})
 
 
 @app.route('/admin/api/bot/vacancy')
@@ -2223,6 +2374,54 @@ def get_pauses(db):
         out.append(d)
     out.sort(key=lambda x: (not x['is_active'], x['remaining'] if x['is_active'] else 0, -x['pause_id']))
     return out
+
+
+@app.context_processor
+def versioned_static():
+    """url_for('static', ...) gets ?v=<file time>, so files can be cached for a long time and still refresh on deploy."""
+    def dated_url_for(endpoint, **values):
+        if endpoint == 'static' and values.get('filename'):
+            try:
+                values['v'] = int(os.stat(os.path.join(app.static_folder, values['filename'])).st_mtime)
+            except OSError:
+                pass
+        return url_for(endpoint, **values)
+    return {'url_for': dated_url_for}
+
+
+@app.after_request
+def fast_static_cache(resp):
+    if request.endpoint == 'static' and resp.status_code == 200:
+        resp.headers['Cache-Control'] = 'public, max-age=2592000'
+    return resp
+
+
+import gzip as _gzip
+
+_GZIP_TYPES = ('text/html', 'text/css', 'application/javascript', 'text/javascript', 'application/json', 'image/svg+xml')
+
+
+@app.after_request
+def compress_response(resp):
+    """gzip text responses (pages, CSS, JS, JSON): 4-6x less data, so pages open much faster on mobile data."""
+    try:
+        if (resp.status_code < 200 or resp.status_code >= 300 or resp.direct_passthrough
+                or 'Content-Encoding' in resp.headers
+                or 'gzip' not in (request.headers.get('Accept-Encoding') or '').lower()):
+            return resp
+        ctype = (resp.mimetype or '').lower()
+        if ctype not in _GZIP_TYPES:
+            return resp
+        data = resp.get_data()
+        if len(data) < 600:
+            return resp
+        resp.set_data(_gzip.compress(data, compresslevel=5))
+        resp.headers['Content-Encoding'] = 'gzip'
+        resp.headers['Content-Length'] = str(len(resp.get_data()))
+        resp.headers.add('Vary', 'Accept-Encoding')
+    except Exception:
+        app.logger.exception('compress_response failed')
+    return resp
 
 
 @app.context_processor
@@ -3232,8 +3431,8 @@ def edit_student(student_id):
         db.commit()
         sync_rent(db, [student_id])   # a new rent or joined date can change the current rent month
 
-        flash(f'{name} was updated successfully.', 'success')
-        return redirect(url_for('admin_dashboard'))
+        flash(f'✔ Saved. {name} was updated successfully.', 'success')
+        return redirect(url_for('edit_student', student_id=student_id))   # stay on this page
 
     return render_template('edit_student.html', student=student)
 
@@ -3243,7 +3442,7 @@ def edit_student(student_id):
 def delete_student(student_id):
     if not validate_csrf(request.form.get('csrf_token')):
         flash('Security check failed. Please try again.', 'error')
-        return redirect(url_for('admin_dashboard'))
+        return redirect(back_url('admin_dashboard'))
 
     db = get_db()
     student = db.execute('SELECT * FROM students WHERE id = %s', (student_id,)).fetchone()
@@ -3252,8 +3451,13 @@ def delete_student(student_id):
     archive_student(db, student)   # keep a copy so it can be restored from "Deleted Students"
     db.execute('DELETE FROM students WHERE id = %s', (student_id,))
     db.commit()
-    flash(f"{student['name']} was deleted. You can bring them back from Deleted Students.", 'success')
-    return redirect(url_for('admin_dashboard'))
+    paid_amt = float(student['amount_paid'] or 0)
+    if paid_amt > 0:
+        flash(f"{student['name']} marked as LEFT. Paid ₹{paid_amt:,.0f} is kept in Total Paid. "
+              f"You can bring them back from Deleted Students.", 'success')
+    else:
+        flash(f"{student['name']} marked as LEFT. You can bring them back from Deleted Students.", 'success')
+    return redirect(back_url('admin_dashboard'))
 
 
 # --------------------------------------------------------------------------
@@ -3472,6 +3676,25 @@ def build_calculation(db, card):
             gval = sum(r['value'] for r in room_list)
             groups.append({'title': gtitle, 'rooms': room_list, 'value': gval,
                            'formula': ' + '.join(f"{r['value']:,.0f}" for r in room_list)})
+    if kind == 'paid' and not only_hostel:
+        left_rows = db.execute('SELECT id, name, contact, hostel, room_number, amount_paid FROM deleted_students '
+                               'WHERE deleted_cycle = %s AND COALESCE(amount_paid, 0) > 0 '
+                               'ORDER BY hostel, room_number, LOWER(name)', (current_cycle(),)).fetchall()
+        lrooms = {}
+        for r in left_rows:
+            lrooms.setdefault((r['hostel'], r['room_number']), []).append(
+                {'name': r['name'], 'value': r['amount_paid'] or 0, 'detail': 'left', 'contact': r['contact'] or '',
+                 'id': None, 'left': True})
+        lroom_list = []
+        for (lh, ln) in sorted(lrooms, key=lambda k: (0 if k[0] == 'Old Hostel' else 1, k[1])):
+            items = lrooms[(lh, ln)]
+            lroom_list.append({'label': f"{lh} • {room_label(ln)}", 'students': items,
+                               'value': sum(i['value'] for i in items),
+                               'formula': ' + '.join(f"{i['value']:,.0f}" for i in items)})
+        if lroom_list:
+            groups.append({'title': 'Students who LEFT this month (their payment is kept)', 'rooms': lroom_list,
+                           'value': sum(r['value'] for r in lroom_list),
+                           'formula': ' + '.join(f"{r['value']:,.0f}" for r in lroom_list)})
     grand = sum(g['value'] for g in groups)
     stats = get_dashboard_stats(db)
     expected = {'students': stats['total'], 'old': stats['old_count'], 'new': stats['new_count'],
@@ -3990,23 +4213,23 @@ def month_payment_restore(student_id):
 def import_excel():
     if not validate_csrf(request.form.get('csrf_token')):
         flash('Security check failed. Please try again.', 'error')
-        return redirect(url_for('admin_dashboard'))
+        return redirect(back_url('admin_dashboard'))
 
     file = request.files.get('excel_file')
     if not file or file.filename == '':
         flash('Please choose an Excel file to import.', 'error')
-        return redirect(url_for('admin_dashboard'))
+        return redirect(back_url('admin_dashboard'))
 
     if not file.filename.lower().endswith(('.xlsx', '.xlsm')):
         flash('Only .xlsx files are supported for import.', 'error')
-        return redirect(url_for('admin_dashboard'))
+        return redirect(back_url('admin_dashboard'))
 
     try:
         wb = openpyxl.load_workbook(file, data_only=True)
         ws = wb.active
     except Exception:
         flash('Could not read the uploaded Excel file. Please check the format.', 'error')
-        return redirect(url_for('admin_dashboard'))
+        return redirect(back_url('admin_dashboard'))
 
     db = get_db()
     header = [str(c.value).strip().lower() if c.value else '' for c in ws[1]]
@@ -4029,7 +4252,7 @@ def import_excel():
 
     if any(v is None for k, v in idx.items() if k in ('hostel', 'room', 'sharing', 'name', 'contact', 'rent', 'paid')):
         flash('Excel file is missing required columns: Hostel, Room Number, Sharing, Name, Contact, Total Rent, Amount Paid.', 'error')
-        return redirect(url_for('admin_dashboard'))
+        return redirect(back_url('admin_dashboard'))
 
     imported = 0
     skipped = 0
@@ -4080,7 +4303,7 @@ def import_excel():
     db.commit()
     sync_rent(db)
     flash(f'Successfully imported: {imported} students. Skipped/Invalid: {skipped} rows.', 'success' if imported else 'error')
-    return redirect(url_for('admin_dashboard'))
+    return redirect(back_url('admin_dashboard'))
 
 
 # --------------------------------------------------------------------------

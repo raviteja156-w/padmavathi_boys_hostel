@@ -31,7 +31,7 @@
     <div class="card p-4 border-l-4 border-danger del-item" data-search="{{ (s.name ~ ' ' ~ s.contact ~ ' ' ~ s.hostel ~ ' ' ~ room_label(s.room_number))|lower }}">
       <div class="flex justify-between items-start gap-3">
         <div class="min-w-0">
-          <h3 class="font-bold text-slate-800 truncate">{{ s.name }}</h3>
+          <h3 class="font-bold text-slate-800 truncate">{{ s.name }} <span class="text-[10px] font-extrabold text-white bg-slate-500 rounded-full px-2 py-0.5 align-middle">LEFT</span>{% if s.amount_paid %} <span class="text-[10px] font-extrabold text-white bg-green-600 rounded-full px-2 py-0.5 align-middle">PAID ₹{{ '{:,.0f}'.format(s.amount_paid) }}</span>{% endif %}</h3>
           <p class="text-xs text-slate-500 mt-0.5"><i class="fa-solid {{ 'fa-house' if s.hostel == 'Old Hostel' else 'fa-city' }} mr-1"></i>{{ s.hostel }} &bull; {{ room_label(s.room_number) }} &bull; {{ s.sharing }} sharing</p>
           <p class="text-xs text-slate-400 mt-0.5">Deleted {{ s.deleted_on|pretty_date }} ({{ s.month_label }}){% if s.contact %} &bull; {{ s.contact }}{% endif %}</p>
         </div>
