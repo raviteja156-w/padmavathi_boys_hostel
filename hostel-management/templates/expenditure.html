@@ -52,8 +52,32 @@
   details.ent > summary::-webkit-details-marker { display:none; }
   details.ent[open] .chev { transform: rotate(180deg); }
   .chev { transition: transform .2s; }
+  /* search + AI scan */
+  .ea-search { position:relative; }
+  .ea-search input { width:100%; padding:.8rem 2.4rem .8rem 2.5rem; border-radius:.9rem; border:2px solid #E2E8F0; font-size:16px; background:#fff; }
+  .ea-search input:focus { outline:none; border-color:#3E70D8; }
+  .ea-search .ic { position:absolute; left:.9rem; top:50%; transform:translateY(-50%); color:#94A3B8; }
+  .ea-search .x { position:absolute; right:.5rem; top:50%; transform:translateY(-50%); width:1.9rem; height:1.9rem; border-radius:50%; border:0; background:#F1F5F9; color:#64748B; display:none; }
+  .ea-chips { display:flex; flex-wrap:wrap; gap:.4rem; margin-top:.55rem; }
+  .ea-chip { padding:.35rem .75rem; border-radius:999px; border:1px solid #CBD5E1; background:#fff; font-size:.75rem; font-weight:700; color:#475569; cursor:pointer; }
+  .ea-chip.on { background:#1E3A8A; border-color:#1E3A8A; color:#fff; }
+  .ea-info { font-size:.78rem; color:#475569; margin-top:.55rem; }
+  .ea-res { border-top:1px solid #F1F5F9; padding:.55rem .2rem; display:flex; gap:.6rem; align-items:center; }
+  .ea-scan { display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; padding:.7rem; border:2px dashed #A5B4FC; border-radius:1rem; background:#EEF2FF; margin-bottom:.8rem; }
+  .ea-scan .t { flex:1; min-width:11rem; font-size:.78rem; color:#3730A3; line-height:1.3; }
+  .ea-scan label.opt { font-size:.72rem; color:#475569; display:flex; gap:.3rem; align-items:center; }
+  .ea-note { display:none; margin-bottom:.8rem; padding:.7rem .8rem; border-radius:.9rem; font-size:.8rem; line-height:1.4; }
+  .ea-note.ok { background:#ECFDF5; border:1px solid #86EFAC; color:#166534; }
+  .ea-note.warn { background:#FFFBEB; border:1px solid #FCD34D; color:#92400E; }
+  .ea-note.err { background:#FEF2F2; border:1px solid #FCA5A5; color:#991B1B; }
+  .ea-note.busy { background:#EEF2FF; border:1px solid #A5B4FC; color:#3730A3; }
+  .ea-note img { width:3.2rem; height:3.2rem; object-fit:cover; border-radius:.5rem; float:left; margin-right:.6rem; }
+  .ea-spin { display:inline-block; width:.9rem; height:.9rem; border:2px solid #A5B4FC; border-top-color:#4F46E5; border-radius:50%; animation:easpin .8s linear infinite; vertical-align:-2px; margin-right:.4rem; }
+  @keyframes easpin { to { transform:rotate(360deg); } }
+  .bulk-row.ai { border-color:#A5B4FC; background:#F5F7FF; }
 </style>
 
+<input type="file" id="scanFile" accept="image/*" hidden>
 <div class="max-w-3xl mx-auto animate-slide-up">
 
   <!-- ===== Header ===== -->
@@ -66,6 +90,25 @@
       <h1 class="text-2xl font-bold text-slate-800">Expenditure &amp; Income</h1>
       <p class="text-slate-500 text-sm">Money in and money out for <b>Hostel</b>, <b>Canteen</b> and <b>Home</b>.</p>
     </div>
+    <a href="{{ url_for('ai_analyser', period='last' if key == last_key else 'this') }}" class="btn-primary text-xs px-3 py-2 ml-auto shrink-0" style="white-space:nowrap"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i>AI Analyser</a>
+  </div>
+
+  <!-- ===== SEARCH ===== -->
+  <div class="card p-3 mb-3" id="searchCard">
+    <div class="ea-search">
+      <i class="fa-solid fa-magnifying-glass ic"></i>
+      <input type="search" id="q" placeholder="Search item, note, date or amount (e.g. rice, gas, oct, 2500, &gt;1000)" autocomplete="off" aria-label="Search expenditure">
+      <button type="button" class="x" id="qClear" aria-label="Clear search"><i class="fa-solid fa-xmark text-xs"></i></button>
+    </div>
+    <div class="ea-chips">
+      <button type="button" class="ea-chip on" data-t="">All</button>
+      <button type="button" class="ea-chip" data-t="expense">Expenses</button>
+      <button type="button" class="ea-chip" data-t="income">Income</button>
+      <span style="flex:1"></span>
+      <button type="button" class="ea-chip" id="scopeBtn" title="Search every month, not only {{ label }}"><i class="fa-regular fa-calendar mr-1"></i>All months</button>
+    </div>
+    <div class="ea-info" id="qInfo" style="display:none"></div>
+    <div id="qResults" style="display:none"></div>
   </div>
 
   <!-- Month chooser -->
@@ -143,6 +186,12 @@
       </div>
     </div>
 
+    <div class="ea-scan">
+      <div class="t"><b><i class="fa-solid fa-camera mr-1"></i>Scan a bill with AI</b><br>Take or choose a photo of a bill or handwritten list — the rows fill themselves. You check, then save.</div>
+      <label class="opt"><input type="checkbox" id="aiCatExp"> AI picks category</label>
+      <button type="button" class="btn-primary text-sm px-4 py-2" data-scan="expense"><i class="fa-solid fa-image mr-1"></i>Choose photo</button>
+    </div>
+    <div class="ea-note" id="noteExp"></div>
     <div id="expRows"></div>
 
     <div class="flex flex-wrap gap-2 mb-3">
@@ -177,6 +226,12 @@
 
     <p class="text-xs text-slate-500 mb-2"><i class="fa-solid fa-circle-info mr-1"></i>Student rent and guest payments are counted automatically as Hostel income — add only <b>other</b> income here (e.g. canteen sales, hall rent, home income).</p>
 
+    <div class="ea-scan">
+      <div class="t"><b><i class="fa-solid fa-camera mr-1"></i>Scan a sales sheet with AI</b><br>Photo of a handwritten income list — the rows fill themselves.</div>
+      <label class="opt"><input type="checkbox" id="aiCatInc"> AI picks section</label>
+      <button type="button" class="btn-primary text-sm px-4 py-2" data-scan="income"><i class="fa-solid fa-image mr-1"></i>Choose photo</button>
+    </div>
+    <div class="ea-note" id="noteInc"></div>
     <div id="incRows"></div>
 
     <div class="flex flex-wrap gap-2 mb-3">
@@ -196,6 +251,7 @@
   <div class="ex-step"><span class="num">3</span>
     <div><h2>Everything added in {{ label }}</h2><p>Newest first. Tap a section to open or close it. Use the bin to remove a wrong entry.</p></div></div>
 
+  <div id="entriesWrap">
   {% for name in sections %}
   {% set sec = secs[name] %}
   <details class="ent card p-0 mb-3 overflow-hidden" {{ 'open' if (sec.entries or name == 'Hostel') else '' }}>
@@ -210,16 +266,18 @@
     </summary>
 
     {% if name == 'Hostel' %}
-    <div class="ent-row"><span class="dot bg-green-500"></span>
+    <div class="ent-row" data-t="income" data-s="rent collected from students automatic income">
+      <span class="dot bg-green-500"></span>
       <div class="flex-1 min-w-0 text-sm"><span class="font-semibold text-slate-700">Rent collected from students</span><div class="text-[11px] text-slate-400">Automatic · from confirmed payments</div></div>
       <b class="text-success">+{{ rs(sec.auto_rent) }}</b></div>
-    <div class="ent-row"><span class="dot bg-green-500"></span>
+    <div class="ent-row" data-t="income" data-s="guest payments automatic income">
+      <span class="dot bg-green-500"></span>
       <div class="flex-1 min-w-0 text-sm"><span class="font-semibold text-slate-700">Guest payments</span><div class="text-[11px] text-slate-400">Automatic · from the Guests page</div></div>
       <b class="text-success">+{{ rs(sec.auto_guest) }}</b></div>
     {% endif %}
 
     {% for e in sec.entries or [] %}
-    <div class="ent-row">
+    <div class="ent-row" data-t="{{ e.type }}" data-a="{{ e.amount|round|int }}" data-s="{{ (e.label ~ ' ' ~ name ~ ' ' ~ e.date ~ ' ' ~ (e.date|pretty_date) ~ ' ' ~ e.detail ~ ' ' ~ (e.amount|round|int) ~ ' ' ~ ('income in' if e.type == 'income' else 'expense out spent'))|lower|e }}">
       <span class="dot {{ 'bg-green-500' if e.type == 'income' else 'bg-red-500' }}"></span>
       <div class="min-w-0 flex-1">
         <div class="text-sm font-semibold text-slate-800 truncate">{{ e.label }}</div>
@@ -242,6 +300,7 @@
     {% endif %}
   </details>
   {% endfor %}
+  </div>
 
 </div>
 
@@ -384,6 +443,134 @@ document.addEventListener('DOMContentLoaded', function () {
     var ok = 0;
     document.querySelectorAll('#incRows .bulk-row').forEach(function (r) { if ((parseFloat(r.querySelector('[name=amount]').value) || 0) > 0) ok++; });
     if (!ok) { e.preventDefault(); alert('Enter at least one income amount.'); }
+  });
+
+
+  /* ---------- SEARCH ---------- */
+  var csrf = document.querySelector('#expForm [name=csrf_token]').value;
+  var qBox = $('q'), qType = '', qAll = false, qTimer = null, qSeq = 0;
+  function esc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function opMatch(q) { return q.match(/^\s*(>=|<=|>|<)\s*([\d,]+(?:\.\d+)?)\s*$/); }
+  function localFilter() {
+    var q = qBox.value.trim().toLowerCase(), info = $('qInfo'), op = opMatch(q), shown = 0, inc = 0, exp = 0;
+    document.querySelectorAll('#entriesWrap .ent-row[data-s]').forEach(function (r) {
+      var ok = !q || (op ? cmp(+r.dataset.a || 0, op) : q.split(/\s+/).every(function (t) { return r.dataset.s.indexOf(t) >= 0; }));
+      if (ok && qType && r.dataset.t !== qType) ok = false;
+      if (!q && qType && r.dataset.t !== qType) ok = false;
+      r.style.display = ok ? '' : 'none';
+      if (ok && (q || qType)) { shown++; var a = +r.dataset.a || 0; if (r.dataset.t === 'income') inc += a; else exp += a; }
+    });
+    document.querySelectorAll('#entriesWrap details.ent').forEach(function (d) {
+      if (q || qType) { var any = d.querySelector('.ent-row[data-s]:not([style*="none"])'); d.style.display = any ? '' : 'none'; if (any) d.open = true; }
+      else d.style.display = '';
+    });
+    if (q || qType) {
+      info.style.display = 'block';
+      info.innerHTML = shown ? '<b>' + shown + '</b> match(es) in this month · Income ' + fmt(inc) + ' · Expense ' + fmt(exp)
+        : 'Nothing found in this month. <a href="#" id="tryAll" class="font-bold text-primary">Search all months</a>';
+      var t = $('tryAll'); if (t) t.onclick = function (e) { e.preventDefault(); setScope(true); };
+    } else info.style.display = 'none';
+  }
+  function cmp(a, op) { var v = parseFloat(op[2].replace(/,/g, '')); return op[1] === '>' ? a > v : op[1] === '<' ? a < v : op[1] === '>=' ? a >= v : a <= v; }
+  function allSearch() {
+    var q = qBox.value.trim(), box = $('qResults'), info = $('qInfo'), seq = ++qSeq;
+    if (!q) { box.style.display = 'none'; box.innerHTML = ''; info.style.display = 'none'; return; }
+    info.style.display = 'block'; info.innerHTML = '<span class="ea-spin"></span>Searching all months…';
+    fetch('{{ url_for("expense_search") }}?q=' + encodeURIComponent(q) + '&type=' + qType, { credentials: 'same-origin' })
+      .then(function (r) { return r.json(); }).then(function (d) {
+        if (seq !== qSeq) return;
+        if (!d.ok) { info.textContent = d.error || 'Search failed.'; return; }
+        info.innerHTML = d.count ? '<b>' + d.count + '</b> match(es) in all months · Income ' + fmt(d.income) + ' · Expense ' + fmt(d.expense) + (d.count > d.shown ? ' · showing newest ' + d.shown : '') : 'Nothing found in any month.';
+        box.style.display = d.count ? 'block' : 'none';
+        box.innerHTML = d.results.map(function (e) {
+          var inc = e.type === 'income';
+          return '<a href="' + esc(e.url) + '" class="ea-res" style="text-decoration:none"><span class="dot ' + (inc ? 'bg-green-500' : 'bg-red-500') + '" style="width:.55rem;height:.55rem;border-radius:50%;flex-shrink:0"></span>' +
+            '<span style="flex:1;min-width:0"><span style="display:block;font-weight:600;font-size:.86rem;color:#1E293B;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(e.label) + '</span>' +
+            '<span style="display:block;font-size:.7rem;color:#94A3B8">' + esc(e.date) + ' · ' + esc(e.section) + (e.detail ? ' · ' + esc(e.detail) : '') + '</span></span>' +
+            '<b style="color:' + (inc ? '#16A34A' : '#DC2626') + '">' + (inc ? '+' : '−') + fmt(e.amount) + '</b></a>';
+        }).join('');
+      }).catch(function () { if (seq === qSeq) info.textContent = 'Search failed. Check your connection.'; });
+  }
+  function runSearch() {
+    $('qClear').style.display = qBox.value ? 'block' : 'none';
+    if (qAll) { $('entriesWrap').style.display = 'none'; clearTimeout(qTimer); qTimer = setTimeout(allSearch, 280); }
+    else { $('entriesWrap').style.display = ''; $('qResults').style.display = 'none'; localFilter(); }
+  }
+  function setScope(all) {
+    qAll = all; $('scopeBtn').classList.toggle('on', all);
+    if (!all) { $('qResults').innerHTML = ''; }
+    runSearch();
+  }
+  qBox.addEventListener('input', runSearch);
+  $('qClear').onclick = function () { qBox.value = ''; runSearch(); qBox.focus(); };
+  $('scopeBtn').onclick = function () { setScope(!qAll); };
+  document.querySelectorAll('.ea-chip[data-t]').forEach(function (b) {
+    b.onclick = function () {
+      qType = b.dataset.t;
+      document.querySelectorAll('.ea-chip[data-t]').forEach(function (x) { x.classList.toggle('on', x === b); });
+      runSearch();
+    };
+  });
+
+  /* ---------- AI PHOTO SCAN ---------- */
+  var scanMode = 'expense', fileInput = $('scanFile');
+  document.querySelectorAll('[data-scan]').forEach(function (b) {
+    b.onclick = function () { scanMode = b.dataset.scan; fileInput.value = ''; fileInput.click(); };
+  });
+  function shrink(file) {   // make the photo small before upload (faster, works on slow mobile data)
+    return new Promise(function (resolve) {
+      var url = URL.createObjectURL(file), img = new Image();
+      img.onload = function () {
+        var s = Math.min(1, 1600 / Math.max(img.width, img.height)), c = document.createElement('canvas');
+        c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        c.toBlob(function (blob) { resolve({ blob: blob || file, url: url }); }, 'image/jpeg', 0.85);
+      };
+      img.onerror = function () { resolve({ blob: file, url: url }); };   // e.g. unsupported type: let the server try
+      img.src = url;
+    });
+  }
+  function note(el, cls, html) { el.className = 'ea-note ' + cls; el.innerHTML = html; el.style.display = 'block'; }
+  fileInput.addEventListener('change', function () {
+    var f = fileInput.files && fileInput.files[0]; if (!f) return;
+    var mode = scanMode, el = $(mode === 'income' ? 'noteInc' : 'noteExp');
+    note(el, 'busy', '<span class="ea-spin"></span>AI is reading your photo… this takes about 5–20 seconds.');
+    shrink(f).then(function (p) {
+      var fd = new FormData();
+      fd.append('photo', p.blob, 'photo.jpg'); fd.append('mode', mode);
+      fd.append('category', mode === 'income' ? 'Canteen' : defCat);
+      fd.append('ai_category', ($(mode === 'income' ? 'aiCatInc' : 'aiCatExp').checked) ? '1' : '0');
+      return fetch('{{ url_for("expense_scan") }}', { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'X-CSRF-Token': csrf } })
+        .then(function (r) { return r.json().catch(function () { return { ok: false, error: 'The server took too long. Try a smaller or clearer photo.' }; }); })
+        .then(function (d) { return { d: d, url: p.url }; });
+    }).then(function (x) {
+      var d = x.d;
+      if (!d.ok) { note(el, 'err', '<i class="fa-solid fa-circle-exclamation mr-1"></i>' + esc(d.error || 'Could not read the photo.')); return; }
+      var form = mode === 'income' ? $('incRows') : $('expRows');
+      form.querySelectorAll('.bulk-row').forEach(function (r) {
+        var empty = mode === 'income' ? !(parseFloat(r.querySelector('[name=amount]').value) > 0) : (!r.querySelector('[name=item]').value.trim() && !r.querySelector('[name=price]').value);
+        if (empty) r.remove();
+      });
+      d.rows.forEach(function (r) {
+        var row = mode === 'income' ? incRow({ sec: r.section }) : expRow({ cat: r.category, item: r.item, qty: r.qty, price: r.price });
+        if (mode === 'income') { row.querySelector('[name=amount]').value = r.amount; row.querySelector('[name=note]').value = r.note; calcInc(); }
+        row.classList.add('ai');
+      });
+      var dateTxt = '';
+      if (d.date) {
+        var di = document.querySelector((mode === 'income' ? '#incForm' : '#expForm') + ' [name=date]');
+        if (di && di.max >= d.date) { di.value = d.date; dateTxt = ' Date set from the photo: <b>' + esc(d.date) + '</b> — change it if wrong.'; }
+      }
+      var tot = (mode === 'income' ? '' : 'Total ') + fmt(d.sum), cmpTxt = '', cls = 'ok';
+      if (d.stated_total != null) {
+        if (d.match) cmpTxt = ' It matches the total written on the photo (' + fmt(d.stated_total) + ') ✓';
+        else { cmpTxt = ' <b>The photo says ' + fmt(d.stated_total) + ' — different, so check every row.</b>'; cls = 'warn'; }
+      } else { cls = 'warn'; cmpTxt = ' No total found on the photo to compare with.'; }
+      note(el, cls, '<img src="' + x.url + '" alt="">AI filled <b>' + d.rows.length + '</b> row(s) · ' + tot + '.' + cmpTxt + dateTxt +
+        (d.notes ? '<br><i>' + esc(d.notes) + '</i>' : '') + '<br><b>Check the highlighted rows, fix anything wrong, then press Save.</b><div style="clear:both"></div>');
+      calcExp(); calcInc();
+      form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }).catch(function () { note(el, 'err', 'Could not reach the server. Check your internet and try again.'); });
   });
 
   /* ---------- delete confirm ---------- */

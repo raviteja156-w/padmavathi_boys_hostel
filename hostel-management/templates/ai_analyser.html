@@ -1,0 +1,287 @@
+{% extends 'base.html' %}
+
+{% block title %}AI Analyser — Hostel Management System{% endblock %}
+
+{% block content %}
+{% macro rs(v) %}₹{{ '{:,.0f}'.format((v or 0)|float|abs) }}{% endmacro %}
+{% macro amt(v) %}{{ '' if (v or 0) >= 0 else '−' }}₹{{ '{:,.0f}'.format(((v or 0)|float)|abs) }}{% endmacro %}
+
+<style>
+  .aa-bar { height:.6rem; border-radius:999px; background:#E2E8F0; overflow:hidden; }
+  .aa-bar > i { display:block; height:100%; border-radius:999px; background:linear-gradient(90deg,#3E70D8,#1F4592); }
+  .aa-bar.green > i { background:linear-gradient(90deg,#34D399,#059669); }
+  .aa-bar.amber > i { background:linear-gradient(90deg,#FBBF24,#D97706); }
+  .aa-bar.red > i { background:linear-gradient(90deg,#F87171,#DC2626); }
+  .aa-h { display:flex; align-items:center; gap:.6rem; margin:1.5rem 0 .7rem; }
+  .aa-h .n { width:2rem; height:2rem; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:900; color:#fff; background:linear-gradient(135deg,#3E70D8,#1F4592); flex-shrink:0; }
+  .aa-h h2 { font-size:1.08rem; font-weight:800; color:#0F172A; line-height:1.2; }
+  .aa-h p { font-size:.76rem; color:#64748B; }
+  .aa-row { padding:.65rem 0; border-top:1px solid #F1F5F9; }
+  .aa-row:first-child { border-top:0; }
+  .aa-line { display:flex; justify-content:space-between; gap:.6rem; align-items:baseline; font-size:.88rem; }
+  .aa-sub { font-size:.7rem; color:#94A3B8; margin-top:.15rem; }
+  .aa-ins { display:flex; gap:.6rem; padding:.6rem .75rem; border-radius:.8rem; font-size:.84rem; line-height:1.4; margin-bottom:.45rem; }
+  .aa-ins.good { background:#ECFDF5; color:#166534; } .aa-ins.warn { background:#FFFBEB; color:#92400E; }
+  .aa-ins.bad { background:#FEF2F2; color:#991B1B; } .aa-ins.info { background:#EFF6FF; color:#1E40AF; }
+  .aa-ins i { margin-top:.15rem; }
+  .aa-chip { padding:.5rem .9rem; border-radius:.8rem; font-size:.8rem; font-weight:700; text-align:center; white-space:nowrap; }
+  .aa-periods { display:flex; gap:.4rem; overflow-x:auto; padding-bottom:.2rem; }
+  .aa-stat { flex:1; min-width:6.5rem; text-align:center; }
+  .aa-stat b { display:block; font-size:1.25rem; font-weight:900; }
+  .aa-stat span { font-size:.68rem; color:#94A3B8; }
+  .aa-ai-box { border:2px solid #C7D2FE; background:linear-gradient(180deg,#F5F7FF,#fff); }
+  .aa-q { padding:.4rem .75rem; border-radius:999px; border:1px solid #C7D2FE; background:#fff; color:#3730A3; font-size:.74rem; font-weight:700; cursor:pointer; }
+  .aa-ans { background:#fff; border:1px solid #E2E8F0; border-radius:.9rem; padding:.7rem .85rem; font-size:.86rem; line-height:1.5; white-space:pre-wrap; margin-top:.6rem; }
+  .aa-spin { display:inline-block; width:.9rem; height:.9rem; border:2px solid #A5B4FC; border-top-color:#4F46E5; border-radius:50%; animation:aaspin .8s linear infinite; vertical-align:-2px; margin-right:.4rem; }
+  @keyframes aaspin { to { transform:rotate(360deg); } }
+  .aa-tr th { font-size:.66rem; color:#94A3B8; text-transform:uppercase; text-align:right; padding:.3rem .4rem; }
+  .aa-tr td { font-size:.82rem; text-align:right; padding:.4rem; border-top:1px solid #F1F5F9; }
+  .aa-tr th:first-child, .aa-tr td:first-child { text-align:left; }
+</style>
+
+<div class="max-w-3xl mx-auto animate-slide-up" id="aaRoot" data-csrf="{{ csrf_token() }}" data-period="{{ period }}">
+
+  <div class="flex items-center gap-3 mb-4">
+    <a href="{{ url_for('expenditure') }}"
+       class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-primary transition shrink-0">
+      <i class="fa-solid fa-arrow-left"></i>
+    </a>
+    <div class="min-w-0">
+      <h1 class="text-2xl font-bold text-slate-800"><i class="fa-solid fa-wand-magic-sparkles mr-1 text-primary"></i>AI Analyser</h1>
+      <p class="text-slate-500 text-sm">Where your money goes, what to control, and how to manage the income.</p>
+    </div>
+  </div>
+
+  <div class="aa-periods mb-1">
+    {% for k, v in periods.items() %}
+    <a href="{{ url_for('ai_analyser', period=k) }}" class="aa-chip {{ 'bg-primary text-white' if k == period else 'bg-white border border-slate-200 text-slate-600' }}">{{ v }}</a>
+    {% endfor %}
+  </div>
+  <div class="text-xs text-slate-400 mb-2">Showing: <b>{{ a.label }}</b>{% if a.partial %} · this month is still running{% endif %}</div>
+
+  <!-- ===== 1 headline ===== -->
+  <div class="card p-4 border-l-4 {{ 'border-success' if a.net >= 0 else 'border-danger' }}">
+    <div class="flex gap-2 text-center">
+      <div class="aa-stat"><b class="text-success">{{ rs(a.income) }}</b><span>Income</span></div>
+      <div class="aa-stat"><b class="text-danger">{{ rs(a.expense) }}</b><span>Spending</span></div>
+      <div class="aa-stat"><b class="{{ 'text-success' if a.net >= 0 else 'text-danger' }}">{{ amt(a.net) }}</b><span>{{ 'Profit' if a.net >= 0 else 'Loss' }}</span></div>
+    </div>
+    {% if a.income > 0 %}
+    <div class="mt-3">
+      <div class="aa-line"><span class="text-slate-500 text-xs">Spending is {{ '%.0f'|format(a.cost_pct) }}% of income</span>
+        <span class="text-xs text-slate-400">goal: under 80%</span></div>
+      <div class="aa-bar {{ 'green' if a.cost_pct <= 80 else ('amber' if a.cost_pct <= 100 else 'red') }} mt-1"><i style="width:{{ [a.cost_pct, 100]|min }}%"></i></div>
+    </div>
+    {% endif %}
+    <div class="text-[11px] text-slate-400 mt-2">Hostel + Canteen only (Home money is shown separately below). Same numbers as the Profit / Loss page.</div>
+  </div>
+
+  <!-- ===== 2 advice (rules, always) ===== -->
+  <div class="aa-h"><span class="n">1</span><div><h2>What the numbers say</h2><p>Worked out by the app from your entries.</p></div></div>
+  {% for i in a.insights %}
+  <div class="aa-ins {{ i.level }}"><i class="fa-solid {{ {'good':'fa-circle-check','warn':'fa-triangle-exclamation','bad':'fa-circle-xmark','info':'fa-circle-info'}[i.level] }}"></i><div>{{ i.text }}</div></div>
+  {% endfor %}
+
+  <!-- ===== 3 where money goes ===== -->
+  <div class="aa-h"><span class="n">2</span><div><h2>Where the money goes</h2><p>Biggest spending first — by part and by item.</p></div></div>
+
+  <div class="card p-4 mb-3">
+    <div class="font-bold text-slate-700 text-sm mb-2">By part</div>
+    {% for c in a.categories %}
+    <div class="aa-row">
+      <div class="aa-line"><b>{{ c.name }}</b><span><b>{{ rs(c.total) }}</b> <span class="text-slate-400 text-xs">· {{ '%.0f'|format(c.percent) }}%</span></span></div>
+      <div class="aa-bar mt-1"><i style="width:{{ c.percent }}%"></i></div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="card p-4 mb-3">
+    <div class="font-bold text-slate-700 text-sm mb-1">By item (top {{ [a['items']|length, 10]|min }})</div>
+    {% if a['items'] %}
+    {% for it in a['items'][:10] %}
+    <div class="aa-row">
+      <div class="aa-line"><b class="truncate">{{ loop.index }}. {{ it.name }}</b><span><b>{{ rs(it.total) }}</b> <span class="text-slate-400 text-xs">· {{ '%.0f'|format(it.percent) }}%</span></span></div>
+      <div class="aa-bar {{ 'red' if loop.index == 1 and it.percent >= 25 else '' }} mt-1"><i style="width:{{ it.percent }}%"></i></div>
+      <div class="aa-sub">{{ it.category }} · bought {{ it.times }}× · total qty {{ '%g'|format(it.qty) }} · average {{ rs(it.avg_price) }} each · a 5% saving = <b>{{ rs(it.save5) }}</b></div>
+    </div>
+    {% endfor %}
+    {% if a['items']|length > 10 %}
+    <details class="mt-2"><summary class="text-xs font-bold text-primary cursor-pointer">Show all {{ a['items']|length }} items</summary>
+      {% for it in a['items'][10:] %}
+      <div class="aa-row"><div class="aa-line"><span class="truncate">{{ it.name }}</span><span><b>{{ rs(it.total) }}</b> <span class="text-slate-400 text-xs">· {{ '%.1f'|format(it.percent) }}%</span></span></div></div>
+      {% endfor %}
+    </details>
+    {% endif %}
+    {% else %}
+    <div class="text-sm text-slate-400 py-4 text-center">No expenses recorded in this period.</div>
+    {% endif %}
+  </div>
+
+  {% if a.price_rises %}
+  <div class="card p-4 mb-3">
+    <div class="font-bold text-slate-700 text-sm mb-1"><i class="fa-solid fa-arrow-trend-up text-danger mr-1"></i>Price watch</div>
+    {% for p in a.price_rises %}
+    <div class="aa-row"><div class="aa-line"><b>{{ p.name }}</b><span class="text-danger font-bold">+{{ '%.0f'|format(p.percent) }}%</span></div>
+      <div class="aa-sub">₹{{ '{:,.0f}'.format(p['from']) }} → ₹{{ '{:,.0f}'.format(p.to) }} per unit during this period</div></div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="card p-4 mb-3">
+    <div class="font-bold text-slate-700 text-sm mb-1">Spending per month: now vs usual</div>
+    <div class="text-[11px] text-slate-400 mb-1">“Usual” = average of up to 3 months before this period.</div>
+    {% for c in a.compare %}
+    <div class="aa-row"><div class="aa-line"><b>{{ c.name }}</b>
+      <span>{{ rs(c.now) }}
+        {% if c.usual is not none %}<span class="text-slate-400 text-xs">vs {{ rs(c.usual) }}</span>
+          {% if c.change is not none %}<b class="text-xs {{ 'text-danger' if c.change > 10 else ('text-success' if c.change < -10 else 'text-slate-500') }}">{{ '+' if c.change > 0 else '' }}{{ '%.0f'|format(c.change) }}%</b>{% endif %}
+        {% else %}<span class="text-slate-400 text-xs">no earlier months</span>{% endif %}
+      </span></div></div>
+    {% endfor %}
+  </div>
+
+  <!-- ===== 4 income ===== -->
+  <div class="aa-h"><span class="n">3</span><div><h2>Where the income comes from &amp; how to manage it</h2><p>A simple plan for every ₹100 you earn.</p></div></div>
+
+  <div class="card p-4 mb-3">
+    <div class="font-bold text-slate-700 text-sm mb-1">Income sources</div>
+    {% for s in a.sources %}
+    <div class="aa-row"><div class="aa-line"><span>{{ s.name }}</span><span><b>{{ rs(s.amount) }}</b> <span class="text-slate-400 text-xs">· {{ '%.0f'|format(s.percent) }}%</span></span></div>
+      <div class="aa-bar green mt-1"><i style="width:{{ s.percent }}%"></i></div></div>
+    {% endfor %}
+    <div class="grid grid-cols-2 gap-2 mt-2 text-center">
+      <div class="rounded-xl bg-slate-50 p-2"><div class="text-[11px] text-slate-400">Hostel keeps</div><b class="{{ 'text-success' if a.hostel_margin >= 0 else 'text-danger' }}">{{ '%.0f'|format(a.hostel_margin) }}%</b><div class="text-[10px] text-slate-400">of its income</div></div>
+      <div class="rounded-xl bg-slate-50 p-2"><div class="text-[11px] text-slate-400">Canteen keeps</div><b class="{{ 'text-success' if a.canteen_margin >= 0 else 'text-danger' }}">{{ '%.0f'|format(a.canteen_margin) }}%</b><div class="text-[10px] text-slate-400">of its income</div></div>
+    </div>
+  </div>
+
+  {% if a.plan %}
+  <div class="card p-4 mb-3">
+    <div class="font-bold text-slate-700 text-sm mb-1">Suggested split of your income ({{ rs(a.income) }})</div>
+    {% for b in a.plan.buckets %}
+    <div class="aa-row"><div class="aa-line"><b>{{ b.name }}</b><span><b>{{ rs(b.amount) }}</b> <span class="text-slate-400 text-xs">· {{ '%.0f'|format(b.percent) }}%</span></span></div>
+      <div class="aa-bar {{ 'amber' if loop.index == 2 else ('green' if loop.index == 3 else '') }} mt-1"><i style="width:{{ [b.percent, 100]|min }}%"></i></div></div>
+    {% endfor %}
+    <ul class="text-sm text-slate-600 mt-3 space-y-1.5" style="list-style:disc;padding-left:1.1rem">
+      <li>Pay running costs first — they are using <b>{{ '%.0f'|format(a.plan.cost_pct) }}%</b> of your income now.</li>
+      <li>Build a reserve of about <b>{{ rs(a.plan.reserve_target) }}</b> (one month of spending) for repairs and emergencies.</li>
+      {% if a.plan.cut_needed > 0 %}<li class="text-danger">To get costs under {{ '%.0f'|format(a.plan.target_cost_pct) }}% you need to cut about <b>{{ rs(a.plan.cut_needed) }}</b> in this period.</li>
+      {% else %}<li>Put what is left over into savings or growth — new beds, repairs that raise rent, or a better canteen set-up.</li>{% endif %}
+    </ul>
+  </div>
+  {% else %}
+  <div class="card p-4 mb-3 text-sm text-slate-400 text-center">No income recorded in this period, so no split can be suggested.</div>
+  {% endif %}
+
+  {% if a.home.income or a.home.expense %}
+  <div class="card p-4 mb-3 text-sm">
+    <b class="text-slate-700">Home money</b> (kept separate): income {{ rs(a.home.income) }} − spending {{ rs(a.home.expense) }} = <b class="{{ 'text-success' if a.home.net >= 0 else 'text-danger' }}">{{ amt(a.home.net) }}</b>
+  </div>
+  {% endif %}
+
+  <div class="card p-4 mb-3">
+    <div class="font-bold text-slate-700 text-sm mb-1">Last 6 months</div>
+    <div style="overflow-x:auto"><table class="aa-tr w-full"><thead><tr><th>Month</th><th>Income</th><th>Spending</th><th>Profit</th></tr></thead><tbody>
+      {% for t in a.trend %}
+      <tr><td><a class="font-bold text-slate-700" href="{{ url_for('profit_loss', month=t.key) }}">{{ t.label }}</a></td>
+        <td>{{ rs(t.income) }}</td><td>{{ rs(t.expense) }}</td><td class="font-bold {{ 'text-success' if t.net >= 0 else 'text-danger' }}">{{ amt(t.net) }}</td></tr>
+      {% endfor %}
+    </tbody></table></div>
+  </div>
+
+  <!-- ===== 5 AI advisor ===== -->
+  <div class="aa-h"><span class="n">4</span><div><h2>AI advisor</h2><p>Written advice on top of the exact numbers above.</p></div></div>
+
+  <div class="card aa-ai-box p-4 mb-4" id="aiBox">
+    {% if ai_on %}
+    <div class="flex flex-wrap items-center gap-2 mb-2">
+      <button type="button" id="aiGo" class="btn-primary text-sm px-4 py-2"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i>Analyse with AI</button>
+      <div class="ml-auto flex gap-1">
+        <button type="button" class="aa-q" data-lang="en" style="background:#3730A3;color:#fff">English</button>
+        <button type="button" class="aa-q" data-lang="te">తెలుగు</button>
+      </div>
+    </div>
+    <div id="aiOut" class="text-sm text-slate-500">Press the button: the AI reads these figures and tells you where you spend most, what to do, and how to split the income.</div>
+
+    <div class="mt-4 pt-3 border-t border-indigo-100">
+      <div class="font-bold text-slate-700 text-sm mb-2">Ask your own question</div>
+      <div class="flex flex-wrap gap-1.5 mb-2">
+        <button type="button" class="aa-q" data-ask="Which item should I reduce first and how much can I save?">Which item to reduce?</button>
+        <button type="button" class="aa-q" data-ask="How should I use this period's profit?">Use the profit?</button>
+        <button type="button" class="aa-q" data-ask="Is my canteen doing well compared to the hostel?">Canteen vs hostel?</button>
+        <button type="button" class="aa-q" data-ask="How much should I keep as reserve?">Reserve amount?</button>
+      </div>
+      <div class="flex gap-2">
+        <input type="text" id="askQ" maxlength="300" class="form-input flex-1" placeholder="e.g. Where am I investing more, and how much?" style="font-size:16px">
+        <button type="button" id="askGo" class="btn-primary px-4 text-sm">Ask</button>
+      </div>
+      <div id="askOut"></div>
+    </div>
+    <div class="text-[11px] text-slate-400 mt-3">AI wording can be wrong — the tables above are the exact figures. No student names or phone numbers are sent to the AI.</div>
+    {% else %}
+    <div class="text-sm text-slate-600"><i class="fa-solid fa-key mr-1 text-primary"></i><b>AI advice is switched off.</b> Everything above works already. To turn on the written AI advisor, add <code>GROQ_API_KEY</code> (or <code>ANTHROPIC_API_KEY</code>) in your server's environment settings and restart.</div>
+    {% endif %}
+  </div>
+
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var root = document.getElementById('aaRoot'), goBtn = document.getElementById('aiGo');
+  if (!goBtn) return;
+  var csrf = root.dataset.csrf, period = root.dataset.period, lang = 'en';
+  var $ = function (id) { return document.getElementById(id); };
+  var fmt = function (n) { return n == null ? '' : '₹' + Math.round(n).toLocaleString('en-IN'); };
+  function esc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function post(url, body) {
+    return fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json().catch(function () { return { ok: false, error: 'The server took too long. Please try again.' }; }); })
+      .catch(function () { return { ok: false, error: 'Could not reach the server. Check your internet.' }; });
+  }
+  document.querySelectorAll('[data-lang]').forEach(function (b) {
+    b.onclick = function () {
+      lang = b.dataset.lang;
+      document.querySelectorAll('[data-lang]').forEach(function (x) { x.style.background = x === b ? '#3730A3' : '#fff'; x.style.color = x === b ? '#fff' : '#3730A3'; });
+    };
+  });
+  function list(title, arr, icon) {
+    if (!arr || !arr.length) return '';
+    return '<div class="font-bold text-slate-700 mt-3 mb-1">' + title + '</div>' + arr.map(function (t) { return '<div class="aa-ins info" style="background:#fff;border:1px solid #E2E8F0;color:#334155"><i class="fa-solid ' + icon + '"></i><div>' + esc(t) + '</div></div>'; }).join('');
+  }
+  goBtn.onclick = function () {
+    var out = $('aiOut'); goBtn.disabled = true;
+    out.innerHTML = '<span class="aa-spin"></span>AI is studying your numbers… about 5–15 seconds.';
+    post('{{ url_for("ai_analyser_insights") }}', { period: period, lang: lang }).then(function (d) {
+      goBtn.disabled = false;
+      if (!d.ok) { out.innerHTML = '<span class="text-danger">' + esc(d.error === 'no_key' ? 'AI key is not set.' : d.error) + '</span>'; return; }
+      var a = d.ai, h = '<div style="color:#1E293B;line-height:1.5">' + esc(a.summary) + '</div>';
+      if (a.biggest_spend.length) {
+        h += '<div class="font-bold text-slate-700 mt-3 mb-1">Where you spend most</div>' + a.biggest_spend.map(function (r) {
+          return '<div class="aa-row"><div class="aa-line"><b>' + esc(r.what) + '</b><span><b>' + fmt(r.amount) + '</b>' + (r.percent != null ? ' <span class="text-slate-400 text-xs">· ' + Math.round(r.percent) + '%</span>' : '') + '</span></div>' +
+            (r.percent != null ? '<div class="aa-bar mt-1"><i style="width:' + Math.min(100, r.percent) + '%"></i></div>' : '') + '<div class="aa-sub" style="font-size:.78rem">' + esc(r.comment) + '</div></div>';
+        }).join('');
+      }
+      if (a.income_plan.length) {
+        h += '<div class="font-bold text-slate-700 mt-3 mb-1">How to manage the income</div>' + a.income_plan.map(function (r) {
+          return '<div class="aa-row"><div class="aa-line"><b>' + esc(r.bucket) + '</b><span><b>' + fmt(r.amount) + '</b>' + (r.percent != null ? ' <span class="text-slate-400 text-xs">· ' + Math.round(r.percent) + '%</span>' : '') + '</span></div>' +
+            '<div class="aa-sub" style="font-size:.78rem">' + esc(r.why) + '</div></div>';
+        }).join('');
+      }
+      h += list('What to do', a.actions, 'fa-circle-check text-success') + list('Watch out', a.warnings, 'fa-triangle-exclamation text-danger');
+      out.innerHTML = h;
+    });
+  };
+  function ask(q) {
+    q = (q || '').trim(); if (!q) return;
+    var out = $('askOut'); $('askQ').value = q;
+    out.innerHTML = '<div class="aa-ans"><span class="aa-spin"></span>Thinking…</div>';
+    post('{{ url_for("ai_analyser_ask") }}', { period: period, lang: lang, question: q }).then(function (d) {
+      out.innerHTML = '<div class="aa-ans">' + (d.ok ? esc(d.answer) : '<span class="text-danger">' + esc(d.error === 'no_key' ? 'AI key is not set.' : d.error) + '</span>') + '</div>';
+    });
+  }
+  $('askGo').onclick = function () { ask($('askQ').value); };
+  $('askQ').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); ask($('askQ').value); } });
+  document.querySelectorAll('[data-ask]').forEach(function (b) { b.onclick = function () { ask(b.dataset.ask); }; });
+});
+</script>
+{% endblock %}

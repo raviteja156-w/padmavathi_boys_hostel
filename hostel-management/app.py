@@ -4559,10 +4559,14 @@ _ai_ctx = {
     'EXPENSE_CATEGORIES': EXPENSE_CATEGORIES, 'daily_rate': daily_rent_for_sharing,
     'do_delete_student': do_delete_student, 'do_restore_deleted': do_restore_deleted,
     'do_clear_student_payment': do_clear_student_payment, 'do_reset_all_payments': do_reset_all_payments,
-    'reset_counts': reset_counts,
+    'reset_counts': reset_counts, 'validate_csrf': validate_csrf,
 }
 profit.register(app, _ai_ctx)
 agent.install(app, _ai_ctx)
+
+# Expenditure search + AI bill-photo reading + AI analyser (expense_ai.py)
+import expense_ai
+expense_ai.register(app, _ai_ctx)
 
 
 # --------------------------------------------------------------------------

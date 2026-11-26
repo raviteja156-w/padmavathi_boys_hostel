@@ -250,3 +250,23 @@ only runs after you press Yes. It never writes SQL, never sees passwords/keys, a
 - **Stay on the same page:** saving/editing/deleting/importing returns to the page you were on. Sessions no longer expire on every server restart (stable session key; set `SECRET_KEY` in the environment for best security).
 - **Acknowledgements with icons:** every action shows a toast with an icon + title (Saved, Deleted, Restored, Payment confirmed, ...). This was previously broken (messages were read before the page had loaded them).
 - **Tour:** Quit button, instant Next/Back, teacher character with a stick who explains each point in Telugu (browser voice `te-IN`), Pause & act / Resume.
+
+
+---
+
+## 🔎 Expenditure search, 📷 AI bill scan and ✨ AI Analyser
+
+* **Search** (Expenditure page, top): type an item, note, date or amount (`rice`, `oct`, `2500`, `>1000`). Filters this month instantly; the **All months** button searches every month.
+* **Scan with AI** (Expenses and Income forms): choose a photo of a bill / handwritten list. The rows are filled for you, the bill total is compared with the sum, and nothing is saved until you press Save.
+* **AI Analyser** (`/admin/ai-analyser`, also in the sidebar): where money goes (by part and by item), price rises, income sources, a suggested split of the income, and optional written AI advice (English / Telugu) plus a question box.
+
+Environment variables (all optional — the numbers, search and rule-based advice work without any key):
+
+| Variable | Used for |
+| --- | --- |
+| `GROQ_API_KEY` | AI advice + photo reading (same key as the admin bot) |
+| `ANTHROPIC_API_KEY` | AI advice + photo reading; tried first for photos (better with handwriting) |
+| `ANTHROPIC_MODEL` | default `claude-haiku-4-5-20251001` |
+| `GROQ_VISION_MODEL` | default `meta-llama/llama-4-scout-17b-16e-instruct` |
+
+The Procfile now runs `gunicorn app:app --timeout 90` because reading a photo can take longer than gunicorn's 30-second default.
